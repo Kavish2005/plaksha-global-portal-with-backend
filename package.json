@@ -1,0 +1,39 @@
+{
+  "name": "plaksha-global-portal",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "dev:full": "concurrently \"npm run dev\" \"npm --prefix backend run dev\"",
+    "postinstall": "npm install --prefix backend",
+    "setup": "npm install && npm run dev:full"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@types/react-calendar": "^3.9.0",
+    "axios": "^1.13.6",
+    "framer-motion": "^12.35.1",
+    "lucide-react": "^0.577.0",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-calendar": "^6.0.0",
+    "react-dom": "19.2.3",
+    "react-hot-toast": "^2.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.27",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5",
+    "concurrently": "^9.2.1"
+  }
+}
