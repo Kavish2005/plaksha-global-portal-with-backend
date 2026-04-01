@@ -1,84 +1,38 @@
-import { Linkedin, Twitter, Instagram } from "lucide-react"
-import Link from "next/link"
+import Link from "next/link";
 
 export default function Footer() {
+  return (
+    <footer className="mt-20 border-t border-black/5 bg-[var(--portal-ink)] text-white">
+      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 md:grid-cols-3">
+        <div>
+          <h3 className="text-lg font-semibold">Plaksha University</h3>
+          <p className="mt-3 max-w-sm text-sm text-white/70">
+            A shared student and operations workspace for international programs, mentorship, approvals, and nominations.
+          </p>
+        </div>
 
-return(
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/60">Navigate</h3>
+          <div className="mt-4 flex flex-col gap-2 text-sm text-white/80">
+            <Link href="/">Home</Link>
+            <Link href="/programs">Programs</Link>
+            <Link href="/mentor">Mentors</Link>
+            <Link href="/dashboard">Dashboard</Link>
+            <Link href="/admin">Admin Panel</Link>
+          </div>
+        </div>
 
-<footer className="bg-[var(--plaksha-dark)] text-white mt-20">
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/60">How To Use</h3>
+          <p className="mt-4 text-sm text-white/70">
+            Switch between seeded student and admin users from the navbar to explore both sides of the product on the same database.
+          </p>
+        </div>
+      </div>
 
-<div className="max-w-7xl mx-auto px-8 py-10 grid md:grid-cols-3 gap-10">
-
-{/* UNIVERSITY */}
-
-<div>
-
-<h3 className="font-semibold text-lg">
-Plaksha University
-</h3>
-
-<p className="text-sm opacity-80 mt-2">
-Global Engagement Portal connecting students with
-international research and exchange opportunities.
-</p>
-
-</div>
-
-{/* QUICK LINKS */}
-
-<div>
-
-<h3 className="font-semibold mb-3">
-Quick Links
-</h3>
-
-<ul className="space-y-2 text-sm opacity-80">
-
-<li><Link href="/">Home</Link></li>
-<li><Link href="/programs">Programs</Link></li>
-<li><Link href="/mentor">Mentors</Link></li>
-<li><Link href="/contact">Contact</Link></li>
-
-</ul>
-
-</div>
-
-{/* SOCIAL */}
-
-<div>
-
-<h3 className="font-semibold mb-3">
-Connect With Us
-</h3>
-
-<div className="flex gap-4">
-
-<a href="#" className="hover:text-[var(--plaksha-gold)]">
-<Linkedin/>
-</a>
-
-<a href="#" className="hover:text-[var(--plaksha-gold)]">
-<Twitter/>
-</a>
-
-<a href="#" className="hover:text-[var(--plaksha-gold)]">
-<Instagram/>
-</a>
-
-</div>
-
-</div>
-
-</div>
-
-<div className="border-t border-gray-700 text-center py-4 text-sm opacity-70">
-
-© {new Date().getFullYear()} Plaksha University · Global Engagement Portal
-
-</div>
-
-</footer>
-
-)
-
+      <div className="border-t border-white/10 px-6 py-4 text-center text-sm text-white/60">
+        © {new Date().getFullYear()} Global Engagement Portal
+      </div>
+    </footer>
+  );
 }

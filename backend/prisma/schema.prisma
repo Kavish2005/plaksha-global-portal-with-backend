@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
+model Student {
+  id               Int               @id @default(autoincrement())
+  name             String
+  email            String            @unique
+  role             UserRole          @default(STUDENT)
+  createdAt        DateTime          @default(now())
+  applications     Application[]
+  bookings         Booking[]
+  chatInteractions ChatInteraction[]
+  savedPrograms    SavedProgram[]
+  notifications    NotificationLog[]
+}
+
+model Admin {
+  id                  Int           @id @default(autoincrement())
+  name                String
+  email               String        @unique
+  role                UserRole      @default(ADMIN)
+  createdAt           DateTime      @default(now())
+  reviewedApplications Application[] @relation("ApplicationReviewer")
+  nominations         Nomination[]
+}
+
+model Program {
+  id           Int           @id @default(autoincrement())
+  title        String
+  university   String
+  country      String
+  type         String
+  description  String
+  eligibility  String
+  duration     String
+  featured     Boolean       @default(false)
+  tagsJson     String        @default("[]")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  applications Application[]
+  deadlines    Deadline[]
+  savedBy      SavedProgram[]
+}
+
+model Mentor {
+  id           Int            @id @default(autoincrement())
+  name         String
+  expertise    String
+  bio          String
+  region       String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  availabilities Availability[]
+  bookings     Booking[]
+}
+
+model Availability {
+  id         Int       @id @default(autoincrement())
+  mentorId   Int
+  date       DateTime
+  slot       String
+  isBooked   Boolean   @default(false)
+  mentor     Mentor    @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  booking    Booking?
+
+  @@unique([mentorId, date, slot])
+}
+
+model Booking {
+  id             Int          @id @default(autoincrement())
+  studentId      Int
+  mentorId       Int
+  availabilityId Int?         @unique
+  date           DateTime
+  time           String
+  topic          String?
+  status         String       @default("Confirmed")
+  createdAt      DateTime     @default(now())
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  mentor         Mentor       @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  availability   Availability? @relation(fields: [availabilityId], references: [id], onDelete: SetNull)
+}
+
+model Application {
+  id                Int              @id @default(autoincrement())
+  studentId         Int
+  programId         Int
+  status            String           @default("Draft")
+  statement         String?
+  reviewerNotes     String?
+  nominationNotes   String?
+  approvedByAdminId Int?
+  reviewedAt        DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  student           Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  program           Program          @relation(fields: [programId], references: [id], onDelete: Cascade)
+  approvedByAdmin   Admin?           @relation("ApplicationReviewer", fields: [approvedByAdminId], references: [id], onDelete: SetNull)
+  nominations       Nomination[]
+  notifications     NotificationLog[]
+}
+
+model Deadline {
+  id        Int      @id @default(autoincrement())
+  programId Int
+  title     String
+  date      DateTime
+  priority  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+}
+
+model ChatInteraction {
+  id        Int       @id @default(autoincrement())
+  studentId Int?
+  query     String
+  response  String
+  mode      String
+  createdAt DateTime  @default(now())
+  student   Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+}
+
+model ContactMessage {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  subject   String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model Nomination {
+  id            Int         @id @default(autoincrement())
+  applicationId Int         @unique
+  adminId       Int
+  notes         String
+  createdAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  admin         Admin       @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model SavedProgram {
+  id        Int      @id @default(autoincrement())
+  studentId Int
+  programId Int
+  createdAt DateTime @default(now())
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, programId])
+}
+
+model NotificationLog {
+  id            Int          @id @default(autoincrement())
+  studentId     Int
+  applicationId Int?
+  title         String
+  message       String
+  createdAt     DateTime     @default(now())
+  student       Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+}

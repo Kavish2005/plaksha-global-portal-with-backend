@@ -2,20 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ProgramCard from "@/components/ProgramCard";
-import api from "@/services/api";
+import { apiGet } from "@/services/api";
 import type { Program } from "@/types";
 
 export default function Programs() {
   const [programs, setPrograms] = useState<Program[]>([]);
-  const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("All");
+  const [countryFilter, setCountryFilter] = useState("All");
+  const [universityFilter, setUniversityFilter] = useState("All");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadPrograms() {
       try {
-        const response = await api.get<Program[]>("/programs");
-        setPrograms(response.data);
+        const response = await apiGet<Program[]>("/programs");
+        setPrograms(response);
       } catch (error) {
         console.error("Failed to load programs", error);
       } finally {
@@ -28,41 +30,62 @@ export default function Programs() {
 
   const filteredPrograms = useMemo(() => {
     return programs
-      .filter((program) => filter === "All" || program.type === filter)
+      .filter((program) => typeFilter === "All" || program.type === typeFilter)
+      .filter((program) => countryFilter === "All" || program.country === countryFilter)
+      .filter((program) => universityFilter === "All" || program.university === universityFilter)
       .filter((program) => {
         const query = search.toLowerCase();
         return (
           program.title.toLowerCase().includes(query) ||
           program.country.toLowerCase().includes(query) ||
-          program.university.toLowerCase().includes(query)
+          program.university.toLowerCase().includes(query) ||
+          program.tags.some((tag) => tag.toLowerCase().includes(query))
         );
       });
-  }, [filter, programs, search]);
+  }, [countryFilter, programs, search, typeFilter, universityFilter]);
+
+  const countries = ["All", ...new Set(programs.map((program) => program.country))];
+  const universities = ["All", ...new Set(programs.map((program) => program.university))];
+  const types = ["All", "Exchange", "Research", "Internship", "Summer School"];
 
   return (
-    <div className="max-w-7xl mx-auto px-8 py-16">
-      <h1 className="text-3xl font-bold">Global Programs</h1>
-      <p className="text-gray-600 mt-2 max-w-2xl">
-        Browse exchange and research opportunities offered through the Global Engagement Office.
-      </p>
+    <div className="mx-auto max-w-7xl px-6 py-16">
+      <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
+        <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Programs</p>
+        <h1 className="mt-2 text-4xl font-bold">Global opportunities catalog</h1>
+        <p className="mt-3 max-w-3xl text-slate-600">
+          Browse live international programs, search by partner university, and filter by region, institution, or opportunity type.
+        </p>
 
-      <input
-        placeholder="Search programs, country, or university..."
-        className="border rounded-lg px-4 py-3 mt-6 w-full max-w-xl bg-white"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      <div className="flex gap-4 mt-6 flex-wrap">
-        {['All', 'Exchange', 'Research'].map((value) => (
-          <button
-            key={value}
-            onClick={() => setFilter(value)}
-            className={`px-4 py-2 rounded ${filter === value ? 'bg-[var(--plaksha-teal)] text-white' : 'border bg-white'}`}
-          >
-            {value}
-          </button>
-        ))}
+        <div className="mt-8 grid gap-4 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+          <input
+            placeholder="Search programs, tags, country, or university..."
+            className="rounded-2xl border border-black/10 bg-[var(--portal-panel)] px-4 py-3"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select className="rounded-2xl border border-black/10 bg-[var(--portal-panel)] px-4 py-3" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            {types.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+          <select className="rounded-2xl border border-black/10 bg-[var(--portal-panel)] px-4 py-3" value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)}>
+            {countries.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+          <select className="rounded-2xl border border-black/10 bg-[var(--portal-panel)] px-4 py-3" value={universityFilter} onChange={(e) => setUniversityFilter(e.target.value)}>
+            {universities.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -70,7 +93,7 @@ export default function Programs() {
       ) : (
         <>
           <p className="mt-8 text-sm text-gray-500">Showing {filteredPrograms.length} program(s)</p>
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8 mt-6">
+          <div className="mt-6 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
             {filteredPrograms.map((program) => (
               <ProgramCard key={program.id} program={program} />
             ))}

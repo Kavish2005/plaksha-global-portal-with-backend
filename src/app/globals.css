@@ -2,11 +2,28 @@
 @import "@fontsource/inter";
 
 :root {
-  --plaksha-teal: #007878;
-  --plaksha-gold: #DDB05D;
-  --plaksha-dark: #333333;
+  --portal-teal: #0f766e;
+  --portal-teal-dark: #134e4a;
+  --portal-gold: #d9b15f;
+  --portal-ink: #18212f;
+  --portal-cream: #f6f3eb;
+  --portal-panel: #fffdf8;
 }
 
 body {
   font-family: "Inter", system-ui, sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(217, 177, 95, 0.15), transparent 30%),
+    linear-gradient(180deg, #fcfbf7 0%, #f5f1e8 100%);
+}
+
+button,
+input,
+select,
+textarea {
+  transition: all 160ms ease;
+}
+
+::selection {
+  background: rgba(15, 118, 110, 0.2);
 }
