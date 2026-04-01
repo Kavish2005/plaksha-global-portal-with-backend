@@ -185,7 +185,7 @@ npm run dev:full
 ### URLs
 
 - Frontend: `http://localhost:3000`
-- Backend health: `http://localhost:5000/api/health`
+- Backend health: `http://localhost:5001/api/health`
 
 ## Demo Auth / Roles
 
@@ -234,6 +234,7 @@ Today, `backend/src/chatService.js` uses database-aware rules to answer question
 - Student and admin views are synchronized through the same Prisma/SQLite database.
 - If an admin updates a program, mentor, deadline, or application, the student-facing UI will reflect it on the next fetch.
 - `NEXT_PUBLIC_API_URL` can be set in `.env.local` if the frontend should talk to a different backend base URL.
+- The backend defaults to port `5001` to avoid common macOS conflicts on `5000`.
 - The backend SQLite database lives under `backend/dev.db` after setup and is ignored by git.
 
 ## Current Caveat

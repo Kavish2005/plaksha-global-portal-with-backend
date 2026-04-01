@@ -2,7 +2,7 @@ import axios from "axios";
 import type { DemoRole } from "@/types";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api",
 });
 
 const DEMO_USER_STORAGE_KEY = "global-engagement-demo-user";
