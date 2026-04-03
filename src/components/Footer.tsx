@@ -7,7 +7,7 @@ export default function Footer() {
         <div>
           <h3 className="text-lg font-semibold">Plaksha University</h3>
           <p className="mt-3 max-w-sm text-sm text-white/70">
-            A shared student and operations workspace for international programs, mentorship, approvals, and nominations.
+            The Global Engagement Office helps students explore international programs, connect with mentors, and prepare strong applications.
           </p>
         </div>
 
@@ -23,15 +23,15 @@ export default function Footer() {
         </div>
 
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/60">How To Use</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/60">Global Engagement Office</h3>
           <p className="mt-4 text-sm text-white/70">
-            Switch between seeded student and admin users from the navbar to explore both sides of the product on the same database.
+            Explore opportunities, mentor support, and contact pathways for outbound exchange, research, and international learning.
           </p>
         </div>
       </div>
 
       <div className="border-t border-white/10 px-6 py-4 text-center text-sm text-white/60">
-        © {new Date().getFullYear()} Global Engagement Portal
+        © {new Date().getFullYear()} Plaksha University · Global Engagement Office
       </div>
     </footer>
   );

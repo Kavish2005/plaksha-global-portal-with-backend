@@ -560,11 +560,11 @@ function ProgramsSection({
   onDelete: (programId: number) => Promise<void>;
 }) {
   return (
-    <AdminSection
-      eyebrow="Programs"
-      title="Programs management"
-      description="Add new opportunities, edit existing ones, or remove them from the shared portal catalog."
-    >
+      <AdminSection
+        eyebrow="Programs"
+        title="Programs management"
+        description="Add new opportunities, update program information, or remove listings that should no longer appear for students."
+      >
       <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
           <h3 className="text-xl font-semibold">{editingProgramId ? "Edit program" : "Create program"}</h3>
@@ -878,7 +878,7 @@ function ApplicationsSection({
       <AdminSection
         eyebrow="Applications"
         title="Applications review panel"
-        description="Filter, annotate, approve, reject, and nominate from a more focused review workspace."
+        description="Filter, annotate, approve, reject, and nominate student applications from a focused office review space."
       >
         <div className="grid gap-3 md:grid-cols-3">
           <input value={applicationFilter.student} onChange={(e) => onApplicationFilterChange((prev) => ({ ...prev, student: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Filter by student" />

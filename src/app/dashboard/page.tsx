@@ -80,8 +80,8 @@ export default function Dashboard() {
     <div className="mx-auto max-w-7xl px-6 py-16">
       <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
         <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Student Dashboard</p>
-        <h1 className="mt-2 text-4xl font-bold">Your international programs control center</h1>
-        <p className="mt-3 text-slate-600">Track applications, deadlines, mentor meetings, saved programs, and recent assistant activity.</p>
+        <h1 className="mt-2 text-4xl font-bold">Your Global Engagement dashboard</h1>
+        <p className="mt-3 text-slate-600">Track applications, deadlines, mentor meetings, saved programs, and recent updates from the office.</p>
       </div>
 
       <div className="mt-10 grid gap-6 md:grid-cols-4">

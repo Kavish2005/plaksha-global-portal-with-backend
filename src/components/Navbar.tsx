@@ -25,10 +25,10 @@ export default function Navbar() {
           <Image src="/plaksha-logo.png" alt="Plaksha" width={44} height={44} />
           <div>
             <Link href="/" className="text-lg font-semibold tracking-tight text-[var(--portal-ink)]">
-              Global Engagement Portal
+              Plaksha Global Engagement
             </Link>
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--portal-teal)]">
-              Student + Office Workspace
+              International Programs Office
             </p>
           </div>
         </div>

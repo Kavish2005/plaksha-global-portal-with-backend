@@ -37,13 +37,13 @@ export default function Home() {
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded-[2rem] bg-[linear-gradient(135deg,var(--portal-teal-dark),var(--portal-teal))] px-8 py-12 text-white shadow-xl">
             <p className="inline-flex rounded-full bg-white/15 px-4 py-2 text-xs uppercase tracking-[0.2em]">
-              Global Engagement SaaS MVP
+              Plaksha Global Engagement
             </p>
             <h1 className="mt-6 max-w-3xl text-5xl font-bold leading-tight">
-              Discover, apply, mentor, approve, and manage international opportunities in one connected portal.
+              Explore global opportunities, connect with mentors, and plan your international journey at Plaksha.
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-white/80">
-              A unified platform for students and the Global Engagement Office, built around shared data, persistent workflows, and portfolio-grade operations tooling.
+              Discover exchange, research, and summer opportunities, stay on top of deadlines, and reach the Global Engagement Office for guidance along the way.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
@@ -65,21 +65,21 @@ export default function Home() {
           <div className="grid gap-4">
             <div className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
               <Sparkles className="text-[var(--portal-teal)]" />
-              <h2 className="mt-4 text-xl font-semibold">Student discovery to office operations</h2>
+              <h2 className="mt-4 text-xl font-semibold">From exploration to application support</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                The same database powers student programs, mentor booking, application tracking, admin approvals, and nominations.
+                Browse opportunities, book guidance sessions, and follow your application progress through Plaksha&apos;s Global Engagement Office.
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
                 <CalendarDays className="text-[var(--portal-gold)]" />
-                <p className="mt-4 text-sm uppercase tracking-[0.2em] text-slate-500">Workflow Ready</p>
-                <p className="mt-2 font-semibold">Deadlines, reviews, and nominations</p>
+                <p className="mt-4 text-sm uppercase tracking-[0.2em] text-slate-500">Stay Prepared</p>
+                <p className="mt-2 font-semibold">Deadlines, advising, and application updates</p>
               </div>
               <div className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
                 <ShieldCheck className="text-[var(--portal-teal)]" />
-                <p className="mt-4 text-sm uppercase tracking-[0.2em] text-slate-500">Role Aware</p>
-                <p className="mt-2 font-semibold">Student and admin experiences</p>
+                <p className="mt-4 text-sm uppercase tracking-[0.2em] text-slate-500">Office Support</p>
+                <p className="mt-2 font-semibold">Guidance from the Global Engagement team</p>
               </div>
             </div>
             <div className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
@@ -102,7 +102,7 @@ export default function Home() {
           <div className="flex items-end justify-between gap-6">
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Featured Opportunities</p>
-              <h2 className="mt-2 text-3xl font-bold">Live programs coming from the shared database</h2>
+              <h2 className="mt-2 text-3xl font-bold">Featured global opportunities for Plaksha students</h2>
             </div>
             <Link href="/programs" className="text-sm font-semibold text-[var(--portal-teal)]">
               Browse all programs
@@ -124,19 +124,19 @@ export default function Home() {
         <div className="mx-auto max-w-7xl rounded-[2rem] border border-black/5 bg-[var(--portal-panel)] p-10">
           <div className="grid gap-8 lg:grid-cols-3">
             <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Why It Works</p>
-              <h2 className="mt-2 text-3xl font-bold">Built for both students and administrators</h2>
+              <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">How Plaksha Supports You</p>
+              <h2 className="mt-2 text-3xl font-bold">Support for students and the Global Engagement Office</h2>
             </div>
             <div className="rounded-3xl bg-white p-6 shadow-sm">
               <h3 className="font-semibold">Students</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Discover programs, apply, save favorites, book mentors, track deadlines, and ask guided questions through the assistant.
+                Discover programs, apply with confidence, book mentors, track deadlines, and ask questions through the assistant.
               </p>
             </div>
             <div className="rounded-3xl bg-white p-6 shadow-sm">
               <h3 className="font-semibold">Global Engagement Office</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Manage programs, mentors, availability, deadlines, approvals, and nominations from one admin workspace.
+                Coordinate programs, mentor support, deadlines, approvals, and nominations for the Plaksha student community.
               </p>
             </div>
           </div>

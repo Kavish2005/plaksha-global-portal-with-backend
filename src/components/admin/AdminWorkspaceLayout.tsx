@@ -58,11 +58,11 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
           <div>
             <div className="flex items-center gap-2 text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">
               <ShieldCheck size={16} />
-              Admin Workspace
+              Global Engagement Office
             </div>
-            <h1 className="mt-3 text-4xl font-bold text-[var(--portal-ink)]">Global Engagement control center</h1>
+            <h1 className="mt-3 text-4xl font-bold text-[var(--portal-ink)]">Office management</h1>
             <p className="mt-3 max-w-3xl text-slate-600">
-              A dedicated operations layer for the office, designed to feel related to the student portal while staying more structured and task-driven.
+              Manage programs, mentors, deadlines, and application reviews for the Plaksha Global Engagement Office.
             </p>
           </div>
 
@@ -76,7 +76,7 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
         <div className="mt-8 rounded-3xl border border-black/5 bg-[var(--portal-panel)] p-5">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Breadcrumb</p>
           <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
-            <span>Admin</span>
+            <span>Office</span>
             <span>/</span>
             <span className="font-medium text-[var(--portal-ink)]">{currentSection.shortLabel}</span>
           </div>
