@@ -56,6 +56,7 @@ model Program {
 model Mentor {
   id           Int            @id @default(autoincrement())
   name         String
+  email        String         @unique
   expertise    String
   bio          String
   region       String

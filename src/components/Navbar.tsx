@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import toast from "react-hot-toast";
 import { useAuth } from "@/components/AuthProvider";
 import { cx } from "@/lib/utils";
 
@@ -16,7 +17,7 @@ const navItems = [
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { activeUser, loading, setActiveUser, users } = useAuth();
+  const { activeUser, loading, logout } = useAuth();
 
   return (
     <nav className="sticky top-0 z-50 border-b border-black/5 bg-white/85 backdrop-blur">
@@ -63,22 +64,15 @@ export default function Navbar() {
           <div className="rounded-full border border-black/10 bg-[var(--portal-panel)] px-3 py-2 text-sm">
             {loading ? "Loading profile..." : activeUser ? `${activeUser.name} · ${activeUser.role}` : "No user"}
           </div>
-          <select
-            className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm outline-none"
-            value={activeUser ? `${activeUser.role}:${activeUser.email}` : ""}
-            onChange={(event) => {
-              const nextValue = users.find((user) => `${user.role}:${user.email}` === event.target.value);
-              if (nextValue) {
-                setActiveUser(nextValue);
-              }
+          <button
+            onClick={() => {
+              void logout();
+              toast.success("Logged out.");
             }}
+            className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm outline-none"
           >
-            {users.map((user) => (
-              <option key={`${user.role}:${user.email}`} value={`${user.role}:${user.email}`}>
-                {user.name} ({user.role})
-              </option>
-            ))}
-          </select>
+            Log Out
+          </button>
         </div>
       </div>
     </nav>

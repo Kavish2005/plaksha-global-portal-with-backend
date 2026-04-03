@@ -80,6 +80,8 @@ The SQLite database includes these core models:
 ### Shared / Auth
 - `GET /api/health`
 - `GET /api/auth/options`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
 - `GET /api/me`
 
 ### Programs
@@ -187,19 +189,23 @@ npm run dev:full
 - Frontend: `http://localhost:3000`
 - Backend health: `http://localhost:5001/api/health`
 
-## Demo Auth / Roles
+## Login / Roles
 
-This MVP uses simple seeded local role switching instead of production auth.
+The app now uses a simple role-based login flow.
 
-Use the navbar selector to switch between:
+- Students sign in from `/login` with name and email.
+- If a student email does not exist yet, the backend creates a new student record automatically.
+- Admins sign in from `/login` with an approved office account already present in the database.
+- Mentors sign in from `/login` using their existing mentor account from a dropdown.
 
-- Students:
-  - `Aman Sharma`
-  - `Ria Mehta`
-- Admin:
-  - `Global Engagement Officer`
+The active user is stored locally in the browser and attached to API requests so the backend can enforce student-only and admin-only routes.
 
-The selected role/user is stored in local storage and sent to the backend through request headers. This keeps the demo fast while still enforcing role-based behavior in the API.
+Current seeded staff accounts include:
+
+- Global Engagement Officer
+- Rupsy Grewal
+- Harshita Tripathi
+- Ananya Mehta
 
 ## Seeded Data
 
@@ -208,7 +214,7 @@ The database seed includes:
 - 5 programs
 - 3 mentors
 - seeded mentor availability
-- 2 students
+- 2 seeded students to demonstrate existing activity
 - 1 admin
 - seeded applications across multiple statuses
 - seeded bookings

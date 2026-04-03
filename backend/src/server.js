@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const prisma = require("./prisma");
-const { requireAdmin, requireStudent, resolveActor } = require("./auth");
+const { requireAdmin, requireMentor, requireOfficeOrMentor, requireStudent, resolveActor } = require("./auth");
 const { respond } = require("./chatService");
 const {
   failure,
@@ -87,13 +87,14 @@ function parseProgramPayload(body) {
 }
 
 function parseMentorPayload(body) {
-  const { name, expertise, bio, region } = body;
-  if (!name || !expertise || !bio || !region) {
-    return failure("name, expertise, bio, and region are required.", 400);
+  const { name, email, expertise, bio, region } = body;
+  if (!name || !email || !expertise || !bio || !region) {
+    return failure("name, email, expertise, bio, and region are required.", 400);
   }
 
   return {
     name: String(name).trim(),
+    email: String(email).trim().toLowerCase(),
     expertise: String(expertise).trim(),
     bio: String(bio).trim(),
     region: String(region).trim(),
@@ -143,6 +144,14 @@ async function requireStudentResponse(req, res) {
   return true;
 }
 
+async function requireOfficeOrMentorResponse(req, res) {
+  if (!requireOfficeOrMentor(req.actor)) {
+    sendError(res, "Office or mentor access required.", 403);
+    return false;
+  }
+  return true;
+}
+
 async function createStatusNotification(application, status) {
   await prisma.notificationLog.create({
     data: {
@@ -167,31 +176,117 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.get("/api/auth/options", async (_req, res) => {
-  const [students, admins] = await Promise.all([
-    prisma.student.findMany({
+  const [admins, mentors] = await Promise.all([
+    prisma.admin.findMany({
       orderBy: { name: "asc" },
     }),
-    prisma.admin.findMany({
+    prisma.mentor.findMany({
       orderBy: { name: "asc" },
     }),
   ]);
 
   res.json(
     success({
-      students: students.map((student) => ({
-        id: student.id,
-        name: student.name,
-        email: student.email,
-        role: "student",
-      })),
       admins: admins.map((admin) => ({
         id: admin.id,
         name: admin.name,
         email: admin.email,
         role: "admin",
       })),
+      mentors: mentors.map((mentor) => ({
+        id: mentor.id,
+        name: mentor.name,
+        email: mentor.email,
+        role: "mentor",
+      })),
     }),
   );
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  const { role, email, name } = req.body;
+
+  if (!role || !email) {
+    return sendError(res, "role and email are required.", 400);
+  }
+
+  const normalizedRole = String(role).toLowerCase();
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const normalizedName = String(name || "").trim();
+
+  if (!normalizedEmail.includes("@")) {
+    return sendError(res, "Please enter a valid email address.", 400);
+  }
+
+  if (normalizedRole === "student") {
+    if (!normalizedName) {
+      return sendError(res, "name is required for student login.", 400);
+    }
+
+    const student = await prisma.student.upsert({
+      where: { email: normalizedEmail },
+      update: {
+        name: normalizedName,
+      },
+      create: {
+        name: normalizedName,
+        email: normalizedEmail,
+      },
+    });
+
+    return res.json(
+      success({
+        id: student.id,
+        name: student.name,
+        email: student.email,
+        role: "student",
+      }),
+    );
+  }
+
+  if (normalizedRole === "admin") {
+    const admin = await prisma.admin.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!admin) {
+      return sendError(res, "Admin account not found for that email.", 404);
+    }
+
+    return res.json(
+      success({
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: "admin",
+      }),
+    );
+  }
+
+  if (normalizedRole === "mentor") {
+    const mentor = await prisma.mentor.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!mentor) {
+      return sendError(res, "Mentor account not found for that email.", 404);
+    }
+
+    return res.json(
+      success({
+        id: mentor.id,
+        name: mentor.name,
+        email: mentor.email,
+        role: "mentor",
+      }),
+    );
+  }
+
+  return sendError(res, "Unsupported login role.", 400);
+});
+
+app.post("/api/auth/logout", async (_req, res) => {
+  return res.json(success({ ok: true }));
 });
 
 app.get("/api/me", async (req, res) => {
@@ -202,7 +297,9 @@ app.get("/api/me", async (req, res) => {
   const payload =
     req.actor.type === "admin"
       ? { id: req.actor.admin.id, name: req.actor.admin.name, email: req.actor.admin.email, role: "admin" }
-      : { id: req.actor.student.id, name: req.actor.student.name, email: req.actor.student.email, role: "student" };
+      : req.actor.type === "mentor"
+        ? { id: req.actor.mentor.id, name: req.actor.mentor.name, email: req.actor.mentor.email, role: "mentor" }
+        : { id: req.actor.student.id, name: req.actor.student.name, email: req.actor.student.email, role: "student" };
 
   return res.json(success(payload));
 });
@@ -448,7 +545,7 @@ app.get("/api/mentors/:id/availability", async (req, res) => {
 });
 
 app.post("/api/availability", async (req, res) => {
-  if (!(await requireAdminResponse(req, res))) return;
+  if (!(await requireOfficeOrMentorResponse(req, res))) return;
   const payload = parseAvailabilityPayload(req.body);
   if (payload.status) {
     return res.status(payload.status).json(payload.body);
@@ -457,6 +554,10 @@ app.post("/api/availability", async (req, res) => {
   const mentor = await prisma.mentor.findUnique({ where: { id: payload.mentorId } });
   if (!mentor) {
     return sendError(res, "Mentor not found.", 404);
+  }
+
+  if (requireMentor(req.actor) && req.actor.mentor.id !== payload.mentorId) {
+    return sendError(res, "Mentors can only manage their own availability.", 403);
   }
 
   try {
@@ -473,7 +574,7 @@ app.post("/api/availability", async (req, res) => {
 });
 
 app.put("/api/availability/:id", async (req, res) => {
-  if (!(await requireAdminResponse(req, res))) return;
+  if (!(await requireOfficeOrMentorResponse(req, res))) return;
   const id = Number(req.params.id);
   const payload = parseAvailabilityPayload(req.body);
   if (payload.status) {
@@ -483,6 +584,10 @@ app.put("/api/availability/:id", async (req, res) => {
   const existing = await prisma.availability.findUnique({ where: { id } });
   if (!existing) {
     return sendError(res, "Availability slot not found.", 404);
+  }
+
+  if (requireMentor(req.actor) && req.actor.mentor.id !== existing.mentorId) {
+    return sendError(res, "Mentors can only manage their own availability.", 403);
   }
 
   if (existing.isBooked) {
@@ -504,11 +609,15 @@ app.put("/api/availability/:id", async (req, res) => {
 });
 
 app.delete("/api/availability/:id", async (req, res) => {
-  if (!(await requireAdminResponse(req, res))) return;
+  if (!(await requireOfficeOrMentorResponse(req, res))) return;
   const id = Number(req.params.id);
   const existing = await prisma.availability.findUnique({ where: { id } });
   if (!existing) {
     return sendError(res, "Availability slot not found.", 404);
+  }
+
+  if (requireMentor(req.actor) && req.actor.mentor.id !== existing.mentorId) {
+    return sendError(res, "Mentors can only manage their own availability.", 403);
   }
 
   if (existing.isBooked) {
@@ -1047,6 +1156,40 @@ app.get("/api/meetings/me", async (req, res) => {
   });
 
   res.json(success(meetings.map(formatBooking)));
+});
+
+app.get("/api/mentors/me/meetings", async (req, res) => {
+  if (!(await requireOfficeOrMentorResponse(req, res))) return;
+
+  const mentorId = requireMentor(req.actor) ? req.actor.mentor.id : Number(req.query.mentorId || 0);
+
+  if (!mentorId) {
+    return sendError(res, "mentorId is required for office access.", 400);
+  }
+
+  const meetings = await prisma.booking.findMany({
+    where: {
+      mentorId,
+      status: {
+        not: "Cancelled",
+      },
+    },
+    include: {
+      mentor: true,
+      student: true,
+    },
+    orderBy: [{ date: "asc" }, { time: "asc" }],
+  });
+
+  return res.json(
+    success(
+      meetings.map((meeting) => ({
+        ...formatBooking(meeting),
+        studentName: meeting.student?.name || "",
+        studentEmail: meeting.student?.email || "",
+      })),
+    ),
+  );
 });
 
 app.get("/api/dashboard/me", async (req, res) => {

@@ -1,4 +1,4 @@
-export type DemoRole = "student" | "admin";
+export type DemoRole = "student" | "admin" | "mentor";
 
 export type DemoUser = {
   id: number;
@@ -38,6 +38,7 @@ export type Program = {
 export type Mentor = {
   id: number;
   name: string;
+  email: string;
   expertise: string;
   bio: string;
   region: string;
@@ -60,6 +61,8 @@ export type Booking = {
   mentorId: number;
   mentorName: string;
   expertise: string;
+  studentName?: string;
+  studentEmail?: string;
   date: string;
   time: string;
   topic: string;
@@ -162,6 +165,6 @@ export type ApprovalQueue = {
 };
 
 export type AuthOptions = {
-  students: DemoUser[];
   admins: DemoUser[];
+  mentors: DemoUser[];
 };

@@ -16,6 +16,8 @@ export default function Dashboard() {
   const { activeUser, loading: authLoading } = useAuth();
   const [dashboard, setDashboard] = useState<StudentDashboard | null>(null);
   const [loading, setLoading] = useState(true);
+  const isOfficeUser = activeUser?.role === "admin";
+  const isMentorUser = activeUser?.role === "mentor";
 
   useEffect(() => {
     async function loadDashboard() {
@@ -23,7 +25,7 @@ export default function Dashboard() {
         return;
       }
 
-      if (activeUser?.role === "admin") {
+      if (isOfficeUser || isMentorUser) {
         setLoading(false);
         return;
       }
@@ -40,7 +42,7 @@ export default function Dashboard() {
     }
 
     void loadDashboard();
-  }, [activeUser, authLoading]);
+  }, [activeUser, authLoading, isMentorUser, isOfficeUser]);
 
   async function cancelBooking(bookingId: number) {
     try {
@@ -57,7 +59,7 @@ export default function Dashboard() {
     return <div className="mx-auto max-w-7xl px-6 py-16 text-slate-500">Loading dashboard...</div>;
   }
 
-  if (activeUser?.role === "admin") {
+  if (isOfficeUser) {
     return (
       <div className="mx-auto max-w-5xl px-6 py-16">
         <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
@@ -65,6 +67,34 @@ export default function Dashboard() {
           <p className="mt-3 text-slate-600">
             You&apos;re currently browsing as an admin user. Switch to a student from the navbar or head to the admin panel to manage programs and approvals.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isMentorUser) {
+    return (
+      <div className="mx-auto max-w-5xl px-6 py-16">
+        <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
+          <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Mentor Workspace</p>
+          <h1 className="mt-2 text-3xl font-bold">Your advising dashboard lives in the mentor workspace</h1>
+          <p className="mt-3 text-slate-600">
+            Use the mentor section to manage your availability and review meetings booked with you by students.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a
+              href="/admin/mentors"
+              className="rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-95"
+            >
+              Open mentor workspace
+            </a>
+            <a
+              href="/mentor"
+              className="rounded-full border border-black/10 px-5 py-3 text-sm font-semibold text-[var(--portal-ink)] transition hover:bg-slate-50"
+            >
+              View public mentor page
+            </a>
+          </div>
         </div>
       </div>
     );

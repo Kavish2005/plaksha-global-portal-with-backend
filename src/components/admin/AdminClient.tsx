@@ -10,6 +10,7 @@ import type {
   Application,
   ApplicationStatus,
   ApprovalQueue,
+  Booking,
   Deadline,
   Mentor,
   Nomination,
@@ -33,6 +34,7 @@ type ProgramFormState = {
 
 type MentorFormState = {
   name: string;
+  email: string;
   expertise: string;
   bio: string;
   region: string;
@@ -52,6 +54,7 @@ const emptyProgramForm: ProgramFormState = {
 
 const emptyMentorForm: MentorFormState = {
   name: "",
+  email: "",
   expertise: "",
   bio: "",
   region: "",
@@ -61,12 +64,14 @@ const statusOptions: ApplicationStatus[] = ["Draft", "Submitted", "Under Review"
 
 export default function AdminClient({ section }: { section: AdminSectionKey }) {
   const { activeUser, loading: authLoading } = useAuth();
+  const isMentorUser = activeUser?.role === "mentor";
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [approvalQueue, setApprovalQueue] = useState<ApprovalQueue | null>(null);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [nominations, setNominations] = useState<Nomination[]>([]);
+  const [mentorMeetings, setMentorMeetings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [editingProgramId, setEditingProgramId] = useState<number | null>(null);
@@ -91,12 +96,12 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     setLoading(true);
     try {
       const [nextDashboard, nextQueue, nextPrograms, nextMentors, nextApplications, nextNominations] = await Promise.all([
-        apiGet<AdminDashboard>("/admin/dashboard"),
-        apiGet<ApprovalQueue>("/admin/approval-queue"),
+        isMentorUser ? Promise.resolve(null) : apiGet<AdminDashboard>("/admin/dashboard"),
+        isMentorUser ? Promise.resolve(null) : apiGet<ApprovalQueue>("/admin/approval-queue"),
         apiGet<Program[]>("/programs"),
         apiGet<Mentor[]>("/mentors"),
-        apiGet<Application[]>("/applications", applicationFilter),
-        apiGet<Nomination[]>("/nominations"),
+        isMentorUser ? Promise.resolve([]) : apiGet<Application[]>("/applications", applicationFilter),
+        isMentorUser ? Promise.resolve([]) : apiGet<Nomination[]>("/nominations"),
       ]);
 
       setDashboard(nextDashboard);
@@ -106,8 +111,15 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       setApplications(nextApplications);
       setNominations(nextNominations);
 
-      if (!availabilityMentorId && nextMentors[0]) {
-        setAvailabilityMentorId(nextMentors[0].id);
+      if (!availabilityMentorId) {
+        if (isMentorUser) {
+          const ownMentor = nextMentors.find((mentor) => mentor.email === activeUser?.email);
+          if (ownMentor) {
+            setAvailabilityMentorId(ownMentor.id);
+          }
+        } else if (nextMentors[0]) {
+          setAvailabilityMentorId(nextMentors[0].id);
+        }
       }
 
       if (!deadlineProgramId && nextPrograms[0]) {
@@ -122,17 +134,35 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
 
   useEffect(() => {
     if (authLoading) return;
-    if (activeUser?.role !== "admin") {
+    if (activeUser?.role !== "admin" && activeUser?.role !== "mentor") {
       setLoading(false);
       return;
     }
     void loadAllData();
-  }, [activeUser, authLoading]);
+  }, [activeUser, authLoading, isMentorUser]);
 
   useEffect(() => {
     if (authLoading || activeUser?.role !== "admin") return;
     void loadAllData();
   }, [applicationFilter]);
+
+  useEffect(() => {
+    async function loadMentorMeetings() {
+      if (activeUser?.role !== "mentor") {
+        setMentorMeetings([]);
+        return;
+      }
+
+      try {
+        const response = await apiGet<Booking[]>("/mentors/me/meetings");
+        setMentorMeetings(response);
+      } catch (_error) {
+        setMentorMeetings([]);
+      }
+    }
+
+    void loadMentorMeetings();
+  }, [activeUser]);
 
   useEffect(() => {
     async function loadAvailability() {
@@ -148,7 +178,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       }
     }
 
-    if (activeUser?.role === "admin") {
+    if (activeUser?.role === "admin" || activeUser?.role === "mentor") {
       void loadAvailability();
     }
   }, [activeUser, availabilityDate, availabilityMentorId]);
@@ -321,30 +351,41 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     return <LoadingState label="Loading admin workspace..." />;
   }
 
-  if (activeUser?.role !== "admin") {
+  if (activeUser?.role !== "admin" && activeUser?.role !== "mentor") {
     return (
       <div className="mx-auto max-w-5xl px-6 py-16">
         <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
-          <h1 className="text-3xl font-bold">Admin access only</h1>
+          <h1 className="text-3xl font-bold">Office access only</h1>
           <p className="mt-3 text-slate-600">
-            Switch to the seeded Global Engagement Officer user from the navbar to manage programs, mentors, availability, and approval workflows.
+            Sign in with an approved Global Engagement Office or mentor account to access the internal workspace.
           </p>
         </div>
       </div>
     );
   }
 
-  if (loading || !dashboard || !approvalQueue) {
+  if (loading || (!isMentorUser && (!dashboard || !approvalQueue))) {
     return <LoadingState label="Loading admin workspace..." />;
+  }
+
+  if (isMentorUser && section !== "mentors") {
+    return (
+      <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
+        <h1 className="text-3xl font-bold">Mentor access</h1>
+        <p className="mt-3 text-slate-600">
+          Mentor accounts can manage their own availability and review meetings booked by students from the Mentors section.
+        </p>
+      </div>
+    );
   }
 
   return (
     <section className="space-y-8">
-      {section === "overview" ? (
+      {!isMentorUser && section === "overview" ? (
         <OverviewSection dashboard={dashboard} approvalQueue={approvalQueue} nominations={nominations} />
       ) : null}
 
-      {section === "programs" ? (
+      {!isMentorUser && section === "programs" ? (
         <ProgramsSection
           programs={programs}
           programForm={programForm}
@@ -373,6 +414,9 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       {section === "mentors" ? (
         <MentorsSection
           mentors={mentors}
+          currentUserEmail={activeUser?.email || null}
+          isMentorUser={isMentorUser}
+          mentorMeetings={mentorMeetings}
           mentorForm={mentorForm}
           editingMentorId={editingMentorId}
           availabilityMentorId={availabilityMentorId}
@@ -386,6 +430,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
             setEditingMentorId(mentor.id);
             setMentorForm({
               name: mentor.name,
+              email: mentor.email,
               expertise: mentor.expertise,
               bio: mentor.bio,
               region: mentor.region,
@@ -400,7 +445,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
         />
       ) : null}
 
-      {section === "deadlines" ? (
+      {!isMentorUser && section === "deadlines" ? (
         <DeadlinesSection
           programs={programs}
           allDeadlines={allDeadlines}
@@ -417,7 +462,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
         />
       ) : null}
 
-      {section === "applications" ? (
+      {!isMentorUser && section === "applications" ? (
         <ApplicationsSection
           approvalQueue={approvalQueue}
           applications={applications}
@@ -633,6 +678,9 @@ function ProgramsSection({
 
 function MentorsSection({
   mentors,
+  currentUserEmail,
+  isMentorUser,
+  mentorMeetings,
   mentorForm,
   editingMentorId,
   availabilityMentorId,
@@ -651,6 +699,9 @@ function MentorsSection({
   onDeleteAvailability,
 }: {
   mentors: Mentor[];
+  currentUserEmail: string | null;
+  isMentorUser: boolean;
+  mentorMeetings: Booking[];
   mentorForm: MentorFormState;
   editingMentorId: number | null;
   availabilityMentorId: number | null;
@@ -668,39 +719,53 @@ function MentorsSection({
   onCreateAvailability: () => Promise<void>;
   onDeleteAvailability: (slotId: number) => Promise<void>;
 }) {
+  const visibleMentors = isMentorUser ? mentors.filter((mentor) => mentor.email === currentUserEmail) : mentors;
+
   return (
     <AdminSection
       eyebrow="Mentors"
-      title="Mentor and availability management"
-      description="Maintain advisor profiles and directly control which slots appear in the student booking flow."
+      title={isMentorUser ? "Your mentor calendar" : "Mentor and availability management"}
+      description={
+        isMentorUser
+          ? "Update your own availability and review upcoming meetings booked by students."
+          : "Maintain advisor profiles and directly control which slots appear in the student booking flow."
+      }
     >
       <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="space-y-6">
-          <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
-            <h3 className="text-xl font-semibold">{editingMentorId ? "Edit mentor" : "Create mentor"}</h3>
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <input value={mentorForm.name} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, name: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Mentor name" />
-              <input value={mentorForm.expertise} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, expertise: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Expertise" />
-            </div>
-            <input value={mentorForm.region} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, region: e.target.value }))} className="mt-3 w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Support domain / region" />
-            <textarea value={mentorForm.bio} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, bio: e.target.value }))} className="mt-3 min-h-24 w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Bio" />
-            <div className="mt-5 flex gap-3">
-              <button onClick={() => void onSubmit()} className="rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white">
-                {editingMentorId ? "Update Mentor" : "Create Mentor"}
-              </button>
-              {editingMentorId ? (
-                <button onClick={onReset} className="rounded-full border border-black/10 px-5 py-3 text-sm font-semibold">
-                  Cancel Edit
+          {!isMentorUser ? (
+            <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
+              <h3 className="text-xl font-semibold">{editingMentorId ? "Edit mentor" : "Create mentor"}</h3>
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                <input value={mentorForm.name} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, name: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Mentor name" />
+                <input value={mentorForm.email} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, email: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Mentor email" />
+                <input value={mentorForm.expertise} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, expertise: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Expertise" />
+                <input value={mentorForm.region} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, region: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Support domain / region" />
+              </div>
+              <textarea value={mentorForm.bio} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, bio: e.target.value }))} className="mt-3 min-h-24 w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Bio" />
+              <div className="mt-5 flex gap-3">
+                <button onClick={() => void onSubmit()} className="rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white">
+                  {editingMentorId ? "Update Mentor" : "Create Mentor"}
                 </button>
-              ) : null}
+                {editingMentorId ? (
+                  <button onClick={onReset} className="rounded-full border border-black/10 px-5 py-3 text-sm font-semibold">
+                    Cancel Edit
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
             <h3 className="text-xl font-semibold">Availability controls</h3>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
-              <select value={availabilityMentorId ?? ""} onChange={(e) => onAvailabilityMentorIdChange(Number(e.target.value))} className="rounded-2xl border border-black/10 px-4 py-3">
-                {mentors.map((mentor) => (
+              <select
+                value={availabilityMentorId ?? ""}
+                onChange={(e) => onAvailabilityMentorIdChange(Number(e.target.value))}
+                disabled={isMentorUser}
+                className="rounded-2xl border border-black/10 px-4 py-3 disabled:bg-slate-100"
+              >
+                {visibleMentors.map((mentor) => (
                   <option key={mentor.id} value={mentor.id}>
                     {mentor.name}
                   </option>
@@ -729,10 +794,37 @@ function MentorsSection({
               ))}
             </div>
           </div>
+
+          {isMentorUser ? (
+            <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
+              <h3 className="text-xl font-semibold">Scheduled meetings</h3>
+              <div className="mt-5 space-y-3">
+                {mentorMeetings.length === 0 ? (
+                  <p className="rounded-2xl bg-white p-4 text-sm text-slate-500">No student meetings scheduled yet.</p>
+                ) : (
+                  mentorMeetings.map((meeting) => (
+                    <div key={meeting.id} className="rounded-2xl bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{meeting.studentName}</p>
+                          <p className="text-sm text-slate-500">{meeting.studentEmail}</p>
+                        </div>
+                        <StatusBadge label={meeting.status} />
+                      </div>
+                      <p className="mt-3 text-sm text-slate-600">
+                        {formatIsoDate(meeting.date)} · {meeting.time}
+                      </p>
+                      {meeting.topic ? <p className="mt-2 text-sm text-slate-500">{meeting.topic}</p> : null}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-3">
-          {mentors.map((mentor) => (
+          {visibleMentors.map((mentor) => (
             <div key={mentor.id} className="rounded-3xl border border-slate-100 p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -740,17 +832,20 @@ function MentorsSection({
                     <p className="text-lg font-semibold">{mentor.name}</p>
                     <StatusBadge label={mentor.region} />
                   </div>
+                  <p className="mt-1 text-sm text-slate-500">{mentor.email}</p>
                   <p className="mt-1 text-sm text-slate-500">{mentor.expertise}</p>
                   <p className="mt-3 text-sm leading-6 text-slate-600">{mentor.bio}</p>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  <button onClick={() => onEdit(mentor)} className="rounded-full border border-black/10 px-4 py-2 text-sm">
-                    Edit
-                  </button>
-                  <button onClick={() => void onDelete(mentor.id)} className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600">
-                    Delete
-                  </button>
-                </div>
+                {!isMentorUser ? (
+                  <div className="flex flex-wrap gap-3">
+                    <button onClick={() => onEdit(mentor)} className="rounded-full border border-black/10 px-4 py-2 text-sm">
+                      Edit
+                    </button>
+                    <button onClick={() => void onDelete(mentor.id)} className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600">
+                      Delete
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           ))}

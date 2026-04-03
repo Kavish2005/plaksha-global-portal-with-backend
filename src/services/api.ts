@@ -50,5 +50,11 @@ export async function apiDelete<T>(url: string) {
   return response.data.data;
 }
 
+export function clearStoredUser() {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(DEMO_USER_STORAGE_KEY);
+  }
+}
+
 export { DEMO_USER_STORAGE_KEY };
 export default api;

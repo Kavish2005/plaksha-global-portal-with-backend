@@ -47,9 +47,12 @@ const sections = [
 export default function AdminWorkspaceLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { activeUser } = useAuth();
+  const isMentor = activeUser?.role === "mentor";
+
+  const visibleSections = isMentor ? sections.filter((item) => item.href === "/admin/mentors") : sections;
 
   const currentSection =
-    sections.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) || sections[0];
+    visibleSections.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) || visibleSections[0];
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12">
@@ -58,11 +61,13 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
           <div>
             <div className="flex items-center gap-2 text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">
               <ShieldCheck size={16} />
-              Global Engagement Office
+              {isMentor ? "Mentor Portal" : "Global Engagement Office"}
             </div>
-            <h1 className="mt-3 text-4xl font-bold text-[var(--portal-ink)]">Office management</h1>
+            <h1 className="mt-3 text-4xl font-bold text-[var(--portal-ink)]">{isMentor ? "Mentor workspace" : "Office management"}</h1>
             <p className="mt-3 max-w-3xl text-slate-600">
-              Manage programs, mentors, deadlines, and application reviews for the Plaksha Global Engagement Office.
+              {isMentor
+                ? "Manage your advising slots and review student meetings connected to your mentorship calendar."
+                : "Manage programs, mentors, deadlines, and application reviews for the Plaksha Global Engagement Office."}
             </p>
           </div>
 
@@ -76,7 +81,7 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
         <div className="mt-8 rounded-3xl border border-black/5 bg-[var(--portal-panel)] p-5">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Breadcrumb</p>
           <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
-            <span>Office</span>
+            <span>{isMentor ? "Mentor" : "Office"}</span>
             <span>/</span>
             <span className="font-medium text-[var(--portal-ink)]">{currentSection.shortLabel}</span>
           </div>
@@ -86,7 +91,7 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
 
       <div className="mt-8 rounded-[2rem] border border-black/5 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {sections.map((item) => {
+          {visibleSections.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (

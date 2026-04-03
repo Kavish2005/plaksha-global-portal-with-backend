@@ -163,6 +163,7 @@ async function main() {
     prisma.mentor.create({
       data: {
         name: "Mrs. Rupsy Grewal",
+        email: "rupsy.grewal@plaksha.edu.in",
         expertise: "Global Research Programs",
         bio: "Supports research placement strategy, faculty alignment, and student readiness for lab-based opportunities.",
         region: "Research",
@@ -171,6 +172,7 @@ async function main() {
     prisma.mentor.create({
       data: {
         name: "Mrs. Harshita Tripathi",
+        email: "harshita.tripathi@plaksha.edu.in",
         expertise: "International Exchange Programs",
         bio: "Guides students through exchange partner options, academic fit, and outbound mobility requirements.",
         region: "Exchange",
@@ -179,6 +181,7 @@ async function main() {
     prisma.mentor.create({
       data: {
         name: "Dr. Ananya Mehta",
+        email: "ananya.mehta@plaksha.edu.in",
         expertise: "Summer and Europe Mobility",
         bio: "Advises on Europe programs, summer schools, and planning strong cross-border applications.",
         region: "Europe and Summer",

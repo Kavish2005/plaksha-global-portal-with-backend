@@ -1,9 +1,13 @@
 const prisma = require("./prisma");
 
 async function resolveActor(req) {
-  const roleHeader = String(req.headers["x-demo-user-role"] || req.query.role || "student").toLowerCase();
+  const roleHeader = String(req.headers["x-demo-user-role"] || req.query.role || "").toLowerCase();
   const emailHeader = String(req.headers["x-demo-user-email"] || "").toLowerCase();
   const studentId = Number(req.query.studentId || 0);
+
+  if (!roleHeader && !emailHeader && !studentId) {
+    return null;
+  }
 
   if (roleHeader === "admin") {
     const admin =
@@ -11,9 +15,7 @@ async function resolveActor(req) {
         (await prisma.admin.findUnique({
           where: { email: emailHeader },
         }))) ||
-      (await prisma.admin.findFirst({
-        orderBy: { id: "asc" },
-      }));
+      null;
 
     if (!admin) {
       return null;
@@ -22,6 +24,24 @@ async function resolveActor(req) {
     return {
       type: "admin",
       admin,
+    };
+  }
+
+  if (roleHeader === "mentor") {
+    const mentor =
+      (emailHeader &&
+        (await prisma.mentor.findUnique({
+          where: { email: emailHeader },
+        }))) ||
+      null;
+
+    if (!mentor) {
+      return null;
+    }
+
+    return {
+      type: "mentor",
+      mentor,
     };
   }
 
@@ -34,10 +54,7 @@ async function resolveActor(req) {
       ? await prisma.student.findUnique({
           where: { id: studentId },
         })
-      : null) ||
-    (await prisma.student.findFirst({
-      orderBy: { id: "asc" },
-    }));
+      : null);
 
   if (!student) {
     return null;
@@ -57,8 +74,18 @@ function requireStudent(actor) {
   return actor?.type === "student";
 }
 
+function requireMentor(actor) {
+  return actor?.type === "mentor";
+}
+
+function requireOfficeOrMentor(actor) {
+  return actor?.type === "admin" || actor?.type === "mentor";
+}
+
 module.exports = {
   requireAdmin,
+  requireMentor,
+  requireOfficeOrMentor,
   requireStudent,
   resolveActor,
 };

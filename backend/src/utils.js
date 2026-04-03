@@ -62,6 +62,7 @@ function formatMentor(mentor) {
   return {
     id: mentor.id,
     name: mentor.name,
+    email: mentor.email,
     expertise: mentor.expertise,
     bio: mentor.bio,
     region: mentor.region,
