@@ -50,7 +50,9 @@ export default function Navbar() {
             href="/admin"
             className={cx(
               "rounded-full px-3 py-2 text-sm font-medium transition",
-              pathname === "/admin" ? "bg-[var(--portal-gold)] text-[var(--portal-ink)]" : "text-slate-600 hover:bg-amber-50",
+              pathname.startsWith("/admin")
+                ? "bg-[var(--portal-gold)] text-[var(--portal-ink)]"
+                : "text-slate-600 hover:bg-amber-50",
             )}
           >
             Admin
