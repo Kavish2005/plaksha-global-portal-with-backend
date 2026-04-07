@@ -149,6 +149,27 @@ function formatChatInteraction(item) {
   };
 }
 
+function formatKnowledgeDocument(item, actor) {
+  const uploadedByRole = item.uploadedByAdmin ? "admin" : item.uploadedByMentor ? "mentor" : "office";
+  const uploadedByName = item.uploadedByAdmin?.name || item.uploadedByMentor?.name || "Global Engagement Office";
+  const canManage =
+    actor?.type === "admin" ||
+    (actor?.type === "mentor" && item.uploadedByMentor?.email && actor.mentor?.email === item.uploadedByMentor.email);
+
+  return {
+    id: item.id,
+    title: item.title,
+    content: item.content,
+    excerpt: item.content.slice(0, 220),
+    sourceType: item.sourceType,
+    uploadedByRole,
+    uploadedByName,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    canManage: Boolean(canManage),
+  };
+}
+
 function formatNotification(item) {
   return {
     id: item.id,
@@ -178,6 +199,7 @@ module.exports = {
   formatMentor,
   formatNotification,
   formatProgram,
+  formatKnowledgeDocument,
   getTagsJson,
   normalizeDateString,
   success,

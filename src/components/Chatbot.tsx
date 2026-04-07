@@ -80,7 +80,7 @@ export default function Chatbot() {
           <div className="flex items-center justify-between border-b border-black/5 bg-[var(--portal-panel)] px-4 py-3">
             <div>
               <p className="font-semibold">Global Assistant</p>
-              <p className="text-xs text-slate-500">Rule-based today, LLM-ready next</p>
+              <p className="text-xs text-slate-500">Answers from portal data and uploaded office guidance</p>
             </div>
             <button className="text-sm text-slate-500" onClick={() => setOpen(false)}>
               Close
@@ -90,7 +90,7 @@ export default function Chatbot() {
           <div className="h-80 space-y-3 overflow-y-auto p-4">
             {messages.length === 0 ? (
               <p className="text-sm text-gray-500">
-                Ask about programs, deadlines, mentor bookings, approvals, or how to contact the office.
+                Ask about programs, deadlines, mentor bookings, applications, or any office guidance uploaded into the assistant knowledge base.
               </p>
             ) : null}
 
@@ -122,7 +122,7 @@ export default function Chatbot() {
                 }
               }}
               className="flex-1 rounded-2xl border border-black/10 px-4 py-2 outline-none"
-              placeholder="Ask something..."
+              placeholder="Ask about programs, deadlines, policies..."
             />
 
             <button

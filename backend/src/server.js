@@ -10,6 +10,7 @@ const {
   formatBooking,
   formatChatInteraction,
   formatDeadline,
+  formatKnowledgeDocument,
   formatMentor,
   formatNotification,
   formatProgram,
@@ -125,6 +126,24 @@ function parseAvailabilityPayload(body) {
     mentorId: Number(mentorId),
     date: new Date(`${String(date).slice(0, 10)}T00:00:00.000Z`),
     slot: String(slot).trim(),
+  };
+}
+
+function parseKnowledgeDocumentPayload(body) {
+  const { title, content, sourceType } = body;
+  if (!title || !content) {
+    return failure("title and content are required.", 400);
+  }
+
+  const normalizedContent = String(content).trim();
+  if (normalizedContent.length < 20) {
+    return failure("Please provide at least 20 characters of document content.", 400);
+  }
+
+  return {
+    title: String(title).trim(),
+    content: normalizedContent,
+    sourceType: String(sourceType || "text").trim().toLowerCase(),
   };
 }
 
@@ -1309,10 +1328,9 @@ app.post("/api/chat", async (req, res) => {
     return sendError(res, "Message is required.", 400);
   }
 
-  const studentId = req.actor?.type === "student" ? req.actor.student.id : null;
   const result = await respond({
     message: String(message),
-    studentId,
+    actor: req.actor || null,
   });
 
   res.json(
@@ -1320,6 +1338,77 @@ app.post("/api/chat", async (req, res) => {
       reply: result.response,
       mode: result.mode,
       interaction: formatChatInteraction(result.interaction),
+    }),
+  );
+});
+
+app.get("/api/chat/documents", async (req, res) => {
+  if (!(await requireOfficeOrMentorResponse(req, res))) return;
+
+  const documents = await prisma.knowledgeDocument.findMany({
+    include: {
+      uploadedByAdmin: true,
+      uploadedByMentor: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.json(success(documents.map((document) => formatKnowledgeDocument(document, req.actor))));
+});
+
+app.post("/api/chat/documents", async (req, res) => {
+  if (!(await requireOfficeOrMentorResponse(req, res))) return;
+
+  const payload = parseKnowledgeDocumentPayload(req.body);
+  if (payload?.body) {
+    return sendError(res, payload.body.error, payload.status, payload.body.details);
+  }
+
+  const document = await prisma.knowledgeDocument.create({
+    data: {
+      ...payload,
+      uploadedByAdminId: req.actor?.type === "admin" ? req.actor.admin.id : null,
+      uploadedByMentorId: req.actor?.type === "mentor" ? req.actor.mentor.id : null,
+    },
+    include: {
+      uploadedByAdmin: true,
+      uploadedByMentor: true,
+    },
+  });
+
+  res.status(201).json(success(formatKnowledgeDocument(document, req.actor)));
+});
+
+app.delete("/api/chat/documents/:id", async (req, res) => {
+  if (!(await requireOfficeOrMentorResponse(req, res))) return;
+
+  const document = await prisma.knowledgeDocument.findUnique({
+    where: { id: Number(req.params.id) },
+    include: {
+      uploadedByAdmin: true,
+      uploadedByMentor: true,
+    },
+  });
+
+  if (!document) {
+    return sendError(res, "Knowledge document not found.", 404);
+  }
+
+  if (
+    req.actor?.type === "mentor" &&
+    (!document.uploadedByMentorId || document.uploadedByMentorId !== req.actor.mentor.id)
+  ) {
+    return sendError(res, "Mentors can only remove documents they uploaded.", 403);
+  }
+
+  await prisma.knowledgeDocument.delete({
+    where: { id: document.id },
+  });
+
+  res.json(
+    success({
+      id: document.id,
+      message: "Knowledge document removed.",
     }),
   );
 });
@@ -1336,10 +1425,14 @@ app.get("/api/chat/history", async (req, res) => {
 });
 
 app.put("/api/chat/context", async (_req, res) => {
+  const count = await prisma.knowledgeDocument.count();
   res.json(
     success({
-      mode: "rule_based",
-      message: "Context updates are reserved for future LLM mode. The current chatbot remains operational in rule-based mode.",
+      mode: process.env.ANTHROPIC_API_KEY ? "llm" : "knowledge_base",
+      message: process.env.ANTHROPIC_API_KEY
+        ? "The assistant is using Claude with grounded portal and document context."
+        : "Reference context is managed through uploaded knowledge documents in the office and mentor workspace. Add an Anthropic API key to enable LLM generation.",
+      documentsCount: count,
     }),
   );
 });

@@ -12,13 +12,14 @@ import type {
   ApprovalQueue,
   Booking,
   Deadline,
+  KnowledgeDocument,
   Mentor,
   Nomination,
   Program,
 } from "@/types";
 import { formatIsoDate, getErrorMessage, toIsoDate } from "@/lib/utils";
 
-export type AdminSectionKey = "overview" | "programs" | "mentors" | "deadlines" | "applications";
+export type AdminSectionKey = "overview" | "programs" | "mentors" | "deadlines" | "applications" | "assistant";
 
 type ProgramFormState = {
   title: string;
@@ -38,6 +39,12 @@ type MentorFormState = {
   expertise: string;
   bio: string;
   region: string;
+};
+
+type KnowledgeDocumentFormState = {
+  title: string;
+  content: string;
+  sourceType: string;
 };
 
 const emptyProgramForm: ProgramFormState = {
@@ -60,6 +67,12 @@ const emptyMentorForm: MentorFormState = {
   region: "",
 };
 
+const emptyKnowledgeDocumentForm: KnowledgeDocumentFormState = {
+  title: "",
+  content: "",
+  sourceType: "text",
+};
+
 const statusOptions: ApplicationStatus[] = ["Draft", "Submitted", "Under Review", "Approved", "Rejected", "Nominated"];
 
 export default function AdminClient({ section }: { section: AdminSectionKey }) {
@@ -71,6 +84,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [nominations, setNominations] = useState<Nomination[]>([]);
+  const [knowledgeDocuments, setKnowledgeDocuments] = useState<KnowledgeDocument[]>([]);
   const [mentorMeetings, setMentorMeetings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -79,6 +93,8 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
 
   const [editingMentorId, setEditingMentorId] = useState<number | null>(null);
   const [mentorForm, setMentorForm] = useState<MentorFormState>(emptyMentorForm);
+  const [knowledgeDocumentForm, setKnowledgeDocumentForm] = useState<KnowledgeDocumentFormState>(emptyKnowledgeDocumentForm);
+  const [knowledgeFileName, setKnowledgeFileName] = useState("");
 
   const [availabilityMentorId, setAvailabilityMentorId] = useState<number | null>(null);
   const [availabilityDate, setAvailabilityDate] = useState(toIsoDate(new Date()));
@@ -95,13 +111,14 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
   async function loadAllData() {
     setLoading(true);
     try {
-      const [nextDashboard, nextQueue, nextPrograms, nextMentors, nextApplications, nextNominations] = await Promise.all([
+      const [nextDashboard, nextQueue, nextPrograms, nextMentors, nextApplications, nextNominations, nextKnowledgeDocuments] = await Promise.all([
         isMentorUser ? Promise.resolve(null) : apiGet<AdminDashboard>("/admin/dashboard"),
         isMentorUser ? Promise.resolve(null) : apiGet<ApprovalQueue>("/admin/approval-queue"),
         apiGet<Program[]>("/programs"),
         apiGet<Mentor[]>("/mentors"),
         isMentorUser ? Promise.resolve([]) : apiGet<Application[]>("/applications", applicationFilter),
         isMentorUser ? Promise.resolve([]) : apiGet<Nomination[]>("/nominations"),
+        apiGet<KnowledgeDocument[]>("/chat/documents"),
       ]);
 
       setDashboard(nextDashboard);
@@ -110,6 +127,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       setMentors(nextMentors);
       setApplications(nextApplications);
       setNominations(nextNominations);
+      setKnowledgeDocuments(nextKnowledgeDocuments);
 
       if (!availabilityMentorId) {
         if (isMentorUser) {
@@ -347,6 +365,45 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     }
   }
 
+  async function uploadKnowledgeDocument() {
+    try {
+      await apiPost<KnowledgeDocument>("/chat/documents", knowledgeDocumentForm);
+      toast.success("Assistant reference document uploaded.");
+      setKnowledgeDocumentForm(emptyKnowledgeDocumentForm);
+      setKnowledgeFileName("");
+      await loadAllData();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function deleteKnowledgeDocument(documentId: number) {
+    try {
+      await apiDelete(`/chat/documents/${documentId}`);
+      toast.success("Assistant reference document removed.");
+      await loadAllData();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function loadKnowledgeFile(file: File | null) {
+    if (!file) return;
+
+    try {
+      const content = await file.text();
+      setKnowledgeFileName(file.name);
+      setKnowledgeDocumentForm((prev) => ({
+        ...prev,
+        title: prev.title || file.name.replace(/\.[^/.]+$/, ""),
+        sourceType: file.name.endsWith(".md") ? "markdown" : file.name.endsWith(".json") ? "json" : "text",
+        content,
+      }));
+    } catch (_error) {
+      toast.error("Could not read that file. Try a plain text, markdown, CSV, or JSON document.");
+    }
+  }
+
   if (authLoading) {
     return <LoadingState label="Loading admin workspace..." />;
   }
@@ -368,12 +425,12 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     return <LoadingState label="Loading admin workspace..." />;
   }
 
-  if (isMentorUser && section !== "mentors") {
+  if (isMentorUser && section !== "mentors" && section !== "assistant") {
     return (
       <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
         <h1 className="text-3xl font-bold">Mentor access</h1>
         <p className="mt-3 text-slate-600">
-          Mentor accounts can manage their own availability and review meetings booked by students from the Mentors section.
+          Mentor accounts can manage their own availability, upload assistant documents, and review meetings booked by students from the mentor workspace.
         </p>
       </div>
     );
@@ -473,6 +530,19 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
           onStatusChange={updateApplicationStatus}
           onSaveNotes={saveReviewNotes}
           onNominate={nominateApplication}
+        />
+      ) : null}
+
+      {section === "assistant" ? (
+        <AssistantSection
+          isMentorUser={isMentorUser}
+          documents={knowledgeDocuments}
+          form={knowledgeDocumentForm}
+          fileName={knowledgeFileName}
+          onFormChange={setKnowledgeDocumentForm}
+          onUpload={uploadKnowledgeDocument}
+          onDelete={deleteKnowledgeDocument}
+          onFileSelect={loadKnowledgeFile}
         />
       ) : null}
     </section>
@@ -1072,6 +1142,129 @@ function ApplicationsSection({
         </div>
       </AdminSection>
     </>
+  );
+}
+
+function AssistantSection({
+  isMentorUser,
+  documents,
+  form,
+  fileName,
+  onFormChange,
+  onUpload,
+  onDelete,
+  onFileSelect,
+}: {
+  isMentorUser: boolean;
+  documents: KnowledgeDocument[];
+  form: KnowledgeDocumentFormState;
+  fileName: string;
+  onFormChange: React.Dispatch<React.SetStateAction<KnowledgeDocumentFormState>>;
+  onUpload: () => Promise<void>;
+  onDelete: (documentId: number) => Promise<void>;
+  onFileSelect: (file: File | null) => Promise<void>;
+}) {
+  return (
+    <AdminSection
+      eyebrow="Assistant"
+      title={isMentorUser ? "Mentor knowledge documents" : "Assistant knowledge base"}
+      description={
+        isMentorUser
+          ? "Upload advising notes, FAQs, or process references so the assistant can answer students with more mentor-specific context."
+          : "Upload office guides, policies, and program reference notes so the assistant answers from live portal data plus approved documents."
+      }
+    >
+      <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
+          <h3 className="text-xl font-semibold">Upload reference document</h3>
+          <p className="mt-2 text-sm text-slate-600">
+            Plain text, markdown, CSV, or JSON files work best. The assistant will search these documents alongside programs, mentors, deadlines, and workflow data already in the database.
+          </p>
+
+          <div className="mt-5 grid gap-3">
+            <input
+              value={form.title}
+              onChange={(e) => onFormChange((prev) => ({ ...prev, title: e.target.value }))}
+              className="rounded-2xl border border-black/10 px-4 py-3"
+              placeholder="Document title"
+            />
+            <select
+              value={form.sourceType}
+              onChange={(e) => onFormChange((prev) => ({ ...prev, sourceType: e.target.value }))}
+              className="rounded-2xl border border-black/10 px-4 py-3"
+            >
+              <option value="text">Text note</option>
+              <option value="markdown">Markdown</option>
+              <option value="policy">Policy</option>
+              <option value="faq">FAQ</option>
+              <option value="process">Process guide</option>
+              <option value="json">Structured JSON</option>
+            </select>
+            <label className="rounded-2xl border border-dashed border-black/10 bg-white px-4 py-4 text-sm text-slate-600">
+              <span className="block font-medium text-[var(--portal-ink)]">Upload file</span>
+              <span className="mt-1 block">Choose a text-based file to autofill the content area.</span>
+              <input
+                type="file"
+                accept=".txt,.md,.markdown,.csv,.json,text/plain,text/markdown,application/json,text/csv"
+                className="mt-3 block w-full text-sm"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  void onFileSelect(file);
+                }}
+              />
+            </label>
+            {fileName ? <p className="text-xs text-slate-500">Loaded file: {fileName}</p> : null}
+            <textarea
+              value={form.content}
+              onChange={(e) => onFormChange((prev) => ({ ...prev, content: e.target.value }))}
+              className="min-h-52 rounded-2xl border border-black/10 px-4 py-3"
+              placeholder="Paste office policy notes, partner guidance, FAQs, or mentor reference material here."
+            />
+          </div>
+
+          <button
+            onClick={() => void onUpload()}
+            className="mt-5 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white"
+          >
+            Add To Assistant Knowledge Base
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {documents.length === 0 ? (
+            <div className="rounded-3xl border border-slate-100 p-6 text-sm text-slate-500">
+              No reference documents uploaded yet. Add office guides or mentor notes to improve chatbot answers.
+            </div>
+          ) : (
+            documents.map((document) => (
+              <div key={document.id} className="rounded-3xl border border-slate-100 p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-lg font-semibold">{document.title}</p>
+                      <StatusBadge label={document.sourceType} />
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Uploaded by {document.uploadedByName} · {document.uploadedByRole}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">Updated {formatIsoDate(document.updatedAt)}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{document.excerpt}</p>
+                  </div>
+                  {document.canManage ? (
+                    <button
+                      onClick={() => void onDelete(document.id)}
+                      className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600"
+                    >
+                      Delete
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </AdminSection>
   );
 }
 

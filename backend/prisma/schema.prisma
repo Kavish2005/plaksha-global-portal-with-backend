@@ -33,6 +33,7 @@ model Admin {
   createdAt           DateTime      @default(now())
   reviewedApplications Application[] @relation("ApplicationReviewer")
   nominations         Nomination[]
+  knowledgeDocuments  KnowledgeDocument[] @relation("AdminKnowledgeDocuments")
 }
 
 model Program {
@@ -64,6 +65,7 @@ model Mentor {
   updatedAt    DateTime       @updatedAt
   availabilities Availability[]
   bookings     Booking[]
+  knowledgeDocuments KnowledgeDocument[] @relation("MentorKnowledgeDocuments")
 }
 
 model Availability {
@@ -131,6 +133,19 @@ model ChatInteraction {
   mode      String
   createdAt DateTime  @default(now())
   student   Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+}
+
+model KnowledgeDocument {
+  id               Int      @id @default(autoincrement())
+  title            String
+  content          String
+  sourceType       String   @default("text")
+  uploadedByAdminId Int?
+  uploadedByMentorId Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  uploadedByAdmin  Admin?   @relation("AdminKnowledgeDocuments", fields: [uploadedByAdminId], references: [id], onDelete: SetNull)
+  uploadedByMentor Mentor?  @relation("MentorKnowledgeDocuments", fields: [uploadedByMentorId], references: [id], onDelete: SetNull)
 }
 
 model ContactMessage {

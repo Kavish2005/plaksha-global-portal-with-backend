@@ -9,6 +9,7 @@ async function resetModel(model) {
 async function main() {
   await resetModel("notificationLog");
   await resetModel("nomination");
+  await resetModel("knowledgeDocument");
   await resetModel("chatInteraction");
   await resetModel("contactMessage");
   await resetModel("booking");
@@ -344,25 +345,45 @@ async function main() {
   ]);
 
   await Promise.all([
+    prisma.knowledgeDocument.create({
+      data: {
+        title: "Outbound Exchange Preparation Guide",
+        sourceType: "markdown",
+        content:
+          "Students applying for semester exchange should shortlist programs with academic fit, review credit transfer expectations early, and prepare a clear academic rationale. Faculty recommendation letters are usually expected before nomination windows close.",
+        uploadedByAdminId: admin.id,
+      },
+    }),
+    prisma.knowledgeDocument.create({
+      data: {
+        title: "Europe Mobility Advising Notes",
+        sourceType: "text",
+        content:
+          "Europe-focused advising should highlight semester planning, visa timelines, accommodation lead times, and scholarship conversations. ETH Zurich and other Europe opportunities generally benefit from early transcript review and strong statements of purpose.",
+        uploadedByMentorId: mentors[2].id,
+      },
+    }),
     prisma.chatInteraction.create({
       data: {
         studentId: aman.id,
         query: "What programs are available in Europe?",
-        response: "Europe opportunities currently include ETH Zurich Exchange and related mobility advising through the mentors team.",
-        mode: "rule_based",
+        response:
+          "Europe-focused options currently include ETH Zurich Exchange, and the advising notes also highlight semester planning, visa timelines, and early transcript review for Europe mobility.",
+        mode: "knowledge_base",
       },
     }),
     prisma.chatInteraction.create({
       data: {
         studentId: aman.id,
         query: "How do I book a mentor?",
-        response: "Go to the Mentors page, select a mentor, choose a date, and confirm an available slot.",
-        mode: "rule_based",
+        response:
+          "You can book a mentor from the Mentors page by selecting a mentor, choosing a date, and confirming one of the open slots shown in the portal.",
+        mode: "knowledge_base",
       },
     }),
   ]);
 
-  console.log("Seeded database with students, admin, programs, mentors, applications, and workflow data.");
+  console.log("Seeded database with students, office accounts, mentors, programs, workflows, and assistant knowledge documents.");
 }
 
 main()

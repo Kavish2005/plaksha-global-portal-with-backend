@@ -122,6 +122,19 @@ export type ChatInteraction = {
   createdAt: string;
 };
 
+export type KnowledgeDocument = {
+  id: number;
+  title: string;
+  content: string;
+  excerpt: string;
+  sourceType: string;
+  uploadedByRole: "admin" | "mentor" | "office";
+  uploadedByName: string;
+  createdAt: string;
+  updatedAt: string;
+  canManage: boolean;
+};
+
 export type NotificationItem = {
   id: number;
   title: string;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BriefcaseBusiness, CalendarRange, ClipboardCheck, LayoutGrid, ShieldCheck, Users } from "lucide-react";
+import { Bot, BriefcaseBusiness, CalendarRange, ClipboardCheck, LayoutGrid, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { cx } from "@/lib/utils";
 
@@ -42,6 +42,13 @@ const sections = [
     description: "Review, approve, and nominate",
     icon: ClipboardCheck,
   },
+  {
+    href: "/admin/assistant",
+    label: "Assistant",
+    shortLabel: "Assistant",
+    description: "Manage chatbot knowledge documents",
+    icon: Bot,
+  },
 ];
 
 export default function AdminWorkspaceLayout({ children }: { children: React.ReactNode }) {
@@ -49,7 +56,7 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
   const { activeUser } = useAuth();
   const isMentor = activeUser?.role === "mentor";
 
-  const visibleSections = isMentor ? sections.filter((item) => item.href === "/admin/mentors") : sections;
+  const visibleSections = isMentor ? sections.filter((item) => item.href === "/admin/mentors" || item.href === "/admin/assistant") : sections;
 
   const currentSection =
     visibleSections.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) || visibleSections[0];
@@ -66,8 +73,8 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
             <h1 className="mt-3 text-4xl font-bold text-[var(--portal-ink)]">{isMentor ? "Mentor workspace" : "Office management"}</h1>
             <p className="mt-3 max-w-3xl text-slate-600">
               {isMentor
-                ? "Manage your advising slots and review student meetings connected to your mentorship calendar."
-                : "Manage programs, mentors, deadlines, and application reviews for the Plaksha Global Engagement Office."}
+                ? "Manage your advising slots, review booked meetings, and upload reference documents that improve the assistant for students."
+                : "Manage programs, mentors, deadlines, application reviews, and the assistant knowledge base for the Plaksha Global Engagement Office."}
             </p>
           </div>
 
