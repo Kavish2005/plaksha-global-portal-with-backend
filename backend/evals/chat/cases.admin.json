@@ -1,0 +1,72 @@
+[
+  {
+    "id": "admin-mentor-list",
+    "category": "mentors",
+    "input": "Which mentors are there?",
+    "expected_facts": ["Mrs. Rupsy Grewal", "Mrs. Harshita Tripathi", "Dr. Ananya Mehta"],
+    "must_not_include": ["I don't have access", "not available in the database"]
+  },
+  {
+    "id": "admin-exchange-mentor",
+    "category": "mentors",
+    "input": "Who supports exchange programs?",
+    "expected_facts": ["Mrs. Harshita Tripathi", "International Exchange Programs"],
+    "must_not_include": ["I don't have access", "unknown mentor"]
+  },
+  {
+    "id": "admin-europe-mentor",
+    "category": "mentors",
+    "input": "Which mentor should I contact for Europe mobility?",
+    "expected_facts": ["Dr. Ananya Mehta", "Europe and Summer"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "admin-programs-europe",
+    "category": "programs",
+    "input": "Which programs are available in Europe?",
+    "expected_facts": ["ETH Zurich Exchange", "Switzerland"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "admin-programs-research",
+    "category": "programs",
+    "input": "What research programs are available?",
+    "expected_facts": ["Stanford Summer Research", "Tokyo AI Lab", "University of Toronto Research Exchange"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "admin-programs-featured",
+    "category": "programs",
+    "input": "Which programs are featured right now?",
+    "expected_facts": ["ETH Zurich Exchange", "Stanford Summer Research", "Tokyo AI Lab"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "admin-eth-deadline",
+    "category": "deadlines",
+    "input": "What is the deadline for ETH Zurich Exchange?",
+    "expected_facts": ["ETH Zurich Exchange", "Student application deadline", "2026-05-12"],
+    "must_not_include": ["I don't have access", "unknown deadline"]
+  },
+  {
+    "id": "admin-eth-applicants",
+    "category": "applications",
+    "input": "Who has applied to ETH Zurich Exchange?",
+    "expected_facts": ["Kavish Kumar", "Aman Sharma", "ETH Zurich Exchange"],
+    "must_not_include": ["I don't have access", "check the portal directly"]
+  },
+  {
+    "id": "admin-under-review",
+    "category": "applications",
+    "input": "Which applications are under review right now?",
+    "expected_facts": ["Under Review", "ETH Zurich Exchange", "Aman Sharma"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "admin-tokyo-nominated",
+    "category": "applications",
+    "input": "Who has been nominated for Tokyo AI Lab?",
+    "expected_facts": ["Tokyo AI Lab", "Aman Sharma", "Nominated"],
+    "must_not_include": ["I don't have access"]
+  }
+]

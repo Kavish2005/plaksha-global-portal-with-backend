@@ -1,0 +1,72 @@
+[
+  {
+    "id": "student-my-applications",
+    "category": "applications",
+    "input": "What is my application status?",
+    "expected_facts": ["Submitted", "Under Review", "Nominated"],
+    "must_not_include": ["I don't have access", "another student's application"]
+  },
+  {
+    "id": "student-my-meetings",
+    "category": "meetings",
+    "input": "What meetings do I have scheduled?",
+    "expected_facts": ["Mrs. Rupsy Grewal", "Mrs. Harshita Tripathi"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "student-mentor-list",
+    "category": "mentors",
+    "input": "Which mentors are there?",
+    "expected_facts": ["Mrs. Rupsy Grewal", "Mrs. Harshita Tripathi", "Dr. Ananya Mehta"],
+    "must_not_include": ["I don't have access", "not available in the database"]
+  },
+  {
+    "id": "student-ananya-availability",
+    "category": "mentors",
+    "input": "What open mentor slots are available for Dr. Ananya Mehta?",
+    "expected_facts": ["Dr. Ananya Mehta"],
+    "must_not_include": ["I don't have access", "no mentors available"]
+  },
+  {
+    "id": "student-book-mentor",
+    "category": "process",
+    "input": "How do I book a mentor?",
+    "expected_facts": ["Mentors page"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "student-europe-programs",
+    "category": "programs",
+    "input": "Which programs are available in Europe?",
+    "expected_facts": ["ETH Zurich Exchange", "Switzerland"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "student-stanford-duration",
+    "category": "programs",
+    "input": "What is the duration of Stanford Summer Research?",
+    "expected_facts": ["Stanford Summer Research", "8 weeks"],
+    "must_not_include": ["I don't know", "not available"]
+  },
+  {
+    "id": "student-canada-program",
+    "category": "programs",
+    "input": "What programs are available in Canada?",
+    "expected_facts": ["University of Toronto Research Exchange", "Canada"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "student-europe-guidance",
+    "category": "documents",
+    "input": "What guidance do we have for Europe mobility?",
+    "expected_facts": ["visa timelines", "accommodation lead times", "scholarship conversations"],
+    "must_not_include": ["I don't have access", "no guidance available"]
+  },
+  {
+    "id": "student-contact-number-missing",
+    "category": "missing_data",
+    "input": "What is the office contact number?",
+    "expected_facts": [],
+    "must_not_include": ["+91", "123456", "987654"]
+  }
+]

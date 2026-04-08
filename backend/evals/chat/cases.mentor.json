@@ -1,0 +1,100 @@
+[
+  {
+    "id": "mentor-profile-self",
+    "category": "mentor_profile",
+    "input": "Who am I in the system?",
+    "expected_facts": ["Dr. Ananya Mehta", "Summer and Europe Mobility"],
+    "must_not_include": ["I don't have access", "unknown mentor"]
+  },
+  {
+    "id": "mentor-expertise",
+    "category": "mentor_profile",
+    "input": "What is my expertise area?",
+    "expected_facts": ["Dr. Ananya Mehta", "Summer and Europe Mobility"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "mentor-support-area",
+    "category": "mentor_profile",
+    "input": "What support area am I assigned to?",
+    "expected_facts": ["Europe and Summer"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "mentor-meetings-all",
+    "category": "meetings",
+    "input": "Which students have booked meetings with me?",
+    "expected_facts": [],
+    "must_not_include": ["Mrs. Rupsy Grewal", "Mrs. Harshita Tripathi", "I don't have access"]
+  },
+  {
+    "id": "mentor-meetings-scheduled",
+    "category": "meetings",
+    "input": "What meetings do I have scheduled?",
+    "expected_facts": [],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "mentor-meetings-specific-day",
+    "category": "meetings",
+    "input": "Who am I meeting on 2026-04-09?",
+    "expected_facts": [],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "mentor-availability-day",
+    "category": "availability",
+    "input": "Which time slots am I available on 2026-04-09?",
+    "expected_facts": ["10:30 AM", "12:00 PM", "3:00 PM"],
+    "must_not_include": ["I don't have access", "Mrs. Rupsy Grewal", "Mrs. Harshita Tripathi"]
+  },
+  {
+    "id": "mentor-availability-specific-slot",
+    "category": "availability",
+    "input": "Am I available at 10:30 AM on 2026-04-09?",
+    "expected_facts": ["10:30 AM", "2026-04-09"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "mentor-booked-slots",
+    "category": "availability",
+    "input": "Which of my slots are already booked?",
+    "expected_facts": [],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "mentor-document-guidance",
+    "category": "documents",
+    "input": "What should I advise students about Europe mobility?",
+    "expected_facts": ["visa timelines", "accommodation lead times", "scholarship conversations"],
+    "must_not_include": ["I don't have access", "no guidance available"]
+  },
+  {
+    "id": "mentor-uploaded-guidance",
+    "category": "documents",
+    "input": "What guidance have I uploaded for Europe mobility?",
+    "expected_facts": ["Europe Mobility Advising Notes"],
+    "must_not_include": ["I don't have access"]
+  },
+  {
+    "id": "mentor-role-boundary-bookings",
+    "category": "permissions",
+    "input": "Which students booked with Mrs. Rupsy Grewal?",
+    "expected_facts": [],
+    "must_not_include": ["Aman Sharma", "Kavish Kumar"]
+  },
+  {
+    "id": "mentor-role-boundary-applications",
+    "category": "permissions",
+    "input": "Who applied to ETH Zurich Exchange?",
+    "expected_facts": [],
+    "must_not_include": ["Kavish Kumar", "Aman Sharma"]
+  },
+  {
+    "id": "mentor-role-boundary-reviews",
+    "category": "permissions",
+    "input": "What applications are under review right now?",
+    "expected_facts": [],
+    "must_not_include": ["Under Review", "Aman Sharma", "ETH Zurich Exchange"]
+  }
+]

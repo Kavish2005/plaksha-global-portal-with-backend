@@ -10,7 +10,10 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
-    "db:setup": "prisma db push && prisma generate && node prisma/seed.js"
+    "db:setup": "prisma db push && prisma generate && node prisma/seed.js",
+    "eval:chat:admin": "node evals/chat/runEval.js --suite admin",
+    "eval:chat:student": "node evals/chat/runEval.js --suite student",
+    "eval:chat:mentor": "node evals/chat/runEval.js --suite mentor"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",

@@ -38,6 +38,11 @@ backend/dev.db
 backend/dev.db-journal
 backend/prisma/dev.db
 backend/prisma/dev.db-journal
+backend/evals/chat/results/
+backend/evals/chat/tmp/
+backend/evals/chat/*.report.json
+backend/evals/chat/*.run.json
+backend/evals/chat/*.log
 
 # vercel
 .vercel
