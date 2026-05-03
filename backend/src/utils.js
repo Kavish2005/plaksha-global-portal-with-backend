@@ -43,6 +43,7 @@ function formatProgram(program) {
     description: program.description,
     eligibility: program.eligibility,
     duration: program.duration,
+    endDate: program.endDate ? normalizeDateString(program.endDate) : null,
     featured: program.featured,
     tags: parseJsonArray(program.tagsJson),
     deadline: primaryDeadline ? normalizeDateString(primaryDeadline) : null,
@@ -52,6 +53,7 @@ function formatProgram(program) {
         title: deadline.title,
         date: normalizeDateString(deadline.date),
         priority: deadline.priority,
+        requiredDocuments: parseJsonArray(deadline.requiredDocumentsJson),
       })) || [],
     createdAt: program.createdAt,
     updatedAt: program.updatedAt,
@@ -117,6 +119,17 @@ function formatApplication(application) {
     deadline: primaryDeadline ? normalizeDateString(primaryDeadline) : null,
     createdAt: application.createdAt,
     updatedAt: application.updatedAt,
+    documents:
+      application.documents?.map((document) => ({
+        id: document.id,
+        deadlineId: document.deadlineId,
+        deadlineTitle: document.deadline?.title || "",
+        deadlineDate: document.deadline ? normalizeDateString(document.deadline.date) : null,
+        requirementLabel: document.requirementLabel,
+        fileName: document.fileName,
+        mimeType: document.mimeType,
+        uploadedAt: document.uploadedAt,
+      })) || [],
     nominations:
       application.nominations?.map((nomination) => ({
         id: nomination.id,
@@ -136,6 +149,7 @@ function formatDeadline(deadline) {
     title: deadline.title,
     date: normalizeDateString(deadline.date),
     priority: deadline.priority,
+    requiredDocuments: parseJsonArray(deadline.requiredDocumentsJson),
   };
 }
 

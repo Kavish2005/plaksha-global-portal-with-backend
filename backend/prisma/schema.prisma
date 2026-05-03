@@ -45,6 +45,7 @@ model Program {
   description  String
   eligibility  String
   duration     String
+  endDate      DateTime?
   featured     Boolean       @default(false)
   tagsJson     String        @default("[]")
   createdAt    DateTime      @default(now())
@@ -112,6 +113,7 @@ model Application {
   approvedByAdmin   Admin?           @relation("ApplicationReviewer", fields: [approvedByAdminId], references: [id], onDelete: SetNull)
   nominations       Nomination[]
   notifications     NotificationLog[]
+  documents         ApplicationDocument[]
 }
 
 model Deadline {
@@ -120,9 +122,27 @@ model Deadline {
   title     String
   date      DateTime
   priority  String
+  requiredDocumentsJson String @default("[]")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  documents ApplicationDocument[]
+}
+
+model ApplicationDocument {
+  id               Int         @id @default(autoincrement())
+  applicationId    Int
+  deadlineId       Int
+  requirementLabel String
+  fileName         String
+  mimeType         String
+  fileData         String
+  uploadedAt       DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  application      Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  deadline         Deadline    @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, deadlineId, requirementLabel])
 }
 
 model ChatInteraction {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, BriefcaseBusiness, CalendarRange, ClipboardCheck, LayoutGrid, ShieldCheck, Users } from "lucide-react";
+import { Bot, BriefcaseBusiness, ClipboardCheck, LayoutGrid, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { cx } from "@/lib/utils";
 
@@ -27,13 +27,6 @@ const sections = [
     shortLabel: "Mentors",
     description: "Manage advisors and availability",
     icon: Users,
-  },
-  {
-    href: "/admin/deadlines",
-    label: "Deadlines",
-    shortLabel: "Deadlines",
-    description: "Schedule and prioritize milestones",
-    icon: CalendarRange,
   },
   {
     href: "/admin/applications",
@@ -74,7 +67,7 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
             <p className="mt-3 max-w-3xl text-slate-600">
               {isMentor
                 ? "Manage your advising slots, review booked meetings, and upload reference documents that improve the assistant for students."
-                : "Manage programs, mentors, deadlines, application reviews, and the assistant knowledge base for the Plaksha Global Engagement Office."}
+                : "Manage programs, mentors, application reviews, and the assistant knowledge base for the Plaksha Global Engagement Office."}
             </p>
           </div>
 

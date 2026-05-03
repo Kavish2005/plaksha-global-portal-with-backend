@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/components/AuthProvider";
 import StatusBadge from "@/components/StatusBadge";
@@ -8,10 +8,10 @@ import { apiDelete, apiGet, apiPost, apiPut } from "@/services/api";
 import type {
   AdminDashboard,
   Application,
+  ApplicationDocumentAsset,
   ApplicationStatus,
   ApprovalQueue,
   Booking,
-  Deadline,
   KnowledgeDocument,
   Mentor,
   Nomination,
@@ -29,6 +29,7 @@ type ProgramFormState = {
   description: string;
   eligibility: string;
   duration: string;
+  endDate: string;
   featured: boolean;
   tags: string;
 };
@@ -47,6 +48,13 @@ type KnowledgeDocumentFormState = {
   sourceType: string;
 };
 
+type SearchableOption = {
+  value: string;
+  label: string;
+  helperText?: string;
+  keywords?: string[];
+};
+
 const emptyProgramForm: ProgramFormState = {
   title: "",
   university: "",
@@ -55,6 +63,7 @@ const emptyProgramForm: ProgramFormState = {
   description: "",
   eligibility: "",
   duration: "",
+  endDate: "",
   featured: false,
   tags: "",
 };
@@ -90,8 +99,10 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
 
   const [editingProgramId, setEditingProgramId] = useState<number | null>(null);
   const [programForm, setProgramForm] = useState<ProgramFormState>(emptyProgramForm);
+  const [selectedProgramId, setSelectedProgramId] = useState<number | null>(null);
 
   const [editingMentorId, setEditingMentorId] = useState<number | null>(null);
+  const [selectedMentorId, setSelectedMentorId] = useState<number | null>(null);
   const [mentorForm, setMentorForm] = useState<MentorFormState>(emptyMentorForm);
   const [knowledgeDocumentForm, setKnowledgeDocumentForm] = useState<KnowledgeDocumentFormState>(emptyKnowledgeDocumentForm);
   const [knowledgeFileName, setKnowledgeFileName] = useState("");
@@ -99,12 +110,17 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
   const [availabilityMentorId, setAvailabilityMentorId] = useState<number | null>(null);
   const [availabilityDate, setAvailabilityDate] = useState(toIsoDate(new Date()));
   const [availabilitySlot, setAvailabilitySlot] = useState("10:00 AM");
+  const [availabilityBatchStartTime, setAvailabilityBatchStartTime] = useState("09:00");
+  const [availabilityBatchEndTime, setAvailabilityBatchEndTime] = useState("17:00");
+  const [availabilityBatchInterval, setAvailabilityBatchInterval] = useState("30");
   const [availabilitySlots, setAvailabilitySlots] = useState<Array<{ id: number; time: string; available: boolean; date: string }>>([]);
 
   const [deadlineProgramId, setDeadlineProgramId] = useState<number | null>(null);
+  const [editingDeadlineId, setEditingDeadlineId] = useState<number | null>(null);
   const [deadlineTitle, setDeadlineTitle] = useState("Application deadline");
   const [deadlineDate, setDeadlineDate] = useState(toIsoDate(new Date()));
   const [deadlinePriority, setDeadlinePriority] = useState("High");
+  const [deadlineRequiredDocuments, setDeadlineRequiredDocuments] = useState<string[]>([""]);
 
   const [applicationFilter, setApplicationFilter] = useState({ student: "", program: "", status: "" });
 
@@ -116,7 +132,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
         isMentorUser ? Promise.resolve(null) : apiGet<ApprovalQueue>("/admin/approval-queue"),
         apiGet<Program[]>("/programs"),
         apiGet<Mentor[]>("/mentors"),
-        isMentorUser ? Promise.resolve([]) : apiGet<Application[]>("/applications", applicationFilter),
+        isMentorUser ? Promise.resolve([]) : apiGet<Application[]>("/applications"),
         isMentorUser ? Promise.resolve([]) : apiGet<Nomination[]>("/nominations"),
         apiGet<KnowledgeDocument[]>("/chat/documents"),
       ]);
@@ -134,14 +150,28 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
           const ownMentor = nextMentors.find((mentor) => mentor.email === activeUser?.email);
           if (ownMentor) {
             setAvailabilityMentorId(ownMentor.id);
+            if (!selectedMentorId) {
+              setSelectedMentorId(ownMentor.id);
+            }
           }
         } else if (nextMentors[0]) {
           setAvailabilityMentorId(nextMentors[0].id);
+          if (!selectedMentorId) {
+            setSelectedMentorId(nextMentors[0].id);
+          }
         }
       }
 
       if (!deadlineProgramId && nextPrograms[0]) {
         setDeadlineProgramId(nextPrograms[0].id);
+      }
+
+      if (!selectedProgramId && nextPrograms[0]) {
+        setSelectedProgramId(nextPrograms[0].id);
+      }
+
+      if (!selectedMentorId && nextMentors[0]) {
+        setSelectedMentorId(nextMentors[0].id);
       }
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -158,11 +188,6 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     }
     void loadAllData();
   }, [activeUser, authLoading, isMentorUser]);
-
-  useEffect(() => {
-    if (authLoading || activeUser?.role !== "admin") return;
-    void loadAllData();
-  }, [applicationFilter]);
 
   useEffect(() => {
     async function loadMentorMeetings() {
@@ -201,11 +226,6 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     }
   }, [activeUser, availabilityDate, availabilityMentorId]);
 
-  const allDeadlines = useMemo<Deadline[]>(
-    () => programs.flatMap((program) => program.deadlines.map((deadline) => ({ ...deadline, programTitle: program.title }))),
-    [programs],
-  );
-
   function resetProgramForm() {
     setEditingProgramId(null);
     setProgramForm(emptyProgramForm);
@@ -221,13 +241,15 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       const payload = {
         ...programForm,
         tags: programForm.tags.split(",").map((item) => item.trim()).filter(Boolean),
+        endDate: programForm.endDate || undefined,
       };
       if (editingProgramId) {
         await apiPut(`/programs/${editingProgramId}`, payload);
         toast.success("Program updated.");
       } else {
-        await apiPost(`/programs`, payload);
+        const created = await apiPost<Program>(`/programs`, payload);
         toast.success("Program created.");
+        setSelectedProgramId(created.id);
       }
       resetProgramForm();
       await loadAllData();
@@ -240,11 +262,30 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     try {
       await apiDelete(`/programs/${programId}`);
       toast.success("Program deleted.");
+      if (selectedProgramId === programId) {
+        setSelectedProgramId(null);
+      }
       await loadAllData();
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   }
+
+  const selectedProgram = useMemo(
+    () => programs.find((program) => program.id === selectedProgramId) || programs[0] || null,
+    [programs, selectedProgramId],
+  );
+
+  const selectedMentor = useMemo(
+    () => mentors.find((mentor) => mentor.id === selectedMentorId) || mentors[0] || null,
+    [mentors, selectedMentorId],
+  );
+
+  useEffect(() => {
+    if (selectedProgram?.id) {
+      setDeadlineProgramId(selectedProgram.id);
+    }
+  }, [selectedProgram]);
 
   async function submitMentor() {
     try {
@@ -266,6 +307,9 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     try {
       await apiDelete(`/mentors/${mentorId}`);
       toast.success("Mentor deleted.");
+      if (selectedMentorId === mentorId) {
+        setSelectedMentorId(null);
+      }
       await loadAllData();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -290,6 +334,34 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     }
   }
 
+  async function createAvailabilityBatch() {
+    try {
+      const response = await apiPost<{ createdCount: number; skippedCount: number }>("/availability", {
+        mentorId: availabilityMentorId,
+        date: availabilityDate,
+        startTime: availabilityBatchStartTime,
+        endTime: availabilityBatchEndTime,
+        intervalMinutes: Number(availabilityBatchInterval),
+      });
+
+      if (response.createdCount > 0 && response.skippedCount > 0) {
+        toast.success(`Created ${response.createdCount} slots and skipped ${response.skippedCount} existing ones.`);
+      } else if (response.createdCount > 0) {
+        toast.success(`Created ${response.createdCount} availability slots.`);
+      } else {
+        toast.success("All slots in that time range already existed.");
+      }
+
+      const refreshedAvailability = await apiGet<{ slots: Array<{ id: number; time: string; available: boolean; date: string }> }>(
+        `/mentors/${availabilityMentorId}/availability`,
+        { date: availabilityDate },
+      );
+      setAvailabilitySlots(refreshedAvailability.slots);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
   async function deleteAvailability(slotId: number) {
     try {
       await apiDelete(`/availability/${slotId}`);
@@ -306,13 +378,27 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
 
   async function createDeadline() {
     try {
-      await apiPost("/deadlines", {
+      const payload = {
         programId: deadlineProgramId,
         title: deadlineTitle,
         date: deadlineDate,
         priority: deadlinePriority,
-      });
-      toast.success("Deadline created.");
+        requiredDocuments: deadlineRequiredDocuments.map((item) => item.trim()).filter(Boolean),
+      };
+
+      if (editingDeadlineId) {
+        await apiPut(`/deadlines/${editingDeadlineId}`, payload);
+        toast.success("Deadline updated.");
+      } else {
+        await apiPost("/deadlines", payload);
+        toast.success("Deadline created.");
+      }
+
+      setEditingDeadlineId(null);
+      setDeadlineTitle("Application deadline");
+      setDeadlineDate(toIsoDate(new Date()));
+      setDeadlinePriority("High");
+      setDeadlineRequiredDocuments([""]);
       await loadAllData();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -445,13 +531,28 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       {!isMentorUser && section === "programs" ? (
         <ProgramsSection
           programs={programs}
+          selectedProgram={selectedProgram}
           programForm={programForm}
           editingProgramId={editingProgramId}
+          editingDeadlineId={editingDeadlineId}
+          deadlineTitle={deadlineTitle}
+          deadlineDate={deadlineDate}
+          deadlinePriority={deadlinePriority}
+          deadlineRequiredDocuments={deadlineRequiredDocuments}
           onProgramFormChange={setProgramForm}
+          onSelectedProgramIdChange={setSelectedProgramId}
+          onEditingDeadlineIdChange={setEditingDeadlineId}
+          onDeadlineTitleChange={setDeadlineTitle}
+          onDeadlineDateChange={setDeadlineDate}
+          onDeadlinePriorityChange={setDeadlinePriority}
+          onDeadlineRequiredDocumentsChange={setDeadlineRequiredDocuments}
           onSubmit={submitProgram}
+          onCreateDeadline={createDeadline}
+          onDeleteDeadline={deleteDeadline}
           onReset={resetProgramForm}
           onEdit={(program) => {
             setEditingProgramId(program.id);
+            setSelectedProgramId(program.id);
             setProgramForm({
               title: program.title,
               university: program.university,
@@ -460,6 +561,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
               description: program.description,
               eligibility: program.eligibility,
               duration: program.duration,
+              endDate: program.endDate || "",
               featured: program.featured,
               tags: program.tags.join(", "),
             });
@@ -473,18 +575,23 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
           mentors={mentors}
           currentUserEmail={activeUser?.email || null}
           isMentorUser={isMentorUser}
+          selectedMentor={selectedMentor}
           mentorMeetings={mentorMeetings}
           mentorForm={mentorForm}
           editingMentorId={editingMentorId}
           availabilityMentorId={availabilityMentorId}
           availabilityDate={availabilityDate}
           availabilitySlot={availabilitySlot}
+          availabilityBatchStartTime={availabilityBatchStartTime}
+          availabilityBatchEndTime={availabilityBatchEndTime}
+          availabilityBatchInterval={availabilityBatchInterval}
           availabilitySlots={availabilitySlots}
           onMentorFormChange={setMentorForm}
           onSubmit={submitMentor}
           onReset={resetMentorForm}
           onEdit={(mentor) => {
             setEditingMentorId(mentor.id);
+            setSelectedMentorId(mentor.id);
             setMentorForm({
               name: mentor.name,
               email: mentor.email,
@@ -494,30 +601,20 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
             });
           }}
           onDelete={deleteMentor}
+          onSelectedMentorIdChange={setSelectedMentorId}
           onAvailabilityMentorIdChange={setAvailabilityMentorId}
           onAvailabilityDateChange={setAvailabilityDate}
           onAvailabilitySlotChange={setAvailabilitySlot}
+          onAvailabilityBatchStartTimeChange={setAvailabilityBatchStartTime}
+          onAvailabilityBatchEndTimeChange={setAvailabilityBatchEndTime}
+          onAvailabilityBatchIntervalChange={setAvailabilityBatchInterval}
           onCreateAvailability={createAvailability}
+          onCreateAvailabilityBatch={createAvailabilityBatch}
           onDeleteAvailability={deleteAvailability}
         />
       ) : null}
 
-      {!isMentorUser && section === "deadlines" ? (
-        <DeadlinesSection
-          programs={programs}
-          allDeadlines={allDeadlines}
-          deadlineProgramId={deadlineProgramId}
-          deadlineTitle={deadlineTitle}
-          deadlineDate={deadlineDate}
-          deadlinePriority={deadlinePriority}
-          onProgramChange={setDeadlineProgramId}
-          onTitleChange={setDeadlineTitle}
-          onDateChange={setDeadlineDate}
-          onPriorityChange={setDeadlinePriority}
-          onCreate={createDeadline}
-          onDelete={deleteDeadline}
-        />
-      ) : null}
+      {!isMentorUser && section === "deadlines" ? <ProgramsRedirectSection /> : null}
 
       {!isMentorUser && section === "applications" ? (
         <ApplicationsSection
@@ -583,6 +680,9 @@ function OverviewSection({
   approvalQueue: ApprovalQueue;
   nominations: Nomination[];
 }) {
+  const recentDeadlines = dashboard.upcomingDeadlines.slice(0, 3);
+  const recentNominations = nominations.slice(0, 3);
+
   return (
     <>
       <div className="grid gap-6 md:grid-cols-5">
@@ -597,10 +697,10 @@ function OverviewSection({
         <AdminSection
           eyebrow="Overview"
           title="Upcoming deadlines"
-          description="Keep track of the next partner-facing and student-facing milestones."
+          description="A compact snapshot of the nearest milestone dates so the overview stays readable even when the portal grows."
         >
           <div className="space-y-3">
-            {dashboard.upcomingDeadlines.map((deadline) => (
+            {recentDeadlines.map((deadline) => (
               <div key={deadline.id} className="flex items-center justify-between rounded-2xl border border-slate-100 p-4">
                 <div>
                   <p className="font-semibold">{deadline.programTitle}</p>
@@ -615,12 +715,17 @@ function OverviewSection({
               </div>
             ))}
           </div>
+          {dashboard.upcomingDeadlines.length > recentDeadlines.length ? (
+            <p className="mt-4 text-sm text-slate-500">
+              Showing the next {recentDeadlines.length} deadlines in overview. Manage the full set from Programs.
+            </p>
+          ) : null}
         </AdminSection>
 
         <AdminSection
           eyebrow="Queue"
           title="Approval snapshot"
-          description="A quick view into applications that need movement across the review pipeline."
+          description="Only the most recent application in each status lane is shown here so the overview remains compact."
         >
           <div className="grid gap-4 md:grid-cols-2">
             <QueueSummary title="Submitted" items={approvalQueue.submitted} />
@@ -634,10 +739,10 @@ function OverviewSection({
       <AdminSection
         eyebrow="Recent Nominations"
         title="Nomination log"
-        description="Recent partner nominations made by the office."
+        description="A short list of the latest nominations, not the full historical log."
       >
         <div className="space-y-3">
-          {nominations.map((nomination) => (
+          {recentNominations.map((nomination) => (
             <div key={nomination.id} className="rounded-2xl border border-slate-100 p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -650,6 +755,11 @@ function OverviewSection({
             </div>
           ))}
         </div>
+        {nominations.length > recentNominations.length ? (
+          <p className="mt-4 text-sm text-slate-500">
+            Showing the latest {recentNominations.length} nominations in overview.
+          </p>
+        ) : null}
       </AdminSection>
     </>
   );
@@ -657,29 +767,68 @@ function OverviewSection({
 
 function ProgramsSection({
   programs,
+  selectedProgram,
   programForm,
   editingProgramId,
+  editingDeadlineId,
+  deadlineTitle,
+  deadlineDate,
+  deadlinePriority,
+  deadlineRequiredDocuments,
   onProgramFormChange,
+  onSelectedProgramIdChange,
+  onEditingDeadlineIdChange,
+  onDeadlineTitleChange,
+  onDeadlineDateChange,
+  onDeadlinePriorityChange,
+  onDeadlineRequiredDocumentsChange,
   onSubmit,
+  onCreateDeadline,
+  onDeleteDeadline,
   onReset,
   onEdit,
   onDelete,
 }: {
   programs: Program[];
+  selectedProgram: Program | null;
   programForm: ProgramFormState;
   editingProgramId: number | null;
+  editingDeadlineId: number | null;
+  deadlineTitle: string;
+  deadlineDate: string;
+  deadlinePriority: string;
+  deadlineRequiredDocuments: string[];
   onProgramFormChange: React.Dispatch<React.SetStateAction<ProgramFormState>>;
+  onSelectedProgramIdChange: React.Dispatch<React.SetStateAction<number | null>>;
+  onEditingDeadlineIdChange: React.Dispatch<React.SetStateAction<number | null>>;
+  onDeadlineTitleChange: React.Dispatch<React.SetStateAction<string>>;
+  onDeadlineDateChange: React.Dispatch<React.SetStateAction<string>>;
+  onDeadlinePriorityChange: React.Dispatch<React.SetStateAction<string>>;
+  onDeadlineRequiredDocumentsChange: React.Dispatch<React.SetStateAction<string[]>>;
   onSubmit: () => Promise<void>;
+  onCreateDeadline: () => Promise<void>;
+  onDeleteDeadline: (deadlineId: number) => Promise<void>;
   onReset: () => void;
   onEdit: (program: Program) => void;
   onDelete: (programId: number) => Promise<void>;
 }) {
+  const programOptions = useMemo<SearchableOption[]>(
+    () =>
+      programs.map((program) => ({
+        value: String(program.id),
+        label: program.title,
+        helperText: `${program.university} · ${program.country}`,
+        keywords: [program.type, ...program.tags],
+      })),
+    [programs],
+  );
+
   return (
-      <AdminSection
-        eyebrow="Programs"
-        title="Programs management"
-        description="Add new opportunities, update program information, or remove listings that should no longer appear for students."
-      >
+    <AdminSection
+      eyebrow="Programs"
+      title="Programs management"
+      description="Create programs from the left, then search and focus on one selected program at a time for editing, deletion, and deadline management."
+    >
       <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
           <h3 className="text-xl font-semibold">{editingProgramId ? "Edit program" : "Create program"}</h3>
@@ -687,18 +836,33 @@ function ProgramsSection({
             <input value={programForm.title} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, title: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Title" />
             <input value={programForm.university} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, university: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="University" />
             <input value={programForm.country} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, country: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Country" />
-            <select value={programForm.type} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, type: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3">
-              <option>Exchange</option>
-              <option>Research</option>
-              <option>Internship</option>
-              <option>Summer School</option>
-            </select>
+            <SearchableSelect
+              value={programForm.type}
+              onChange={(value) => onProgramFormChange((prev) => ({ ...prev, type: value || "Exchange" }))}
+              options={[
+                { value: "Exchange", label: "Exchange" },
+                { value: "Research", label: "Research" },
+                { value: "Internship", label: "Internship" },
+                { value: "Summer School", label: "Summer School" },
+              ]}
+              placeholder="Program type"
+              searchPlaceholder="Search program type"
+            />
           </div>
           <textarea value={programForm.description} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, description: e.target.value }))} className="mt-3 min-h-28 w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Description" />
           <textarea value={programForm.eligibility} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, eligibility: e.target.value }))} className="mt-3 min-h-20 w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Eligibility" />
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <input value={programForm.duration} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, duration: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Duration" />
-            <input value={programForm.tags} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, tags: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Tags, comma separated" />
+            <input
+              type="date"
+              value={programForm.endDate}
+              onChange={(e) => onProgramFormChange((prev) => ({ ...prev, endDate: e.target.value }))}
+              className="rounded-2xl border border-black/10 px-4 py-3"
+              placeholder="Program end date"
+            />
+          </div>
+          <div className="mt-3">
+            <input value={programForm.tags} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, tags: e.target.value }))} className="w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Tags, comma separated" />
           </div>
           <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={programForm.featured} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, featured: e.target.checked }))} />
@@ -716,30 +880,201 @@ function ProgramsSection({
           </div>
         </div>
 
-        <div className="space-y-3">
-          {programs.map((program) => (
-            <div key={program.id} className="rounded-3xl border border-slate-100 p-5">
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-100 p-6">
+            <SearchableSelect
+              value={selectedProgram ? String(selectedProgram.id) : ""}
+              onChange={(value) => onSelectedProgramIdChange(value ? Number(value) : null)}
+              options={programOptions}
+              placeholder="Select a program"
+              searchPlaceholder="Search by title, university, country, or tag"
+            />
+            <p className="mt-3 text-sm text-slate-500">
+              Search once, then focus on a single selected program for editing, deletion, and deadlines.
+            </p>
+          </div>
+
+          {selectedProgram ? (
+            <div className="rounded-3xl border border-slate-100 p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-lg font-semibold">{program.title}</p>
-                    <StatusBadge label={program.type} />
-                    {program.featured ? <StatusBadge label="Featured" /> : null}
+                    <p className="text-xl font-semibold">{selectedProgram.title}</p>
+                    <StatusBadge label={selectedProgram.type} />
+                    {selectedProgram.featured ? <StatusBadge label="Featured" /> : null}
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">{program.university} · {program.country}</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{program.description}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {selectedProgram.university} · {selectedProgram.country}
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{selectedProgram.description}</p>
+                  <p className="mt-3 text-sm text-slate-500">
+                    Eligibility: {selectedProgram.eligibility}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">Duration: {selectedProgram.duration}</p>
+                  {selectedProgram.endDate ? <p className="mt-1 text-sm text-slate-500">Program runs until: {formatIsoDate(selectedProgram.endDate)}</p> : null}
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  <button onClick={() => onEdit(program)} className="rounded-full border border-black/10 px-4 py-2 text-sm">
+                  <button onClick={() => onEdit(selectedProgram)} className="rounded-full border border-black/10 px-4 py-2 text-sm">
                     Edit
                   </button>
-                  <button onClick={() => void onDelete(program.id)} className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600">
+                  <button
+                    onClick={() => void onDelete(selectedProgram.id)}
+                    className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600"
+                  >
                     Delete
                   </button>
                 </div>
               </div>
+
+              <div className="mt-8 grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+                <div className="rounded-3xl bg-[var(--portal-panel)] p-5">
+                  <h4 className="text-lg font-semibold">{editingDeadlineId ? "Edit selected deadline" : "Add deadline to selected program"}</h4>
+                  <div className="mt-4 grid gap-3">
+                    <input
+                      value={deadlineTitle}
+                      onChange={(e) => onDeadlineTitleChange(e.target.value)}
+                      className="rounded-2xl border border-black/10 px-4 py-3"
+                      placeholder="Deadline title"
+                    />
+                    <div className="space-y-3 rounded-2xl border border-black/5 bg-white/70 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-slate-700">Required files</p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onDeadlineRequiredDocumentsChange((prev) => [...prev, ""])
+                          }
+                          className="rounded-full border border-black/10 px-3 py-1 text-xs font-semibold text-slate-600"
+                        >
+                          Add another file
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {deadlineRequiredDocuments.map((requiredDocument, index) => (
+                          <div key={`required-document-${index}`} className="flex items-center gap-2">
+                            <input
+                              value={requiredDocument}
+                              onChange={(e) =>
+                                onDeadlineRequiredDocumentsChange((prev) =>
+                                  prev.map((item, itemIndex) => (itemIndex === index ? e.target.value : item)),
+                                )
+                              }
+                              className="w-full rounded-2xl border border-black/10 px-4 py-3"
+                              placeholder={`Required file ${index + 1} (e.g. Transcript, Resume, LOR)`}
+                            />
+                            {deadlineRequiredDocuments.length > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onDeadlineRequiredDocumentsChange((prev) => {
+                                    const nextItems = prev.filter((_, itemIndex) => itemIndex !== index);
+                                    return nextItems.length > 0 ? nextItems : [""];
+                                  })
+                                }
+                                className="rounded-full border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600"
+                              >
+                                Remove
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <input
+                      type="date"
+                      value={deadlineDate}
+                      onChange={(e) => onDeadlineDateChange(e.target.value)}
+                      className="rounded-2xl border border-black/10 px-4 py-3"
+                    />
+                    <SearchableSelect
+                      value={deadlinePriority}
+                      onChange={(value) => onDeadlinePriorityChange(value || "High")}
+                      options={[
+                        { value: "High", label: "High" },
+                        { value: "Medium", label: "Medium" },
+                        { value: "Low", label: "Low" },
+                      ]}
+                      placeholder="Priority"
+                      searchPlaceholder="Search priority"
+                    />
+                  </div>
+                  <button
+                    onClick={() => void onCreateDeadline()}
+                    className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white"
+                  >
+                    {editingDeadlineId ? "Update Deadline" : "Add Deadline"}
+                  </button>
+                  {editingDeadlineId ? (
+                    <button
+                      onClick={() => {
+                        onEditingDeadlineIdChange(null);
+                        onDeadlineTitleChange("Application deadline");
+                        onDeadlineDateChange(toIsoDate(new Date()));
+                        onDeadlinePriorityChange("High");
+                        onDeadlineRequiredDocumentsChange([""]);
+                      }}
+                      className="mt-3 rounded-full border border-black/10 px-5 py-3 text-sm font-semibold"
+                    >
+                      Cancel Deadline Edit
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-semibold">Deadlines for {selectedProgram.title}</h4>
+                    <span className="text-sm text-slate-500">{selectedProgram.deadlines.length}</span>
+                  </div>
+                  {selectedProgram.deadlines.length === 0 ? (
+                    <p className="rounded-2xl border border-slate-100 p-4 text-sm text-slate-500">
+                      No deadlines added for this program yet.
+                    </p>
+                  ) : (
+                    selectedProgram.deadlines.map((deadline) => (
+                      <div key={deadline.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="font-semibold">{deadline.title}</p>
+                          <p className="text-sm text-slate-500">{formatIsoDate(deadline.date)}</p>
+                          {deadline.requiredDocuments.length > 0 ? (
+                            <p className="mt-2 text-sm text-slate-500">
+                              Required uploads: {deadline.requiredDocuments.join(", ")}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <StatusBadge label={deadline.priority} />
+                          <button
+                            onClick={() => {
+                              onEditingDeadlineIdChange(deadline.id);
+                              onDeadlineTitleChange(deadline.title);
+                              onDeadlineDateChange(deadline.date);
+                              onDeadlinePriorityChange(deadline.priority);
+                              onDeadlineRequiredDocumentsChange(
+                                deadline.requiredDocuments.length > 0 ? deadline.requiredDocuments : [""],
+                              );
+                            }}
+                            className="rounded-full border border-black/10 px-4 py-2 text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => void onDeleteDeadline(deadline.id)}
+                            className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
-          ))}
+          ) : (
+            <p className="rounded-3xl border border-slate-100 p-6 text-sm text-slate-500">
+              No programs match the current search.
+            </p>
+          )}
         </div>
       </div>
     </AdminSection>
@@ -750,46 +1085,82 @@ function MentorsSection({
   mentors,
   currentUserEmail,
   isMentorUser,
+  selectedMentor,
   mentorMeetings,
   mentorForm,
   editingMentorId,
   availabilityMentorId,
   availabilityDate,
   availabilitySlot,
+  availabilityBatchStartTime,
+  availabilityBatchEndTime,
+  availabilityBatchInterval,
   availabilitySlots,
   onMentorFormChange,
   onSubmit,
   onReset,
   onEdit,
   onDelete,
+  onSelectedMentorIdChange,
   onAvailabilityMentorIdChange,
   onAvailabilityDateChange,
   onAvailabilitySlotChange,
+  onAvailabilityBatchStartTimeChange,
+  onAvailabilityBatchEndTimeChange,
+  onAvailabilityBatchIntervalChange,
   onCreateAvailability,
+  onCreateAvailabilityBatch,
   onDeleteAvailability,
 }: {
   mentors: Mentor[];
   currentUserEmail: string | null;
   isMentorUser: boolean;
+  selectedMentor: Mentor | null;
   mentorMeetings: Booking[];
   mentorForm: MentorFormState;
   editingMentorId: number | null;
   availabilityMentorId: number | null;
   availabilityDate: string;
   availabilitySlot: string;
+  availabilityBatchStartTime: string;
+  availabilityBatchEndTime: string;
+  availabilityBatchInterval: string;
   availabilitySlots: Array<{ id: number; time: string; available: boolean; date: string }>;
   onMentorFormChange: React.Dispatch<React.SetStateAction<MentorFormState>>;
   onSubmit: () => Promise<void>;
   onReset: () => void;
   onEdit: (mentor: Mentor) => void;
   onDelete: (mentorId: number) => Promise<void>;
+  onSelectedMentorIdChange: React.Dispatch<React.SetStateAction<number | null>>;
   onAvailabilityMentorIdChange: React.Dispatch<React.SetStateAction<number | null>>;
   onAvailabilityDateChange: React.Dispatch<React.SetStateAction<string>>;
   onAvailabilitySlotChange: React.Dispatch<React.SetStateAction<string>>;
+  onAvailabilityBatchStartTimeChange: React.Dispatch<React.SetStateAction<string>>;
+  onAvailabilityBatchEndTimeChange: React.Dispatch<React.SetStateAction<string>>;
+  onAvailabilityBatchIntervalChange: React.Dispatch<React.SetStateAction<string>>;
   onCreateAvailability: () => Promise<void>;
+  onCreateAvailabilityBatch: () => Promise<void>;
   onDeleteAvailability: (slotId: number) => Promise<void>;
 }) {
   const visibleMentors = isMentorUser ? mentors.filter((mentor) => mentor.email === currentUserEmail) : mentors;
+  const mentorOptions = useMemo<SearchableOption[]>(
+    () =>
+      visibleMentors.map((mentor) => ({
+        value: String(mentor.id),
+        label: mentor.name,
+        helperText: `${mentor.email} · ${mentor.region}`,
+        keywords: [mentor.expertise],
+      })),
+    [visibleMentors],
+  );
+  const [showAllAvailabilitySlots, setShowAllAvailabilitySlots] = useState(false);
+  const sortedAvailabilitySlots = useMemo(
+    () => [...availabilitySlots].sort((left, right) => parseDisplayTimeToMinutes(left.time) - parseDisplayTimeToMinutes(right.time)),
+    [availabilitySlots],
+  );
+  const previewAvailabilitySlots = showAllAvailabilitySlots ? sortedAvailabilitySlots : sortedAvailabilitySlots.slice(0, 4);
+  const availableSlotCount = sortedAvailabilitySlots.filter((slot) => slot.available).length;
+  const bookedSlotCount = sortedAvailabilitySlots.length - availableSlotCount;
 
   return (
     <AdminSection
@@ -829,18 +1200,19 @@ function MentorsSection({
           <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
             <h3 className="text-xl font-semibold">Availability controls</h3>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
-              <select
-                value={availabilityMentorId ?? ""}
-                onChange={(e) => onAvailabilityMentorIdChange(Number(e.target.value))}
+              <SearchableSelect
+                value={availabilityMentorId ? String(availabilityMentorId) : ""}
+                onChange={(value) => onAvailabilityMentorIdChange(value ? Number(value) : null)}
+                options={visibleMentors.map((mentor) => ({
+                  value: String(mentor.id),
+                  label: mentor.name,
+                  helperText: mentor.email,
+                  keywords: [mentor.region, mentor.expertise],
+                }))}
+                placeholder="Select mentor"
+                searchPlaceholder="Search mentor"
                 disabled={isMentorUser}
-                className="rounded-2xl border border-black/10 px-4 py-3 disabled:bg-slate-100"
-              >
-                {visibleMentors.map((mentor) => (
-                  <option key={mentor.id} value={mentor.id}>
-                    {mentor.name}
-                  </option>
-                ))}
-              </select>
+              />
               <input type="date" value={availabilityDate} onChange={(e) => onAvailabilityDateChange(e.target.value)} className="rounded-2xl border border-black/10 px-4 py-3" />
               <input value={availabilitySlot} onChange={(e) => onAvailabilitySlotChange(e.target.value)} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="10:00 AM" />
             </div>
@@ -848,8 +1220,58 @@ function MentorsSection({
               Add Slot
             </button>
 
+            <div className="mt-6 rounded-3xl border border-white/70 bg-white/80 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Batch create slots</h4>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Generate a full block of availability in one go. A 30-minute interval is the best default for standard mentor sessions.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <input
+                  type="time"
+                  value={availabilityBatchStartTime}
+                  onChange={(e) => onAvailabilityBatchStartTimeChange(e.target.value)}
+                  className="rounded-2xl border border-black/10 px-4 py-3"
+                />
+                <input
+                  type="time"
+                  value={availabilityBatchEndTime}
+                  onChange={(e) => onAvailabilityBatchEndTimeChange(e.target.value)}
+                  className="rounded-2xl border border-black/10 px-4 py-3"
+                />
+                <SearchableSelect
+                  value={availabilityBatchInterval}
+                  onChange={(value) => onAvailabilityBatchIntervalChange(value || "30")}
+                  options={[
+                    { value: "30", label: "30 minutes" },
+                    { value: "45", label: "45 minutes" },
+                    { value: "60", label: "60 minutes" },
+                  ]}
+                  placeholder="Interval"
+                  searchPlaceholder="Search interval"
+                />
+              </div>
+
+              <button
+                onClick={() => void onCreateAvailabilityBatch()}
+                className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white"
+              >
+                Generate Slots For This Day
+              </button>
+            </div>
+
             <div className="mt-5 space-y-2">
-              {availabilitySlots.map((slot) => (
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-600">
+                <span className="font-medium text-[var(--portal-ink)]">{sortedAvailabilitySlots.length} total slots</span>
+                <StatusBadge label={`${availableSlotCount} Available`} />
+                {bookedSlotCount > 0 ? <StatusBadge label={`${bookedSlotCount} Booked`} /> : null}
+              </div>
+
+              {previewAvailabilitySlots.map((slot) => (
                 <div key={slot.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-3">
                   <div className="flex items-center gap-3">
                     <span className="font-medium">{slot.time}</span>
@@ -862,6 +1284,18 @@ function MentorsSection({
                   ) : null}
                 </div>
               ))}
+
+              {sortedAvailabilitySlots.length > 4 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAllAvailabilitySlots((current) => !current)}
+                  className="w-full rounded-2xl border border-dashed border-black/10 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-white"
+                >
+                  {showAllAvailabilitySlots
+                    ? "Show fewer slots"
+                    : `Show all ${sortedAvailabilitySlots.length} slots for this day`}
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -893,113 +1327,69 @@ function MentorsSection({
           ) : null}
         </div>
 
-        <div className="space-y-3">
-          {visibleMentors.map((mentor) => (
-            <div key={mentor.id} className="rounded-3xl border border-slate-100 p-5">
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-100 p-6">
+            <SearchableSelect
+              value={selectedMentor ? String(selectedMentor.id) : ""}
+              onChange={(value) => {
+                const nextMentorId = value ? Number(value) : null;
+                onSelectedMentorIdChange(nextMentorId);
+                onAvailabilityMentorIdChange(nextMentorId);
+              }}
+              options={mentorOptions}
+              placeholder="Select a mentor"
+              searchPlaceholder="Search by mentor name, email, region, or expertise"
+            />
+            <p className="mt-3 text-sm text-slate-500">
+              Search once, then focus on one mentor profile at a time for quick edits.
+            </p>
+          </div>
+
+          {selectedMentor ? (
+            <div className="rounded-3xl border border-slate-100 p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-lg font-semibold">{mentor.name}</p>
-                    <StatusBadge label={mentor.region} />
+                    <p className="text-lg font-semibold">{selectedMentor.name}</p>
+                    <StatusBadge label={selectedMentor.region} />
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">{mentor.email}</p>
-                  <p className="mt-1 text-sm text-slate-500">{mentor.expertise}</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{mentor.bio}</p>
+                  <p className="mt-1 text-sm text-slate-500">{selectedMentor.email}</p>
+                  <p className="mt-1 text-sm text-slate-500">{selectedMentor.expertise}</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{selectedMentor.bio}</p>
                 </div>
                 {!isMentorUser ? (
                   <div className="flex flex-wrap gap-3">
-                    <button onClick={() => onEdit(mentor)} className="rounded-full border border-black/10 px-4 py-2 text-sm">
+                    <button onClick={() => onEdit(selectedMentor)} className="rounded-full border border-black/10 px-4 py-2 text-sm">
                       Edit
                     </button>
-                    <button onClick={() => void onDelete(mentor.id)} className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600">
+                    <button onClick={() => void onDelete(selectedMentor.id)} className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600">
                       Delete
                     </button>
                   </div>
                 ) : null}
               </div>
             </div>
-          ))}
+          ) : (
+            <p className="rounded-3xl border border-slate-100 p-6 text-sm text-slate-500">
+              No mentors match the current search.
+            </p>
+          )}
         </div>
       </div>
     </AdminSection>
   );
 }
 
-function DeadlinesSection({
-  programs,
-  allDeadlines,
-  deadlineProgramId,
-  deadlineTitle,
-  deadlineDate,
-  deadlinePriority,
-  onProgramChange,
-  onTitleChange,
-  onDateChange,
-  onPriorityChange,
-  onCreate,
-  onDelete,
-}: {
-  programs: Program[];
-  allDeadlines: Deadline[];
-  deadlineProgramId: number | null;
-  deadlineTitle: string;
-  deadlineDate: string;
-  deadlinePriority: string;
-  onProgramChange: React.Dispatch<React.SetStateAction<number | null>>;
-  onTitleChange: React.Dispatch<React.SetStateAction<string>>;
-  onDateChange: React.Dispatch<React.SetStateAction<string>>;
-  onPriorityChange: React.Dispatch<React.SetStateAction<string>>;
-  onCreate: () => Promise<void>;
-  onDelete: (deadlineId: number) => Promise<void>;
-}) {
+function ProgramsRedirectSection() {
   return (
     <AdminSection
       eyebrow="Deadlines"
-      title="Deadline management"
-      description="Create and prioritize milestone dates that instantly propagate to student program pages and dashboards."
+      title="Deadline management has moved"
+      description="Deadlines are now managed inside the Programs workspace so each program and its milestones stay together in one compact flow."
     >
-      <div className="grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
-        <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
-          <h3 className="text-xl font-semibold">Create deadline</h3>
-          <div className="mt-5 grid gap-3">
-            <select value={deadlineProgramId ?? ""} onChange={(e) => onProgramChange(Number(e.target.value))} className="rounded-2xl border border-black/10 px-4 py-3">
-              {programs.map((program) => (
-                <option key={program.id} value={program.id}>
-                  {program.title}
-                </option>
-              ))}
-            </select>
-            <input value={deadlineTitle} onChange={(e) => onTitleChange(e.target.value)} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Deadline title" />
-            <input type="date" value={deadlineDate} onChange={(e) => onDateChange(e.target.value)} className="rounded-2xl border border-black/10 px-4 py-3" />
-            <select value={deadlinePriority} onChange={(e) => onPriorityChange(e.target.value)} className="rounded-2xl border border-black/10 px-4 py-3">
-              <option>High</option>
-              <option>Medium</option>
-              <option>Low</option>
-            </select>
-          </div>
-          <button onClick={() => void onCreate()} className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white">
-            Create Deadline
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {allDeadlines.map((deadline) => (
-            <div key={deadline.id} className="flex flex-col gap-3 rounded-3xl border border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="font-semibold">{deadline.programTitle}</p>
-                <p className="text-sm text-slate-500">{deadline.title}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-slate-500">{formatIsoDate(deadline.date)}</span>
-                <StatusBadge label={deadline.priority} />
-                <button onClick={() => void onDelete(deadline.id)} className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600">
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <p className="rounded-3xl bg-[var(--portal-panel)] px-5 py-5 text-sm text-slate-600">
+        Open the Programs tab, search for a program, and manage that program&apos;s deadlines directly from its detail panel.
+      </p>
     </AdminSection>
   );
 }
@@ -1025,12 +1415,128 @@ function ApplicationsSection({
   onSaveNotes: (application: Application) => Promise<void>;
   onNominate: (application: Application) => Promise<void>;
 }) {
+  const [documentActionLoadingId, setDocumentActionLoadingId] = useState<number | null>(null);
+  const [previewDocument, setPreviewDocument] = useState<ApplicationDocumentAsset | null>(null);
+  const studentOptions = useMemo(
+    () => Array.from(new Set(applications.map((application) => application.studentName))).sort(),
+    [applications],
+  );
+  const programOptions = useMemo(
+    () => Array.from(new Set(applications.map((application) => application.programTitle))).sort(),
+    [applications],
+  );
+  const deferredStudentFilter = useDeferredValue(applicationFilter.student);
+  const deferredProgramFilter = useDeferredValue(applicationFilter.program);
+  const deferredStatusFilter = useDeferredValue(applicationFilter.status);
+  const filteredApplications = useMemo(
+    () =>
+      applications.filter((application) => {
+        const studentMatch = deferredStudentFilter
+          ? application.studentName.toLowerCase().includes(deferredStudentFilter.toLowerCase())
+          : true;
+        const programMatch = deferredProgramFilter
+          ? application.programTitle.toLowerCase().includes(deferredProgramFilter.toLowerCase())
+          : true;
+        const statusMatch = deferredStatusFilter ? application.status === deferredStatusFilter : true;
+        return studentMatch && programMatch && statusMatch;
+      }),
+    [applications, deferredProgramFilter, deferredStatusFilter, deferredStudentFilter],
+  );
+
+  const previewableDocument = useMemo(() => {
+    if (!previewDocument) return null;
+
+    const mimeType = previewDocument.mimeType.toLowerCase();
+    const canInlinePreview =
+      mimeType.startsWith("image/") ||
+      mimeType === "application/pdf" ||
+      mimeType.startsWith("text/") ||
+      mimeType.includes("json");
+
+    return {
+      ...previewDocument,
+      canInlinePreview,
+    };
+  }, [previewDocument]);
+
+  async function openApplicationDocument(documentId: number, mode: "preview" | "download") {
+    try {
+      setDocumentActionLoadingId(documentId);
+      const asset = await apiGet<ApplicationDocumentAsset>(`/application-documents/${documentId}`);
+
+      if (mode === "preview") {
+        setPreviewDocument(asset);
+        return;
+      }
+
+      const link = window.document.createElement("a");
+      link.href = asset.fileData;
+      link.download = asset.fileName;
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setDocumentActionLoadingId(null);
+    }
+  }
+
   return (
     <>
+      {previewableDocument ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+              <div>
+                <p className="text-lg font-semibold text-[var(--portal-ink)]">{previewableDocument.fileName}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {previewableDocument.requirementLabel}
+                  {previewableDocument.deadlineTitle ? ` · ${previewableDocument.deadlineTitle}` : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void openApplicationDocument(previewableDocument.id, "download")}
+                  className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700"
+                >
+                  Download
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDocument(null)}
+                  className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 bg-slate-100 p-4">
+              {previewableDocument.canInlinePreview ? (
+                <iframe
+                  title={previewableDocument.fileName}
+                  src={previewableDocument.fileData}
+                  className="h-full w-full rounded-2xl border border-slate-200 bg-white"
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 text-center">
+                  <p className="text-lg font-semibold text-[var(--portal-ink)]">Preview not supported for this file type</p>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                    This document can still be downloaded and opened locally. For the best experience, use the download action above.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <AdminSection
         eyebrow="Approval Queue"
         title="Review workflow"
-        description="Move applications across statuses without losing context, and keep student dashboards in sync."
+        description="Overview-only workflow lanes. Each lane shows the most recent item so the page highlights movement without turning into a long queue wall."
       >
         <div className="grid gap-4 xl:grid-cols-2">
           <ApprovalColumn title="Submitted" items={approvalQueue.submitted} onStatusChange={onStatusChange} />
@@ -1043,23 +1549,40 @@ function ApplicationsSection({
       <AdminSection
         eyebrow="Applications"
         title="Applications review panel"
-        description="Filter, annotate, approve, reject, and nominate student applications from a focused office review space."
+        description="Search by student or program, narrow by status, and work on the specific application you need instead of scanning a giant list."
       >
         <div className="grid gap-3 md:grid-cols-3">
-          <input value={applicationFilter.student} onChange={(e) => onApplicationFilterChange((prev) => ({ ...prev, student: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Filter by student" />
-          <input value={applicationFilter.program} onChange={(e) => onApplicationFilterChange((prev) => ({ ...prev, program: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Filter by program" />
-          <select value={applicationFilter.status} onChange={(e) => onApplicationFilterChange((prev) => ({ ...prev, status: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3">
-            <option value="">All statuses</option>
-            {statusOptions.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
+          <SearchableSelect
+            value={applicationFilter.student}
+            onChange={(value) => onApplicationFilterChange((prev) => ({ ...prev, student: value }))}
+            options={studentOptions.map((student) => ({ value: student, label: student }))}
+            placeholder="Filter by student"
+            searchPlaceholder="Search student"
+            allowClear
+          />
+          <SearchableSelect
+            value={applicationFilter.program}
+            onChange={(value) => onApplicationFilterChange((prev) => ({ ...prev, program: value }))}
+            options={programOptions.map((program) => ({ value: program, label: program }))}
+            placeholder="Filter by program"
+            searchPlaceholder="Search program"
+            allowClear
+          />
+          <SearchableSelect
+            value={applicationFilter.status}
+            onChange={(value) => onApplicationFilterChange((prev) => ({ ...prev, status: value }))}
+            options={statusOptions.map((status) => ({ value: status, label: status }))}
+            placeholder="All statuses"
+            searchPlaceholder="Search status"
+            allowClear
+          />
         </div>
+        <p className="mt-4 text-sm text-slate-500">
+          Showing {filteredApplications.length} matching application{filteredApplications.length === 1 ? "" : "s"}.
+        </p>
 
         <div className="mt-6 space-y-5">
-          {applications.map((application) => (
+          {filteredApplications.map((application) => (
             <div key={application.id} className="rounded-3xl border border-slate-100 p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -1067,22 +1590,64 @@ function ApplicationsSection({
                     <p className="text-lg font-semibold">{application.programTitle}</p>
                     <StatusBadge label={application.status} />
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {application.studentName} · {application.studentEmail}
-                  </p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{application.statement || "No statement provided."}</p>
+                  <p className="mt-2 text-sm font-medium text-[var(--portal-ink)]">Student: {application.studentName}</p>
+                  <p className="text-sm text-slate-500">{application.studentEmail}</p>
+                  <p className="mt-2 text-sm text-slate-500">Program: {application.programTitle}</p>
+                  {application.documents.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-sm font-medium text-slate-700">Student uploads</p>
+                      <div className="space-y-2">
+                      {application.documents.map((document) => (
+                        <div
+                          key={document.id}
+                          className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-[var(--portal-panel)] p-3 lg:flex-row lg:items-center lg:justify-between"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-[var(--portal-ink)]">
+                              {document.requirementLabel}: {document.fileName}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {document.deadlineTitle}
+                              {document.deadlineDate ? ` · due ${formatIsoDate(document.deadlineDate)}` : ""}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void openApplicationDocument(document.id, "preview")}
+                              disabled={documentActionLoadingId === document.id}
+                              className="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
+                            >
+                              {documentActionLoadingId === document.id ? "Loading..." : "Preview"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void openApplicationDocument(document.id, "download")}
+                              disabled={documentActionLoadingId === document.id}
+                              className="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-                <select
-                  value={application.status}
-                  onChange={(e) => void onStatusChange(application.id, e.target.value as ApplicationStatus)}
-                  className="rounded-full border border-black/10 px-4 py-2 text-sm"
-                >
-                  {statusOptions.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full max-w-[14rem]">
+                  <SearchableSelect
+                    value={application.status}
+                    onChange={(value) => {
+                      if (value) {
+                        void onStatusChange(application.id, value as ApplicationStatus);
+                      }
+                    }}
+                    options={statusOptions.map((status) => ({ value: status, label: status }))}
+                    placeholder="Application status"
+                    searchPlaceholder="Search status"
+                  />
+                </div>
               </div>
 
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -1118,6 +1683,11 @@ function ApplicationsSection({
               </div>
             </div>
           ))}
+          {filteredApplications.length === 0 ? (
+            <p className="rounded-3xl border border-slate-100 p-6 text-sm text-slate-500">
+              No applications match the current student, program, and status filters.
+            </p>
+          ) : null}
         </div>
       </AdminSection>
 
@@ -1188,18 +1758,20 @@ function AssistantSection({
               className="rounded-2xl border border-black/10 px-4 py-3"
               placeholder="Document title"
             />
-            <select
+            <SearchableSelect
               value={form.sourceType}
-              onChange={(e) => onFormChange((prev) => ({ ...prev, sourceType: e.target.value }))}
-              className="rounded-2xl border border-black/10 px-4 py-3"
-            >
-              <option value="text">Text note</option>
-              <option value="markdown">Markdown</option>
-              <option value="policy">Policy</option>
-              <option value="faq">FAQ</option>
-              <option value="process">Process guide</option>
-              <option value="json">Structured JSON</option>
-            </select>
+              onChange={(value) => onFormChange((prev) => ({ ...prev, sourceType: value || "text" }))}
+              options={[
+                { value: "text", label: "Text note" },
+                { value: "markdown", label: "Markdown" },
+                { value: "policy", label: "Policy" },
+                { value: "faq", label: "FAQ" },
+                { value: "process", label: "Process guide" },
+                { value: "json", label: "Structured JSON" },
+              ]}
+              placeholder="Document type"
+              searchPlaceholder="Search document type"
+            />
             <label className="rounded-2xl border border-dashed border-black/10 bg-white px-4 py-4 text-sm text-slate-600">
               <span className="block font-medium text-[var(--portal-ink)]">Upload file</span>
               <span className="mt-1 block">Choose a text-based file to autofill the content area.</span>
@@ -1278,6 +1850,8 @@ function MetricCard({ label, value }: { label: string; value: number }) {
 }
 
 function QueueSummary({ title, items }: { title: string; items: Application[] }) {
+  const previewItems = items.slice(0, 1);
+
   return (
     <div className="rounded-3xl bg-[var(--portal-panel)] p-5">
       <div className="flex items-center justify-between">
@@ -1285,15 +1859,170 @@ function QueueSummary({ title, items }: { title: string; items: Application[] })
         <span className="text-sm text-slate-500">{items.length}</span>
       </div>
       <div className="mt-4 space-y-2">
-        {items.slice(0, 3).map((item) => (
+        {previewItems.map((item) => (
           <div key={item.id} className="rounded-2xl bg-white p-3">
+            <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Program</p>
             <p className="font-medium">{item.programTitle}</p>
+            <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-400">Student</p>
             <p className="text-sm text-slate-500">{item.studentName}</p>
           </div>
         ))}
+        {items.length > previewItems.length ? (
+          <p className="text-xs text-slate-500">Showing latest {previewItems.length} item in this lane.</p>
+        ) : null}
       </div>
     </div>
   );
+}
+
+function SearchableSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  searchPlaceholder,
+  allowClear = false,
+  disabled = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: SearchableOption[];
+  placeholder: string;
+  searchPlaceholder: string;
+  allowClear?: boolean;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const deferredQuery = useDeferredValue(query);
+
+  const selectedOption = useMemo(
+    () => options.find((option) => option.value === value) ?? null,
+    [options, value],
+  );
+
+  const filteredOptions = useMemo(() => {
+    const normalizedQuery = deferredQuery.trim().toLowerCase();
+    if (!normalizedQuery) return options;
+
+    return options.filter((option) =>
+      [option.label, option.helperText, ...(option.keywords ?? [])]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [deferredQuery, options]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          if (disabled) return;
+          setOpen((current) => {
+            const nextOpen = !current;
+            if (!nextOpen) {
+              setQuery("");
+            }
+            return nextOpen;
+          });
+        }}
+        className="flex w-full items-center justify-between rounded-2xl border border-black/10 bg-white px-4 py-3 text-left disabled:cursor-not-allowed disabled:bg-slate-100"
+        disabled={disabled}
+      >
+        <div className="min-w-0">
+          <p className={selectedOption ? "truncate text-[var(--portal-ink)]" : "truncate text-slate-400"}>
+            {selectedOption?.label || placeholder}
+          </p>
+          {selectedOption?.helperText ? <p className="truncate text-xs text-slate-500">{selectedOption.helperText}</p> : null}
+        </div>
+        <span className="ml-3 text-slate-500">{open ? "▴" : "▾"}</span>
+      </button>
+
+      {open ? (
+        <div className="absolute left-0 right-0 z-20 mt-2 rounded-2xl border border-black/10 bg-white p-3 shadow-xl">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="w-full rounded-2xl border border-black/10 px-4 py-3"
+            placeholder={searchPlaceholder}
+            autoFocus
+          />
+
+          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
+            {allowClear ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("");
+                  setOpen(false);
+                  setQuery("");
+                }}
+                className="w-full rounded-2xl border border-dashed border-black/10 px-4 py-3 text-left text-sm text-slate-500"
+              >
+                Clear selection
+              </button>
+            ) : null}
+
+            {filteredOptions.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-black/10 px-4 py-3 text-sm text-slate-500">
+                No matches found.
+              </div>
+            ) : (
+              filteredOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                    setQuery("");
+                  }}
+                  className={`w-full rounded-2xl px-4 py-3 text-left transition ${
+                    option.value === value ? "bg-[var(--portal-panel)]" : "hover:bg-[var(--portal-panel)]"
+                  }`}
+                >
+                  <p className="font-medium text-[var(--portal-ink)]">{option.label}</p>
+                  {option.helperText ? <p className="text-xs text-slate-500">{option.helperText}</p> : null}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function parseDisplayTimeToMinutes(value: string) {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const meridiem = match[3].toUpperCase();
+
+  if (meridiem === "AM") {
+    if (hours === 12) hours = 0;
+  } else if (hours !== 12) {
+    hours += 12;
+  }
+
+  return hours * 60 + minutes;
 }
 
 function ApprovalColumn({
@@ -1305,6 +2034,8 @@ function ApprovalColumn({
   items: Application[];
   onStatusChange: (applicationId: number, status: ApplicationStatus) => Promise<void>;
 }) {
+  const previewItems = items.slice(0, 1);
+
   return (
     <div className="rounded-3xl border border-slate-100 p-5">
       <div className="flex items-center justify-between">
@@ -1312,10 +2043,12 @@ function ApprovalColumn({
         <span className="text-sm text-slate-500">{items.length}</span>
       </div>
       <div className="mt-4 space-y-3">
-        {items.map((item) => (
+        {previewItems.map((item) => (
           <div key={item.id} className="rounded-2xl bg-[var(--portal-panel)] p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Program</p>
             <p className="font-medium">{item.programTitle}</p>
-            <p className="mt-1 text-sm text-slate-500">{item.studentName}</p>
+            <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-400">Student</p>
+            <p className="text-sm text-slate-500">{item.studentName}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {statusOptions
                 .filter((status) => status !== item.status)
@@ -1332,6 +2065,9 @@ function ApprovalColumn({
             </div>
           </div>
         ))}
+        {items.length > previewItems.length ? (
+          <p className="text-xs text-slate-500">Showing the latest application in this status lane.</p>
+        ) : null}
       </div>
     </div>
   );

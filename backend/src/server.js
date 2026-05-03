@@ -28,7 +28,7 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: "15mb" }));
 
 app.use(async (req, _res, next) => {
   req.actor = await resolveActor(req);
@@ -54,6 +54,23 @@ function parseTags(input) {
   return [];
 }
 
+function parseRequiredDocuments(input) {
+  if (Array.isArray(input)) {
+    return input
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+  }
+
+  if (typeof input === "string") {
+    return input
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 function parseProgramPayload(body) {
   const {
     title,
@@ -63,6 +80,7 @@ function parseProgramPayload(body) {
     description,
     eligibility,
     duration,
+    endDate,
     featured,
     tags,
   } = body;
@@ -82,6 +100,7 @@ function parseProgramPayload(body) {
     description: String(description).trim(),
     eligibility: String(eligibility).trim(),
     duration: String(duration).trim(),
+    endDate: endDate ? new Date(`${String(endDate).slice(0, 10)}T00:00:00.000Z`) : null,
     featured: Boolean(featured),
     tagsJson: getTagsJson(parseTags(tags)),
   };
@@ -103,7 +122,7 @@ function parseMentorPayload(body) {
 }
 
 function parseDeadlinePayload(body) {
-  const { programId, title, date, priority } = body;
+  const { programId, title, date, priority, requiredDocuments } = body;
   if (!programId || !title || !date || !priority) {
     return failure("programId, title, date, and priority are required.", 400);
   }
@@ -113,7 +132,35 @@ function parseDeadlinePayload(body) {
     title: String(title).trim(),
     date: new Date(`${String(date).slice(0, 10)}T00:00:00.000Z`),
     priority: String(priority).trim(),
+    requiredDocumentsJson: JSON.stringify(parseRequiredDocuments(requiredDocuments)),
   };
+}
+
+function parseApplicationUploads(input, fallbackDeadlines = []) {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .map((item) => {
+      const deadlineId = Number(item?.deadlineId);
+      const requirementLabel = String(item?.requirementLabel || "").trim();
+      const fileName = String(item?.fileName || "").trim();
+      const mimeType = String(item?.mimeType || "application/octet-stream").trim();
+      const fileData = String(item?.fileData || "").trim();
+      const matchedDeadline = fallbackDeadlines.find((deadline) => deadline.id === deadlineId);
+
+      if (!deadlineId || !requirementLabel || !fileName || !fileData || !matchedDeadline) {
+        return null;
+      }
+
+      return {
+        deadlineId,
+        requirementLabel,
+        fileName,
+        mimeType,
+        fileData,
+      };
+    })
+    .filter(Boolean);
 }
 
 function parseAvailabilityPayload(body) {
@@ -126,6 +173,86 @@ function parseAvailabilityPayload(body) {
     mentorId: Number(mentorId),
     date: new Date(`${String(date).slice(0, 10)}T00:00:00.000Z`),
     slot: String(slot).trim(),
+  };
+}
+
+function parseClockTimeToMinutes(value) {
+  if (!value) return null;
+  const normalized = String(value).trim().toUpperCase();
+
+  const meridiemMatch = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+  if (meridiemMatch) {
+    let hours = Number(meridiemMatch[1]);
+    const minutes = Number(meridiemMatch[2]);
+    const meridiem = meridiemMatch[3];
+    if (Number.isNaN(hours) || Number.isNaN(minutes) || minutes > 59 || hours < 1 || hours > 12) {
+      return null;
+    }
+    if (meridiem === "AM") {
+      if (hours === 12) hours = 0;
+    } else if (hours !== 12) {
+      hours += 12;
+    }
+    return hours * 60 + minutes;
+  }
+
+  const twentyFourHourMatch = normalized.match(/^(\d{2}):(\d{2})$/);
+  if (twentyFourHourMatch) {
+    const hours = Number(twentyFourHourMatch[1]);
+    const minutes = Number(twentyFourHourMatch[2]);
+    if (Number.isNaN(hours) || Number.isNaN(minutes) || hours > 23 || minutes > 59) {
+      return null;
+    }
+    return hours * 60 + minutes;
+  }
+
+  return null;
+}
+
+function formatMinutesAsSlot(minutes) {
+  const normalizedHours = Math.floor(minutes / 60);
+  const normalizedMinutes = minutes % 60;
+  const meridiem = normalizedHours >= 12 ? "PM" : "AM";
+  const twelveHour = normalizedHours % 12 === 0 ? 12 : normalizedHours % 12;
+  return `${String(twelveHour).padStart(2, "0")}:${String(normalizedMinutes).padStart(2, "0")} ${meridiem}`;
+}
+
+function parseAvailabilityBatchPayload(body) {
+  const { mentorId, date, startTime, endTime, intervalMinutes = 30 } = body;
+  if (!mentorId || !date || !startTime || !endTime) {
+    return failure("mentorId, date, startTime, and endTime are required for batch availability.", 400);
+  }
+
+  const startMinutes = parseClockTimeToMinutes(startTime);
+  const endMinutes = parseClockTimeToMinutes(endTime);
+  const normalizedInterval = Number(intervalMinutes);
+
+  if (startMinutes === null || endMinutes === null) {
+    return failure("Please provide valid startTime and endTime values.", 400);
+  }
+
+  if (Number.isNaN(normalizedInterval) || normalizedInterval < 15) {
+    return failure("intervalMinutes must be at least 15.", 400);
+  }
+
+  if (endMinutes <= startMinutes) {
+    return failure("endTime must be later than startTime.", 400);
+  }
+
+  const slots = [];
+  for (let currentMinutes = startMinutes; currentMinutes < endMinutes; currentMinutes += normalizedInterval) {
+    slots.push(formatMinutesAsSlot(currentMinutes));
+  }
+
+  if (slots.length === 0) {
+    return failure("That batch range does not create any slots.", 400);
+  }
+
+  return {
+    mentorId: Number(mentorId),
+    date: new Date(`${String(date).slice(0, 10)}T00:00:00.000Z`),
+    slots,
+    intervalMinutes: normalizedInterval,
   };
 }
 
@@ -383,8 +510,14 @@ app.get("/api/programs/:id", async (req, res) => {
         },
         include: {
           student: true,
-          program: { include: { deadlines: true } },
+          program: { include: { deadlines: { orderBy: { date: "asc" } } } },
           approvedByAdmin: true,
+          documents: {
+            include: {
+              deadline: true,
+            },
+            orderBy: { uploadedAt: "asc" },
+          },
           nominations: { include: { admin: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -565,7 +698,8 @@ app.get("/api/mentors/:id/availability", async (req, res) => {
 
 app.post("/api/availability", async (req, res) => {
   if (!(await requireOfficeOrMentorResponse(req, res))) return;
-  const payload = parseAvailabilityPayload(req.body);
+  const isBatchRequest = !req.body?.slot && (req.body?.startTime || req.body?.endTime);
+  const payload = isBatchRequest ? parseAvailabilityBatchPayload(req.body) : parseAvailabilityPayload(req.body);
   if (payload.status) {
     return res.status(payload.status).json(payload.body);
   }
@@ -577,6 +711,37 @@ app.post("/api/availability", async (req, res) => {
 
   if (requireMentor(req.actor) && req.actor.mentor.id !== payload.mentorId) {
     return sendError(res, "Mentors can only manage their own availability.", 403);
+  }
+
+  if (isBatchRequest) {
+    const existingSlots = await prisma.availability.findMany({
+      where: {
+        mentorId: payload.mentorId,
+        date: payload.date,
+      },
+      select: { slot: true },
+    });
+
+    const existingSlotLabels = new Set(existingSlots.map((item) => item.slot));
+    const newSlots = payload.slots.filter((slotLabel) => !existingSlotLabels.has(slotLabel));
+
+    if (newSlots.length > 0) {
+      await prisma.availability.createMany({
+        data: newSlots.map((slotLabel) => ({
+          mentorId: payload.mentorId,
+          date: payload.date,
+          slot: slotLabel,
+        })),
+      });
+    }
+
+    return res.status(201).json(
+      success({
+        createdCount: newSlots.length,
+        skippedCount: payload.slots.length - newSlots.length,
+        slots: newSlots,
+      }),
+    );
   }
 
   try {
@@ -766,17 +931,24 @@ app.delete("/api/bookings/:id", async (req, res) => {
 
 app.post("/api/applications", async (req, res) => {
   if (!(await requireStudentResponse(req, res))) return;
-  const { programId, statement = "", status = "Submitted" } = req.body;
+  const { programId, statement = "", status = "Submitted", uploads = [] } = req.body;
   if (!programId) {
     return sendError(res, "programId is required.", 400);
   }
 
   const program = await prisma.program.findUnique({
     where: { id: Number(programId) },
+    include: {
+      deadlines: {
+        orderBy: { date: "asc" },
+      },
+    },
   });
   if (!program) {
     return sendError(res, "Program not found.", 404);
   }
+
+  const parsedUploads = parseApplicationUploads(uploads, program.deadlines);
 
   const application = await prisma.application.create({
     data: {
@@ -784,11 +956,22 @@ app.post("/api/applications", async (req, res) => {
       programId: Number(programId),
       statement: String(statement).trim(),
       status: String(status),
+      documents: parsedUploads.length
+        ? {
+            create: parsedUploads,
+          }
+        : undefined,
     },
     include: {
       student: true,
-      program: { include: { deadlines: true } },
+      program: { include: { deadlines: { orderBy: { date: "asc" } } } },
       approvedByAdmin: true,
+      documents: {
+        include: {
+          deadline: true,
+        },
+        orderBy: { uploadedAt: "asc" },
+      },
       nominations: { include: { admin: true } },
     },
   });
@@ -813,6 +996,12 @@ app.get("/api/applications/me", async (req, res) => {
         },
       },
       approvedByAdmin: true,
+      documents: {
+        include: {
+          deadline: true,
+        },
+        orderBy: { uploadedAt: "asc" },
+      },
       nominations: {
         include: { admin: true },
       },
@@ -837,6 +1026,12 @@ app.get("/api/applications/:id", async (req, res) => {
         },
       },
       approvedByAdmin: true,
+      documents: {
+        include: {
+          deadline: true,
+        },
+        orderBy: { uploadedAt: "asc" },
+      },
       nominations: {
         include: { admin: true },
       },
@@ -855,6 +1050,144 @@ app.get("/api/applications/:id", async (req, res) => {
   }
 
   res.json(success(formatApplication(application)));
+});
+
+app.put("/api/applications/:id/documents", async (req, res) => {
+  if (!(await requireStudentResponse(req, res))) return;
+  const id = Number(req.params.id);
+  const { uploads = [] } = req.body;
+
+  const application = await prisma.application.findUnique({
+    where: { id },
+    include: {
+      student: true,
+      program: {
+        include: {
+          deadlines: {
+            orderBy: { date: "asc" },
+          },
+        },
+      },
+      approvedByAdmin: true,
+      documents: {
+        include: {
+          deadline: true,
+        },
+        orderBy: { uploadedAt: "asc" },
+      },
+      nominations: {
+        include: { admin: true },
+      },
+    },
+  });
+
+  if (!application || application.studentId !== req.actor.student.id) {
+    return sendError(res, "Application not found.", 404);
+  }
+
+  const parsedUploads = parseApplicationUploads(uploads, application.program.deadlines);
+  if (parsedUploads.length === 0) {
+    return sendError(res, "Please include at least one valid upload.", 400);
+  }
+
+  await prisma.$transaction(
+    parsedUploads.map((upload) =>
+      prisma.applicationDocument.upsert({
+        where: {
+          applicationId_deadlineId_requirementLabel: {
+            applicationId: application.id,
+            deadlineId: upload.deadlineId,
+            requirementLabel: upload.requirementLabel,
+          },
+        },
+        update: {
+          fileName: upload.fileName,
+          mimeType: upload.mimeType,
+          fileData: upload.fileData,
+        },
+        create: {
+          applicationId: application.id,
+          deadlineId: upload.deadlineId,
+          requirementLabel: upload.requirementLabel,
+          fileName: upload.fileName,
+          mimeType: upload.mimeType,
+          fileData: upload.fileData,
+        },
+      }),
+    ),
+  );
+
+  const updated = await prisma.application.findUnique({
+    where: { id },
+    include: {
+      student: true,
+      program: {
+        include: {
+          deadlines: {
+            orderBy: { date: "asc" },
+          },
+        },
+      },
+      approvedByAdmin: true,
+      documents: {
+        include: {
+          deadline: true,
+        },
+        orderBy: { uploadedAt: "asc" },
+      },
+      nominations: {
+        include: { admin: true },
+      },
+    },
+  });
+
+  res.json(success(formatApplication(updated)));
+});
+
+app.get("/api/application-documents/:id", async (req, res) => {
+  const id = Number(req.params.id);
+
+  if (!Number.isFinite(id) || id <= 0) {
+    return sendError(res, "Valid document id is required.", 400);
+  }
+
+  const document = await prisma.applicationDocument.findUnique({
+    where: { id },
+    include: {
+      application: {
+        include: {
+          student: true,
+        },
+      },
+      deadline: true,
+    },
+  });
+
+  if (!document) {
+    return sendError(res, "Application document not found.", 404);
+  }
+
+  const isAdmin = requireAdmin(req.actor);
+  const isOwnerStudent = requireStudent(req.actor) && document.application.studentId === req.actor.student.id;
+
+  if (!isAdmin && !isOwnerStudent) {
+    return sendError(res, "You do not have access to this document.", 403);
+  }
+
+  res.json(
+    success({
+      id: document.id,
+      applicationId: document.applicationId,
+      deadlineId: document.deadlineId,
+      deadlineTitle: document.deadline?.title || "",
+      requirementLabel: document.requirementLabel,
+      fileName: document.fileName,
+      mimeType: document.mimeType,
+      fileData: document.fileData,
+      uploadedAt: document.uploadedAt,
+      studentName: document.application.student?.name || "",
+    }),
+  );
 });
 
 app.get("/api/applications", async (req, res) => {
@@ -892,6 +1225,12 @@ app.get("/api/applications", async (req, res) => {
         },
       },
       approvedByAdmin: true,
+      documents: {
+        include: {
+          deadline: true,
+        },
+        orderBy: { uploadedAt: "asc" },
+      },
       nominations: {
         include: { admin: true },
       },
@@ -940,6 +1279,12 @@ app.put("/api/applications/:id/status", async (req, res) => {
         },
       },
       approvedByAdmin: true,
+      documents: {
+        include: {
+          deadline: true,
+        },
+        orderBy: { uploadedAt: "asc" },
+      },
       nominations: {
         include: { admin: true },
       },
@@ -978,6 +1323,12 @@ app.put("/api/applications/:id/review-notes", async (req, res) => {
         },
       },
       approvedByAdmin: true,
+      documents: {
+        include: {
+          deadline: true,
+        },
+        orderBy: { uploadedAt: "asc" },
+      },
       nominations: {
         include: { admin: true },
       },
@@ -1228,6 +1579,12 @@ app.get("/api/dashboard/me", async (req, res) => {
           },
         },
         approvedByAdmin: true,
+        documents: {
+          include: {
+            deadline: true,
+          },
+          orderBy: { uploadedAt: "asc" },
+        },
         nominations: {
           include: { admin: true },
         },
@@ -1517,6 +1874,12 @@ app.get("/api/admin/approval-queue", async (req, res) => {
         },
       },
       approvedByAdmin: true,
+      documents: {
+        include: {
+          deadline: true,
+        },
+        orderBy: { uploadedAt: "asc" },
+      },
       nominations: {
         include: { admin: true },
       },
@@ -1552,6 +1915,12 @@ app.get("/api/admin/dashboard", async (req, res) => {
           },
         },
         approvedByAdmin: true,
+        documents: {
+          include: {
+            deadline: true,
+          },
+          orderBy: { uploadedAt: "asc" },
+        },
         nominations: {
           include: { admin: true },
         },

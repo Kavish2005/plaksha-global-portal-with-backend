@@ -1,5 +1,5 @@
 import AdminClient from "@/components/admin/AdminClient";
 
 export default function AdminDeadlinesPage() {
-  return <AdminClient section="deadlines" />;
+  return <AdminClient section="programs" />;
 }

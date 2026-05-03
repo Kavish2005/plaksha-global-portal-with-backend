@@ -14,6 +14,7 @@ async function main() {
   await resetModel("contactMessage");
   await resetModel("booking");
   await resetModel("availability");
+  await resetModel("applicationDocument");
   await resetModel("deadline");
   await resetModel("application");
   await resetModel("savedProgram");
@@ -55,6 +56,7 @@ async function main() {
           "Spend a semester in Zurich focused on engineering, entrepreneurship, and international lab collaboration.",
         eligibility: "2nd and 3rd year undergraduate students with CGPA above 7.5.",
         duration: "1 semester",
+        endDate: new Date("2026-12-15T00:00:00.000Z"),
         featured: true,
         tagsJson: JSON.stringify(["engineering", "semester exchange", "Europe"]),
       },
@@ -69,6 +71,7 @@ async function main() {
           "Work on faculty-guided innovation and applied research projects across emerging technology domains.",
         eligibility: "Students with prior project or lab experience in computing, design, or engineering.",
         duration: "8 weeks",
+        endDate: new Date("2026-08-20T00:00:00.000Z"),
         featured: true,
         tagsJson: JSON.stringify(["research", "summer", "innovation"]),
       },
@@ -83,6 +86,7 @@ async function main() {
           "An immersive AI research placement spanning robotics, machine learning, and international teamwork.",
         eligibility: "Students with coursework or projects in AI, data science, or robotics.",
         duration: "10 weeks",
+        endDate: new Date("2026-09-12T00:00:00.000Z"),
         featured: true,
         tagsJson: JSON.stringify(["AI", "research", "Asia"]),
       },
@@ -97,6 +101,7 @@ async function main() {
           "A practice-oriented global innovation experience with startup and ecosystem exposure.",
         eligibility: "Students interested in product, entrepreneurship, and international innovation ecosystems.",
         duration: "6 weeks",
+        endDate: new Date("2026-07-30T00:00:00.000Z"),
         featured: false,
         tagsJson: JSON.stringify(["innovation", "internship", "startup"]),
       },
@@ -111,19 +116,21 @@ async function main() {
           "Participate in an interdisciplinary research exchange with faculty and peer cohorts in Toronto.",
         eligibility: "Students with strong academic standing and demonstrated research interest.",
         duration: "7 weeks",
+        endDate: new Date("2026-08-10T00:00:00.000Z"),
         featured: false,
         tagsJson: JSON.stringify(["research", "summer school", "North America"]),
       },
     }),
   ]);
 
-  await Promise.all([
+  const deadlines = await Promise.all([
     prisma.deadline.create({
       data: {
         programId: programs[0].id,
         title: "Student application deadline",
         date: new Date("2026-05-12T00:00:00.000Z"),
         priority: "High",
+        requiredDocumentsJson: JSON.stringify(["Transcript", "Statement of Purpose", "Resume"]),
       },
     }),
     prisma.deadline.create({
@@ -132,6 +139,7 @@ async function main() {
         title: "Faculty recommendation submission",
         date: new Date("2026-06-10T00:00:00.000Z"),
         priority: "Medium",
+        requiredDocumentsJson: JSON.stringify(["LOR", "Resume"]),
       },
     }),
     prisma.deadline.create({
@@ -140,6 +148,7 @@ async function main() {
         title: "Research statement deadline",
         date: new Date("2026-07-01T00:00:00.000Z"),
         priority: "High",
+        requiredDocumentsJson: JSON.stringify(["Transcript", "Resume", "Research Statement"]),
       },
     }),
     prisma.deadline.create({
@@ -148,6 +157,7 @@ async function main() {
         title: "Nomination window closes",
         date: new Date("2026-04-20T00:00:00.000Z"),
         priority: "Medium",
+        requiredDocumentsJson: JSON.stringify(["Resume"]),
       },
     }),
     prisma.deadline.create({
@@ -156,6 +166,7 @@ async function main() {
         title: "Summer exchange application deadline",
         date: new Date("2026-05-28T00:00:00.000Z"),
         priority: "Low",
+        requiredDocumentsJson: JSON.stringify(["Transcript", "Resume"]),
       },
     }),
   ]);
@@ -343,6 +354,17 @@ async function main() {
       },
     }),
   ]);
+
+  await prisma.applicationDocument.create({
+    data: {
+      applicationId: applicationTwo.id,
+      deadlineId: deadlines[0].id,
+      requirementLabel: "Transcript",
+      fileName: "aman-sharma-transcript.pdf",
+      mimeType: "application/pdf",
+      fileData: "data:application/pdf;base64,VEVTVF9UUkFOU0NSSVBU",
+    },
+  });
 
   await Promise.all([
     prisma.knowledgeDocument.create({

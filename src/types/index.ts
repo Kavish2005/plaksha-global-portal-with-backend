@@ -14,6 +14,7 @@ export type Deadline = {
   title: string;
   date: string;
   priority: string;
+  requiredDocuments: string[];
 };
 
 export type Program = {
@@ -25,6 +26,7 @@ export type Program = {
   description: string;
   eligibility: string;
   duration: string;
+  endDate: string | null;
   featured: boolean;
   tags: string[];
   deadline: string | null;
@@ -111,7 +113,32 @@ export type Application = {
   deadline: string | null;
   createdAt: string;
   updatedAt: string;
+  documents: ApplicationDocument[];
   nominations: Nomination[];
+};
+
+export type ApplicationDocument = {
+  id: number;
+  deadlineId: number;
+  deadlineTitle: string;
+  deadlineDate: string | null;
+  requirementLabel: string;
+  fileName: string;
+  mimeType: string;
+  uploadedAt: string;
+};
+
+export type ApplicationDocumentAsset = {
+  id: number;
+  applicationId: number;
+  deadlineId: number;
+  deadlineTitle: string;
+  requirementLabel: string;
+  fileName: string;
+  mimeType: string;
+  fileData: string;
+  uploadedAt: string;
+  studentName: string;
 };
 
 export type ChatInteraction = {
