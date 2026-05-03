@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const prisma = require("./prisma");
 const { requireAdmin, requireMentor, requireOfficeOrMentor, requireStudent, resolveActor } = require("./auth");
-const { respond } = require("./chatService");
+const { createProgramAssistantReply, respond } = require("./chatService");
 const {
   failure,
   formatApplication,
@@ -16,6 +16,7 @@ const {
   formatProgram,
   getTagsJson,
   normalizeDateString,
+  parseJsonArray,
   success,
 } = require("./utils");
 
@@ -80,7 +81,9 @@ function parseProgramPayload(body) {
     description,
     eligibility,
     duration,
+    startDate,
     endDate,
+    externalLink,
     featured,
     tags,
   } = body;
@@ -100,7 +103,9 @@ function parseProgramPayload(body) {
     description: String(description).trim(),
     eligibility: String(eligibility).trim(),
     duration: String(duration).trim(),
+    startDate: startDate ? new Date(`${String(startDate).slice(0, 10)}T00:00:00.000Z`) : null,
     endDate: endDate ? new Date(`${String(endDate).slice(0, 10)}T00:00:00.000Z`) : null,
+    externalLink: externalLink ? String(externalLink).trim() : null,
     featured: Boolean(featured),
     tagsJson: getTagsJson(parseTags(tags)),
   };
@@ -541,6 +546,159 @@ app.get("/api/programs/:id", async (req, res) => {
       ...formatProgram(program),
       myApplication: application,
       isSaved,
+    }),
+  );
+});
+
+app.post("/api/programs/:id/assistant", async (req, res) => {
+  if (!(await requireStudentResponse(req, res))) return;
+
+  const id = Number(req.params.id);
+  const { message = "", mode = "qa", pendingUploads = [] } = req.body;
+
+  const program = await prisma.program.findUnique({
+    where: { id },
+    include: {
+      deadlines: {
+        orderBy: { date: "asc" },
+      },
+    },
+  });
+
+  if (!program) {
+    return sendError(res, "Program not found.", 404);
+  }
+
+  const application = await prisma.application.findFirst({
+    where: {
+      programId: id,
+      studentId: req.actor.student.id,
+    },
+    include: {
+      student: true,
+      program: {
+        include: {
+          deadlines: {
+            orderBy: { date: "asc" },
+          },
+        },
+      },
+      approvedByAdmin: true,
+      documents: {
+        include: {
+          deadline: true,
+        },
+        orderBy: { uploadedAt: "asc" },
+      },
+      nominations: {
+        include: { admin: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const result = await createProgramAssistantReply({
+    actor: req.actor,
+    program,
+    application,
+    message: String(message || ""),
+    mode: String(mode || "qa"),
+    pendingUploads: Array.isArray(pendingUploads) ? pendingUploads : [],
+  });
+
+  const interaction = await prisma.chatInteraction.create({
+    data: {
+      studentId: req.actor.student.id,
+      query: `[programId:${program.id}][program:${program.title}][mode:${String(mode || "qa")}] ${
+        String(message || "").trim() || "Program assistant request"
+      }`,
+      response: result.response,
+      mode: result.mode,
+    },
+  });
+
+  res.json(
+    success({
+      reply: result.response,
+      mode: result.mode,
+      interaction: formatChatInteraction(interaction),
+    }),
+  );
+});
+
+app.get("/api/programs/:id/assistant/history", async (req, res) => {
+  if (!(await requireStudentResponse(req, res))) return;
+
+  const id = Number(req.params.id);
+  const program = await prisma.program.findUnique({
+    where: { id },
+    select: { id: true, title: true },
+  });
+
+  if (!program) {
+    return sendError(res, "Program not found.", 404);
+  }
+
+  const history = await prisma.chatInteraction.findMany({
+    where: {
+      studentId: req.actor.student.id,
+    },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+  });
+
+  const filtered = history.filter((item) => {
+    const query = String(item.query || "");
+    return query.includes(`[programId:${program.id}]`) || query.includes(`[program:${program.title}]`);
+  });
+
+  res.json(success(filtered.map(formatChatInteraction)));
+});
+
+app.delete("/api/programs/:id/assistant/history", async (req, res) => {
+  if (!(await requireStudentResponse(req, res))) return;
+
+  const id = Number(req.params.id);
+  const program = await prisma.program.findUnique({
+    where: { id },
+    select: { id: true, title: true },
+  });
+
+  if (!program) {
+    return sendError(res, "Program not found.", 404);
+  }
+
+  const history = await prisma.chatInteraction.findMany({
+    where: {
+      studentId: req.actor.student.id,
+    },
+    select: {
+      id: true,
+      query: true,
+    },
+  });
+
+  const matchingIds = history
+    .filter((item) => {
+      const query = String(item.query || "");
+      return query.includes(`[programId:${program.id}]`) || query.includes(`[program:${program.title}]`);
+    })
+    .map((item) => item.id);
+
+  if (matchingIds.length > 0) {
+    await prisma.chatInteraction.deleteMany({
+      where: {
+        id: {
+          in: matchingIds,
+        },
+      },
+    });
+  }
+
+  res.json(
+    success({
+      deletedCount: matchingIds.length,
+      message: `Conversation reset for ${program.title}.`,
     }),
   );
 });
@@ -1092,20 +1250,8 @@ app.put("/api/applications/:id/documents", async (req, res) => {
 
   await prisma.$transaction(
     parsedUploads.map((upload) =>
-      prisma.applicationDocument.upsert({
-        where: {
-          applicationId_deadlineId_requirementLabel: {
-            applicationId: application.id,
-            deadlineId: upload.deadlineId,
-            requirementLabel: upload.requirementLabel,
-          },
-        },
-        update: {
-          fileName: upload.fileName,
-          mimeType: upload.mimeType,
-          fileData: upload.fileData,
-        },
-        create: {
+      prisma.applicationDocument.create({
+        data: {
           applicationId: application.id,
           deadlineId: upload.deadlineId,
           requirementLabel: upload.requirementLabel,
@@ -1628,15 +1774,69 @@ app.get("/api/dashboard/me", async (req, res) => {
     }),
   ]);
 
-  const deadlines = await prisma.deadline.findMany({
-    where: {
-      programId: {
-        in: applications.map((item) => item.programId),
-      },
-    },
-    include: { program: true },
-    orderBy: { date: "asc" },
-  });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const deadlines = applications
+    .flatMap((application) => {
+      const uploadedLabelsByDeadline = application.documents.reduce((map, document) => {
+        const key = document.deadlineId;
+        if (!map.has(key)) {
+          map.set(key, new Set());
+        }
+        map.get(key).add(document.requirementLabel);
+        return map;
+      }, new Map());
+
+      return (application.program?.deadlines || []).flatMap((deadline) => {
+        const deadlineDate = new Date(deadline.date);
+        if (deadlineDate < today) {
+          return [];
+        }
+
+        const requiredDocuments = parseJsonArray(deadline.requiredDocumentsJson);
+        const uploadedLabels = uploadedLabelsByDeadline.get(deadline.id) || new Set();
+
+        if (requiredDocuments.length > 0) {
+          return requiredDocuments
+            .filter((label) => !uploadedLabels.has(label))
+            .map((label) => ({
+              id: deadline.id,
+              programId: application.programId,
+              programTitle: application.program?.title || "",
+              programUniversity: application.program?.university || "",
+              title: deadline.title,
+              date: normalizeDateString(deadline.date),
+              priority: deadline.priority,
+              requiredDocuments,
+              requirementLabel: label,
+              isSubmitted: false,
+            }));
+        }
+
+        return [
+          {
+            id: deadline.id,
+            programId: application.programId,
+            programTitle: application.program?.title || "",
+            programUniversity: application.program?.university || "",
+            title: deadline.title,
+            date: normalizeDateString(deadline.date),
+            priority: deadline.priority,
+            requiredDocuments: [],
+            requirementLabel: null,
+            isSubmitted: false,
+          },
+        ];
+      });
+    })
+    .sort((a, b) => {
+      const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (dateCompare !== 0) return dateCompare;
+      const programCompare = a.programTitle.localeCompare(b.programTitle);
+      if (programCompare !== 0) return programCompare;
+      return (a.requirementLabel || a.title).localeCompare(b.requirementLabel || b.title);
+    });
 
   res.json(
     success({
@@ -1647,7 +1847,7 @@ app.get("/api/dashboard/me", async (req, res) => {
         savedProgramsCount: savedPrograms.length,
       },
       applications: applications.map(formatApplication),
-      deadlines: deadlines.map(formatDeadline),
+      deadlines,
       meetings: meetings.map(formatBooking),
       savedPrograms: savedPrograms.map((item) => formatProgram(item.program)),
       chatHistory: chatHistory.map(formatChatInteraction),
@@ -1778,7 +1978,12 @@ app.get("/api/chat/history", async (req, res) => {
     take: 15,
   });
 
-  res.json(success(history.map(formatChatInteraction)));
+  const globalHistory = history.filter((item) => {
+    const query = String(item.query || "");
+    return !query.includes("[programId:") && !query.includes("[program:");
+  });
+
+  res.json(success(globalHistory.map(formatChatInteraction)));
 });
 
 app.put("/api/chat/context", async (_req, res) => {

@@ -1,13 +1,119 @@
 const prisma = require("./prisma");
+const { PDFParse } = require("pdf-parse");
 const { formatProgram, normalizeDateString } = require("./utils");
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
+const PROGRAM_LINK_CACHE = new Map();
 
 function trimSnippet(text, maxLength = 260) {
   const value = String(text || "").replace(/\s+/g, " ").trim();
   if (value.length <= maxLength) return value;
   return `${value.slice(0, maxLength - 3)}...`;
+}
+
+function stripHtmlToText(html) {
+  return String(html || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function decodeDataUrlText(dataUrl) {
+  if (!String(dataUrl || "").startsWith("data:")) return null;
+
+  const [, meta = "", payload = ""] = String(dataUrl).match(/^data:([^,]*?),(.*)$/) || [];
+  if (!payload) return null;
+
+  try {
+    const isBase64 = meta.includes(";base64");
+    const decoded = isBase64
+      ? Buffer.from(payload, "base64").toString("utf8")
+      : decodeURIComponent(payload);
+    return decoded.replace(/\0/g, " ").trim();
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function extractReadableUploadContent(upload) {
+  const mimeType = String(upload?.mimeType || "").toLowerCase();
+  const fileName = String(upload?.fileName || "");
+  const pdfLikeMime = mimeType === "application/pdf" || /\.pdf$/i.test(fileName);
+  const textLikeMime =
+    mimeType.startsWith("text/") ||
+    mimeType.includes("json") ||
+    mimeType.includes("xml") ||
+    mimeType.includes("csv");
+  const textLikeExtension = /\.(txt|md|csv|json|xml)$/i.test(fileName);
+
+  if (pdfLikeMime) {
+    const dataUrl = String(upload?.fileData || "");
+    const match = dataUrl.match(/^data:([^,]*?),(.*)$/);
+    if (!match?.[2]) return null;
+
+    try {
+      const pdfBuffer = Buffer.from(match[2], "base64");
+      const parser = new PDFParse({ data: pdfBuffer });
+      const parsed = await parser.getText();
+      await parser.destroy();
+      const extractedText = String(parsed?.text || "").replace(/\s+/g, " ").trim();
+      return extractedText ? trimSnippet(extractedText, 5000) : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  if (!textLikeMime && !textLikeExtension) {
+    return null;
+  }
+
+  const decoded = decodeDataUrlText(upload?.fileData);
+  if (!decoded) return null;
+  return trimSnippet(decoded, 2500);
+}
+
+async function fetchProgramLinkContext(url) {
+  const normalizedUrl = String(url || "").trim();
+  if (!normalizedUrl || !/^https?:\/\//i.test(normalizedUrl)) {
+    return null;
+  }
+
+  const cached = PROGRAM_LINK_CACHE.get(normalizedUrl);
+  const now = Date.now();
+  if (cached && now - cached.fetchedAt < 1000 * 60 * 60) {
+    return cached.content;
+  }
+
+  try {
+    const response = await fetch(normalizedUrl, {
+      headers: {
+        "User-Agent": "Plaksha-Global-Portal/1.0",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const html = await response.text();
+    const stripped = trimSnippet(stripHtmlToText(html), 6000);
+    if (!stripped) return null;
+
+    PROGRAM_LINK_CACHE.set(normalizedUrl, {
+      content: stripped,
+      fetchedAt: now,
+    });
+
+    return stripped;
+  } catch (_error) {
+    return null;
+  }
 }
 
 function splitDocumentIntoChunks(content, maxLength = 700) {
@@ -66,7 +172,11 @@ function buildProgramFacts(program) {
     {
       type: "program",
       label: program.title,
-      text: `Program ${program.title} at ${program.university} in ${program.country}. Type: ${program.type}. Description: ${program.description}. Eligibility: ${program.eligibility}. Duration: ${program.duration}. Featured: ${
+      text: `Program ${program.title} at ${program.university} in ${program.country}. Type: ${program.type}. Description: ${program.description}. Eligibility: ${program.eligibility}. Duration: ${program.duration}. Start date: ${
+        program.startDate ? normalizeDateString(program.startDate) : "not listed"
+      }. End date: ${program.endDate ? normalizeDateString(program.endDate) : "not listed"}. Official link: ${
+        program.externalLink || "not provided"
+      }. Featured: ${
         program.featured ? "yes" : "no"
       }. Tags: ${tags || "none"}.`,
       metadata: {
@@ -75,6 +185,9 @@ function buildProgramFacts(program) {
         university: program.university,
         country: program.country,
         type: program.type,
+        startDate: program.startDate ? normalizeDateString(program.startDate) : null,
+        endDate: program.endDate ? normalizeDateString(program.endDate) : null,
+        externalLink: program.externalLink || null,
       },
     },
     ...deadlineFacts,
@@ -432,6 +545,230 @@ async function createReply({ message, actor }) {
   return buildKnowledgeBaseFallback(rawMessage, context);
 }
 
+function buildProgramAssistantFallback({ mode, program, application, combinedUploads, linkContext }) {
+  const overview = [
+    `Program: ${program.title} at ${program.university} in ${program.country}.`,
+    `Type: ${program.type}.`,
+    `Eligibility: ${program.eligibility}.`,
+    `Duration: ${program.duration}.`,
+    `Start date: ${program.startDate ? normalizeDateString(program.startDate) : "not listed"}.`,
+    `End date: ${program.endDate ? normalizeDateString(program.endDate) : "not listed"}.`,
+    `Deadlines: ${(program.deadlines || []).map((deadline) => `${deadline.title} on ${normalizeDateString(deadline.date)}`).join("; ") || "none listed"}.`,
+  ];
+
+  if (mode === "review") {
+    const uploadSummary = combinedUploads.length
+      ? combinedUploads
+          .map((upload) => `${upload.requirementLabel}: ${upload.fileName}${upload.extractedText ? " (text parsed)" : " (content not text-readable)"}`)
+          .join("; ")
+      : "No uploaded application files found yet.";
+
+    return {
+      mode: "program_assistant_fallback",
+      response: [
+        `I couldn't reach Claude, so here is an honest grounded summary for ${program.title}.`,
+        overview.join(" "),
+        `Your current uploaded materials: ${uploadSummary}`,
+        linkContext ? `Official program page reference: ${trimSnippet(linkContext, 500)}` : "The official program link could not be fetched right now.",
+      ].join("\n\n"),
+    };
+  }
+
+  return {
+    mode: "program_assistant_fallback",
+    response: [
+      `I couldn't reach Claude, so here is the grounded program summary for ${program.title}.`,
+      overview.join(" "),
+      linkContext ? `Official program page reference: ${trimSnippet(linkContext, 500)}` : "The official program link could not be fetched right now.",
+      application ? `Your current application status: ${application.status}.` : "You have not submitted an application for this program yet.",
+    ].join("\n\n"),
+  };
+}
+
+async function createProgramAssistantReply({ actor, program, application, message, mode, pendingUploads = [] }) {
+  const normalizedMode = mode === "review" ? "review" : "qa";
+  const normalizedMessage =
+    String(message || "").trim() ||
+    (normalizedMode === "review"
+      ? "Please review my current application materials honestly and tell me how strong my application is for this program."
+      : "Tell me more about this program.");
+
+  const linkContext = await fetchProgramLinkContext(program.externalLink);
+
+  const existingUploads = await Promise.all(
+    (application?.documents || []).map(async (document) => ({
+      source: "submitted",
+      requirementLabel: document.requirementLabel,
+      fileName: document.fileName,
+      mimeType: document.mimeType,
+      fileData: document.fileData,
+      deadlineTitle: document.deadline?.title || "",
+      extractedText: await extractReadableUploadContent(document),
+    })),
+  );
+
+  const normalizedPendingUploads = await Promise.all(
+    pendingUploads.map(async (upload) => ({
+      source: "pending",
+      requirementLabel: upload.requirementLabel,
+      fileName: upload.fileName,
+      mimeType: upload.mimeType,
+      fileData: upload.fileData,
+      deadlineTitle: program.deadlines.find((deadline) => deadline.id === upload.deadlineId)?.title || "",
+      extractedText: await extractReadableUploadContent(upload),
+    })),
+  );
+
+  const combinedUploads = [...existingUploads, ...normalizedPendingUploads];
+  const requiredRequirements = (program.deadlines || []).flatMap((deadline) =>
+    (deadline.requiredDocuments || []).map((requirementLabel) => ({
+      deadlineId: deadline.id,
+      deadlineTitle: deadline.title,
+      requirementLabel,
+      deadlineDate: normalizeDateString(deadline.date),
+    })),
+  );
+  const fulfilledRequirementKeys = new Set(
+    combinedUploads.map((upload) => `${upload.deadlineTitle}:${upload.requirementLabel}`),
+  );
+  const missingRequirements = requiredRequirements.filter(
+    (requirement) => !fulfilledRequirementKeys.has(`${requirement.deadlineTitle}:${requirement.requirementLabel}`),
+  );
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return buildProgramAssistantFallback({
+      mode: normalizedMode,
+      program,
+      application,
+      combinedUploads,
+      linkContext,
+    });
+  }
+
+  const programFacts = buildProgramFacts(program).map((fact, index) => ({
+    index: index + 1,
+    type: fact.type,
+    label: fact.label,
+    text: fact.text,
+  }));
+
+  const uploadFacts = combinedUploads.map((upload, index) => ({
+    index: index + 1,
+    requirementLabel: upload.requirementLabel,
+    fileName: upload.fileName,
+    source: upload.source,
+    deadlineTitle: upload.deadlineTitle,
+    extractedText: upload.extractedText,
+    readable: Boolean(upload.extractedText),
+  }));
+
+  const systemPrompt =
+    normalizedMode === "review"
+      ? [
+          "You are the Plaksha Global Engagement program application reviewer for a specific program.",
+          "You must be brutally honest, evidence-based, and specific.",
+          "Do not give generic encouragement.",
+          "Judge the student's current readiness against the actual program eligibility, deadlines, and official program information provided.",
+          "If the uploaded files count is greater than zero, you must acknowledge that materials have been uploaded. Never say there are no uploaded materials when files are present.",
+          "If uploaded files are not text-readable, say that clearly and do not pretend you reviewed their contents.",
+          "Give program-specific strengths, gaps, concrete improvements, and an honest current standing.",
+          "Never invent qualifications, achievements, or missing requirements.",
+          "Keep feedback actionable and tied to this program only.",
+        ].join(" ")
+      : [
+          "You are the Plaksha Global Engagement program assistant for a specific program.",
+          "Answer only from the provided database facts, the official program page extract, and the student's own application context if relevant.",
+          "Do not invent unsupported details.",
+          "Be concise, clear, and specific to the selected program.",
+        ].join(" ");
+
+  const userPrompt = [
+    `Current user: ${buildActorSummary(actor)}`,
+    `Program-specific assistant mode: ${normalizedMode}`,
+    `Student question: ${normalizedMessage}`,
+    "",
+    "Program facts from the database:",
+    JSON.stringify(programFacts, null, 2),
+    "",
+    `Official program link: ${program.externalLink || "not provided"}`,
+    `Official program page extract: ${linkContext || "Could not fetch official page content."}`,
+    "",
+    `Current student application status for this program: ${application?.status || "not submitted yet"}`,
+    `Current application reviewer notes: ${application?.reviewerNotes || "none"}`,
+    `Current application nomination notes: ${application?.nominationNotes || "none"}`,
+    `Uploaded files count for this review: ${combinedUploads.length}`,
+    "",
+    "Uploaded application materials available for review:",
+    JSON.stringify(uploadFacts, null, 2),
+    "",
+    "Program file requirements and what is still missing:",
+    JSON.stringify(
+      {
+        required: requiredRequirements,
+        missing: missingRequirements,
+      },
+      null,
+      2,
+    ),
+    "",
+    normalizedMode === "review"
+      ? [
+          "Review instructions:",
+          "1. Assess current standing for this exact program.",
+          "2. Identify evidence-backed strengths tied to program fit.",
+          "3. Identify real gaps, weak spots, or missing support.",
+          "4. Suggest concrete improvements that are program-specific, not generic.",
+          "5. If document text was unavailable, say exactly what you could and could not inspect.",
+          "6. If uploaded files count is above zero, explicitly state which files were uploaded and whether you could extract readable text from them.",
+          "7. Do not just say the application is good. Be rigorous.",
+        ].join("\n")
+      : "Answer the student's program question using only the grounded information above.",
+  ].join("\n");
+
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: normalizedMode === "review" ? 2200 : 1000,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: userPrompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Anthropic request failed with ${response.status}: ${errorBody}`);
+  }
+
+  const payload = await response.json();
+  const outputText = Array.isArray(payload.content)
+    ? payload.content
+        .filter((item) => item?.type === "text" && typeof item.text === "string")
+        .map((item) => item.text)
+        .join("\n")
+        .trim()
+    : "";
+
+  if (!outputText) {
+    throw new Error("Anthropic response did not include text content.");
+  }
+
+  return {
+    mode: normalizedMode === "review" ? "program_review_llm" : "program_chat_llm",
+    response: outputText,
+  };
+}
+
 async function respond({ message, actor }) {
   const result = await createReply({ message, actor });
 
@@ -451,5 +788,6 @@ async function respond({ message, actor }) {
 }
 
 module.exports = {
+  createProgramAssistantReply,
   respond,
 };

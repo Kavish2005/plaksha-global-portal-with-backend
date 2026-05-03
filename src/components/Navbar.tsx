@@ -47,6 +47,19 @@ export default function Navbar() {
               {item.label}
             </Link>
           ))}
+          {activeUser?.role === "student" ? (
+            <Link
+              href="/assistant"
+              className={cx(
+                "rounded-full px-3 py-2 text-sm font-medium transition",
+                pathname.startsWith("/assistant")
+                  ? "bg-[var(--portal-teal)] text-white"
+                  : "text-slate-600 hover:bg-slate-100",
+              )}
+            >
+              Assistant
+            </Link>
+          ) : null}
           <Link
             href="/admin"
             className={cx(

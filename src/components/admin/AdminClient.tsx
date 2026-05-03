@@ -29,7 +29,9 @@ type ProgramFormState = {
   description: string;
   eligibility: string;
   duration: string;
+  startDate: string;
   endDate: string;
+  externalLink: string;
   featured: boolean;
   tags: string;
 };
@@ -63,7 +65,9 @@ const emptyProgramForm: ProgramFormState = {
   description: "",
   eligibility: "",
   duration: "",
+  startDate: "",
   endDate: "",
+  externalLink: "",
   featured: false,
   tags: "",
 };
@@ -241,7 +245,9 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       const payload = {
         ...programForm,
         tags: programForm.tags.split(",").map((item) => item.trim()).filter(Boolean),
+        startDate: programForm.startDate || undefined,
         endDate: programForm.endDate || undefined,
+        externalLink: programForm.externalLink || undefined,
       };
       if (editingProgramId) {
         await apiPut(`/programs/${editingProgramId}`, payload);
@@ -561,7 +567,9 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
               description: program.description,
               eligibility: program.eligibility,
               duration: program.duration,
+              startDate: program.startDate || "",
               endDate: program.endDate || "",
+              externalLink: program.externalLink || "",
               featured: program.featured,
               tags: program.tags.join(", "),
             });
@@ -851,8 +859,15 @@ function ProgramsSection({
           </div>
           <textarea value={programForm.description} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, description: e.target.value }))} className="mt-3 min-h-28 w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Description" />
           <textarea value={programForm.eligibility} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, eligibility: e.target.value }))} className="mt-3 min-h-20 w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Eligibility" />
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
             <input value={programForm.duration} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, duration: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Duration" />
+            <input
+              type="date"
+              value={programForm.startDate}
+              onChange={(e) => onProgramFormChange((prev) => ({ ...prev, startDate: e.target.value }))}
+              className="rounded-2xl border border-black/10 px-4 py-3"
+              placeholder="Program start date"
+            />
             <input
               type="date"
               value={programForm.endDate}
@@ -861,7 +876,13 @@ function ProgramsSection({
               placeholder="Program end date"
             />
           </div>
-          <div className="mt-3">
+          <div className="mt-3 space-y-3">
+            <input
+              value={programForm.externalLink}
+              onChange={(e) => onProgramFormChange((prev) => ({ ...prev, externalLink: e.target.value }))}
+              className="w-full rounded-2xl border border-black/10 px-4 py-3"
+              placeholder="Official program link (https://...)"
+            />
             <input value={programForm.tags} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, tags: e.target.value }))} className="w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Tags, comma separated" />
           </div>
           <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
@@ -911,7 +932,18 @@ function ProgramsSection({
                     Eligibility: {selectedProgram.eligibility}
                   </p>
                   <p className="mt-1 text-sm text-slate-500">Duration: {selectedProgram.duration}</p>
+                  {selectedProgram.startDate ? <p className="mt-1 text-sm text-slate-500">Program starts on: {formatIsoDate(selectedProgram.startDate)}</p> : null}
                   {selectedProgram.endDate ? <p className="mt-1 text-sm text-slate-500">Program runs until: {formatIsoDate(selectedProgram.endDate)}</p> : null}
+                  {selectedProgram.externalLink ? (
+                    <a
+                      href={selectedProgram.externalLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex text-sm font-semibold text-[var(--portal-teal)]"
+                    >
+                      Open official program page
+                    </a>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <button onClick={() => onEdit(selectedProgram)} className="rounded-full border border-black/10 px-4 py-2 text-sm">

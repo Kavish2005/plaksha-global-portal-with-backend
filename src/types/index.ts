@@ -11,10 +11,13 @@ export type Deadline = {
   id: number;
   programId: number;
   programTitle: string;
+  programUniversity?: string;
   title: string;
   date: string;
   priority: string;
   requiredDocuments: string[];
+  requirementLabel?: string | null;
+  isSubmitted?: boolean;
 };
 
 export type Program = {
@@ -26,7 +29,9 @@ export type Program = {
   description: string;
   eligibility: string;
   duration: string;
+  startDate: string | null;
   endDate: string | null;
+  externalLink: string | null;
   featured: boolean;
   tags: string[];
   deadline: string | null;
@@ -144,9 +149,19 @@ export type ApplicationDocumentAsset = {
 export type ChatInteraction = {
   id: number;
   query: string;
+  cleanQuery?: string;
   response: string;
   mode: string;
+  programId?: number | null;
+  programTitle?: string | null;
+  assistantMode?: string | null;
   createdAt: string;
+};
+
+export type ProgramAssistantReply = {
+  reply: string;
+  mode: string;
+  interaction: ChatInteraction;
 };
 
 export type KnowledgeDocument = {

@@ -34,7 +34,7 @@ export default function Chatbot() {
             .slice()
             .reverse()
             .flatMap((item) => [
-              { role: "user" as const, text: item.query, createdAt: item.createdAt },
+              { role: "user" as const, text: item.cleanQuery || item.query, createdAt: item.createdAt },
               { role: "bot" as const, text: item.response, createdAt: item.createdAt },
             ]),
         );

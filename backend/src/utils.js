@@ -43,7 +43,9 @@ function formatProgram(program) {
     description: program.description,
     eligibility: program.eligibility,
     duration: program.duration,
+    startDate: program.startDate ? normalizeDateString(program.startDate) : null,
     endDate: program.endDate ? normalizeDateString(program.endDate) : null,
+    externalLink: program.externalLink || null,
     featured: program.featured,
     tags: parseJsonArray(program.tagsJson),
     deadline: primaryDeadline ? normalizeDateString(primaryDeadline) : null,
@@ -146,19 +148,31 @@ function formatDeadline(deadline) {
     id: deadline.id,
     programId: deadline.programId,
     programTitle: deadline.program?.title || "",
+    programUniversity: deadline.program?.university || "",
     title: deadline.title,
     date: normalizeDateString(deadline.date),
     priority: deadline.priority,
     requiredDocuments: parseJsonArray(deadline.requiredDocumentsJson),
+    requirementLabel: null,
+    isSubmitted: false,
   };
 }
 
 function formatChatInteraction(item) {
+  const programIdMatch = String(item.query || "").match(/\[programId:(\d+)\]/);
+  const programTitleMatch = String(item.query || "").match(/\[program:([^\]]+)\]/);
+  const assistantModeMatch = String(item.query || "").match(/\[mode:([^\]]+)\]/);
+  const cleanQuery = String(item.query || "").replace(/^(?:\[[^\]]+\])+\s*/, "");
+
   return {
     id: item.id,
     query: item.query,
+    cleanQuery,
     response: item.response,
     mode: item.mode,
+    programId: programIdMatch?.[1] ? Number(programIdMatch[1]) : null,
+    programTitle: programTitleMatch?.[1] || null,
+    assistantMode: assistantModeMatch?.[1] || null,
     createdAt: item.createdAt,
   };
 }
@@ -216,5 +230,6 @@ module.exports = {
   formatKnowledgeDocument,
   getTagsJson,
   normalizeDateString,
+  parseJsonArray,
   success,
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import StatusBadge from "@/components/StatusBadge";
 import { useAuth } from "@/components/AuthProvider";
@@ -180,8 +181,8 @@ export default function Dashboard() {
           options={deadlines.map((deadline) => ({
             value: String(deadline.id),
             label: deadline.programTitle,
-            helperText: `${deadline.title} · ${formatIsoDate(deadline.date)}`,
-            keywords: [deadline.priority],
+            helperText: `${deadline.requirementLabel ? `${deadline.requirementLabel} · ` : ""}${deadline.title} · ${formatIsoDate(deadline.date)}`,
+            keywords: [deadline.priority, deadline.requirementLabel || ""],
           }))}
           selectedValue={selectedDeadline ? String(selectedDeadline.id) : ""}
           onSelect={(value) => setSelectedDeadlineId(value ? Number(value) : null)}
@@ -352,11 +353,15 @@ function EmptyState({ text }: { text: string }) {
 }
 
 function ApplicationDetail({ application }: { application: Application }) {
+  const applicationDeadlinePassed = application.deadline ? new Date(application.deadline) < new Date(new Date().toDateString()) : false;
+
   return (
     <div className="rounded-2xl border border-slate-100 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-medium text-[var(--portal-ink)]">{application.programTitle}</p>
+          <Link href={`/programs/${application.programId}`} className="font-medium text-[var(--portal-teal)] underline-offset-4 hover:underline">
+            {application.programTitle}
+          </Link>
           <p className="mt-1 text-sm text-slate-500">{application.programUniversity}</p>
         </div>
         <StatusBadge label={application.status} />
@@ -365,6 +370,14 @@ function ApplicationDetail({ application }: { application: Application }) {
         <p>Submitted: {formatIsoDate(application.createdAt)}</p>
         {application.deadline ? <p>Deadline: {formatIsoDate(application.deadline)}</p> : null}
         {application.reviewerNotes ? <p>Office notes: {application.reviewerNotes}</p> : null}
+      </div>
+      <div className="mt-4">
+        <Link
+          href={`/programs/${application.programId}`}
+          className="inline-flex rounded-full border border-black/10 px-4 py-2 text-sm font-medium text-[var(--portal-ink)] hover:bg-slate-50"
+        >
+          {applicationDeadlinePassed ? "View program" : "Open program and update application"}
+        </Link>
       </div>
     </div>
   );
@@ -375,8 +388,14 @@ function DeadlineDetail({ deadline }: { deadline: StudentDashboard["deadlines"][
     <div className="rounded-2xl border border-slate-100 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-medium text-[var(--portal-ink)]">{deadline.programTitle}</p>
-          <p className="mt-1 text-sm text-slate-500">{deadline.title}</p>
+          <Link href={`/programs/${deadline.programId}`} className="font-medium text-[var(--portal-teal)] underline-offset-4 hover:underline">
+            {deadline.programTitle}
+          </Link>
+          <p className="mt-1 text-sm text-slate-500">
+            {deadline.requirementLabel ? `${deadline.requirementLabel} · ` : ""}
+            {deadline.title}
+          </p>
+          {deadline.programUniversity ? <p className="mt-1 text-xs text-slate-400">{deadline.programUniversity}</p> : null}
         </div>
         <StatusBadge label={deadline.priority} />
       </div>

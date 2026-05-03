@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Bookmark, BookmarkCheck, CalendarRange, Clock3, FileUp, GraduationCap, MapPin } from "lucide-react";
+import { Bookmark, BookmarkCheck, CalendarRange, Clock3, ExternalLink, FileUp, GraduationCap, MapPin, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/components/AuthProvider";
 import StatusBadge from "@/components/StatusBadge";
@@ -25,8 +25,11 @@ type UploadRequirement = {
   deadlineTitle: string;
   deadlineDate: string;
   requirementLabel: string;
-  existingFileName: string | null;
-  uploadedAt: string | null;
+  existingFiles: {
+    id: number;
+    fileName: string;
+    uploadedAt: string;
+  }[];
 };
 
 export default function ProgramDetailPage() {
@@ -36,7 +39,7 @@ export default function ProgramDetailPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingDocuments, setUploadingDocuments] = useState(false);
-  const [pendingUploads, setPendingUploads] = useState<Record<string, PendingUpload>>({});
+  const [pendingUploads, setPendingUploads] = useState<Record<string, PendingUpload[]>>({});
 
   async function loadProgram() {
     try {
@@ -65,7 +68,7 @@ export default function ProgramDetailPage() {
 
     return program.deadlines.flatMap((deadline) =>
       deadline.requiredDocuments.map((requirementLabel) => {
-        const existingDocument = existingDocuments.find(
+        const existingFiles = existingDocuments.filter(
           (document) => document.deadlineId === deadline.id && document.requirementLabel === requirementLabel,
         );
 
@@ -75,8 +78,11 @@ export default function ProgramDetailPage() {
           deadlineTitle: deadline.title,
           deadlineDate: deadline.date,
           requirementLabel,
-          existingFileName: existingDocument?.fileName || null,
-          uploadedAt: existingDocument?.uploadedAt || null,
+          existingFiles: existingFiles.map((document) => ({
+            id: document.id,
+            fileName: document.fileName,
+            uploadedAt: document.uploadedAt,
+          })),
         };
       }),
     );
@@ -91,31 +97,51 @@ export default function ProgramDetailPage() {
     });
   }
 
-  async function onSelectUpload(requirement: UploadRequirement, file: File | null) {
-    if (!file) return;
+  async function onSelectUpload(requirement: UploadRequirement, files: FileList | File[] | null) {
+    if (!files || files.length === 0) return;
 
     try {
-      const fileData = await readFileAsDataUrl(file);
-      setPendingUploads((current) => ({
-        ...current,
-        [requirement.key]: {
+      const nextUploads = await Promise.all(
+        Array.from(files).map(async (file) => ({
           deadlineId: requirement.deadlineId,
           requirementLabel: requirement.requirementLabel,
           fileName: file.name,
           mimeType: file.type || "application/octet-stream",
-          fileData,
-        },
+          fileData: await readFileAsDataUrl(file),
+        })),
+      );
+
+      setPendingUploads((current) => ({
+        ...current,
+        [requirement.key]: [
+          ...(current[requirement.key] || []),
+          ...nextUploads,
+        ],
       }));
-      toast.success(`${requirement.requirementLabel} attached.`);
+      toast.success(
+        nextUploads.length === 1
+          ? `${requirement.requirementLabel} attached.`
+          : `${nextUploads.length} files attached for ${requirement.requirementLabel}.`,
+      );
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   }
 
-  function clearPendingUpload(requirementKey: string) {
+  function clearPendingUpload(requirementKey: string, fileIndex?: number) {
     setPendingUploads((current) => {
       const next = { ...current };
-      delete next[requirementKey];
+      if (typeof fileIndex !== "number") {
+        delete next[requirementKey];
+        return next;
+      }
+
+      const remaining = (next[requirementKey] || []).filter((_, index) => index !== fileIndex);
+      if (remaining.length === 0) {
+        delete next[requirementKey];
+      } else {
+        next[requirementKey] = remaining;
+      }
       return next;
     });
   }
@@ -127,7 +153,7 @@ export default function ProgramDetailPage() {
       const application = await apiPost<Application>("/applications", {
         programId: program.id,
         status: "Submitted",
-        uploads: Object.values(pendingUploads),
+        uploads: Object.values(pendingUploads).flat(),
       });
       setProgram({ ...program, myApplication: application });
       setPendingUploads({});
@@ -148,8 +174,8 @@ export default function ProgramDetailPage() {
 
     setUploadingDocuments(true);
     try {
-      const updatedApplication = await apiPut<Application>(`/applications/${program.myApplication.id}/documents`, {
-        uploads: Object.values(pendingUploads),
+        const updatedApplication = await apiPut<Application>(`/applications/${program.myApplication.id}/documents`, {
+        uploads: Object.values(pendingUploads).flat(),
       });
       setProgram({ ...program, myApplication: updatedApplication });
       setPendingUploads({});
@@ -210,12 +236,28 @@ export default function ProgramDetailPage() {
             ) : null}
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
+          <div className="mt-8 grid gap-4 md:grid-cols-5">
             <InfoTile icon={<MapPin size={18} />} label="Country" value={program.country} />
             <InfoTile icon={<GraduationCap size={18} />} label="Eligibility" value={program.eligibility} />
             <InfoTile icon={<Clock3 size={18} />} label="Duration" value={program.duration} />
+            <InfoTile icon={<CalendarRange size={18} />} label="Program Starts" value={program.startDate ? formatIsoDate(program.startDate) : "To be announced"} />
             <InfoTile icon={<CalendarRange size={18} />} label="Program Ends" value={program.endDate ? formatIsoDate(program.endDate) : "To be announced"} />
           </div>
+
+          {program.externalLink ? (
+            <div className="mt-6 rounded-2xl border border-slate-100 bg-[var(--portal-panel)] p-4">
+              <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Official Program Page</p>
+              <a
+                href={program.externalLink}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[var(--portal-teal)]"
+              >
+                Visit the official program page
+                <ExternalLink size={16} />
+              </a>
+            </div>
+          ) : null}
 
           <div className="mt-8">
             <h2 className="text-xl font-semibold">Program Overview</h2>
@@ -305,7 +347,7 @@ export default function ProgramDetailPage() {
                       </p>
                     ) : (
                       uploadRequirements.map((requirement) => {
-                        const pendingUpload = pendingUploads[requirement.key];
+                        const pendingUpload = pendingUploads[requirement.key] || [];
                         return (
                           <div key={requirement.key} className="rounded-2xl border border-slate-100 p-4">
                             <div className="flex flex-col gap-2">
@@ -316,26 +358,34 @@ export default function ProgramDetailPage() {
                                     {requirement.deadlineTitle} · upload by {formatIsoDate(requirement.deadlineDate)}
                                   </p>
                                 </div>
-                                {requirement.existingFileName ? <StatusBadge label="Uploaded" /> : <StatusBadge label="Pending" />}
+                                {requirement.existingFiles.length > 0 ? <StatusBadge label="Uploaded" /> : <StatusBadge label="Pending" />}
                               </div>
 
-                              {requirement.existingFileName ? (
-                                <p className="text-sm text-slate-500">
-                                  Current file: {requirement.existingFileName}
-                                  {requirement.uploadedAt ? ` · uploaded ${formatIsoDate(requirement.uploadedAt)}` : ""}
-                                </p>
+                              {requirement.existingFiles.length > 0 ? (
+                                <div className="space-y-2 text-sm text-slate-500">
+                                  {requirement.existingFiles.map((file) => (
+                                    <p key={file.id}>
+                                      Uploaded: {file.fileName}
+                                      {file.uploadedAt ? ` · uploaded ${formatIsoDate(file.uploadedAt)}` : ""}
+                                    </p>
+                                  ))}
+                                </div>
                               ) : null}
 
-                              {pendingUpload ? (
-                                <div className="flex items-center justify-between rounded-2xl bg-[var(--portal-panel)] px-4 py-3 text-sm">
-                                  <span className="text-slate-600">Ready to upload: {pendingUpload.fileName}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => clearPendingUpload(requirement.key)}
-                                    className="font-medium text-rose-600"
-                                  >
-                                    Remove
-                                  </button>
+                              {pendingUpload.length > 0 ? (
+                                <div className="space-y-2">
+                                  {pendingUpload.map((file, index) => (
+                                    <div key={`${file.fileName}-${index}`} className="flex items-center justify-between rounded-2xl bg-[var(--portal-panel)] px-4 py-3 text-sm">
+                                      <span className="text-slate-600">Ready to upload: {file.fileName}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => clearPendingUpload(requirement.key, index)}
+                                        className="font-medium text-rose-600"
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  ))}
                                 </div>
                               ) : null}
 
@@ -343,22 +393,23 @@ export default function ProgramDetailPage() {
                                 <div className="flex items-center justify-between gap-4">
                                   <div>
                                     <p className="text-sm font-semibold text-[var(--portal-ink)]">
-                                      {requirement.existingFileName ? "Replace uploaded file" : "Upload file"}
+                                      {requirement.existingFiles.length > 0 || pendingUpload.length > 0 ? "Add more files" : "Upload file(s)"}
                                     </p>
                                     <p className="mt-1 text-xs text-slate-500">
-                                      Click to choose a file for {requirement.requirementLabel}.
+                                      Click to choose one or more files for {requirement.requirementLabel}.
                                     </p>
                                   </div>
                                   <span className="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-slate-700">
-                                    Choose file
+                                    Choose files
                                   </span>
                                 </div>
                                 <input
                                   type="file"
+                                  multiple
                                   className="sr-only"
                                   onChange={(event) => {
-                                    const file = event.target.files?.[0] || null;
-                                    void onSelectUpload(requirement, file);
+                                    void onSelectUpload(requirement, event.target.files);
+                                    event.currentTarget.value = "";
                                   }}
                                 />
                               </label>
@@ -401,6 +452,38 @@ export default function ProgramDetailPage() {
             <Link href="/mentor" className="mt-4 inline-flex text-sm font-semibold text-[var(--portal-teal)]">
               Go to Mentor Booking
             </Link>
+          </div>
+
+          <div className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Sparkles size={18} className="text-[var(--portal-teal)]" />
+              <h2 className="text-xl font-semibold">Program Assistant</h2>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Open the dedicated assistant workspace for this program. You can switch between program assistants there, keep a full per-program conversation history, and run honest application reviews against the latest uploaded materials saved in the portal.
+            </p>
+            {activeUser?.role !== "student" ? (
+              <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
+                Switch to a student account to open the program assistant workspace.
+              </p>
+            ) : (
+              <div className="mt-5 rounded-2xl border border-black/5 bg-[var(--portal-panel)] p-4">
+                <p className="text-sm leading-6 text-slate-600">
+                  Use the workspace for two things:
+                </p>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+                  <li>1. Ask grounded questions about this specific program and its official page.</li>
+                  <li>2. Review your current application against the latest documents already uploaded for this program.</li>
+                </ul>
+                <Link
+                  href={`/assistant?programId=${program.id}`}
+                  className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white"
+                >
+                  Open {program.title} assistant
+                  <ExternalLink size={16} />
+                </Link>
+              </div>
+            )}
           </div>
         </aside>
       </div>
