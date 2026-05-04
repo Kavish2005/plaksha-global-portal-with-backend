@@ -612,7 +612,7 @@ app.post("/api/programs/:id/assistant", async (req, res) => {
       query: `[programId:${program.id}][program:${program.title}][mode:${String(mode || "qa")}] ${
         String(message || "").trim() || "Program assistant request"
       }`,
-      response: result.response,
+      response: result.storedResponse || result.response,
       mode: result.mode,
     },
   });
@@ -620,6 +620,7 @@ app.post("/api/programs/:id/assistant", async (req, res) => {
   res.json(
     success({
       reply: result.response,
+      reviewReport: result.reviewReport || null,
       mode: result.mode,
       interaction: formatChatInteraction(interaction),
     }),

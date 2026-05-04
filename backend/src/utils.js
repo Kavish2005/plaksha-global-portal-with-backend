@@ -159,6 +159,18 @@ function formatDeadline(deadline) {
 }
 
 function formatChatInteraction(item) {
+  const reportMatch = String(item.response || "").match(/\[\[PROGRAM_REVIEW_REPORT\]\]([\s\S]*?)\[\[\/PROGRAM_REVIEW_REPORT\]\]/);
+  let reviewReport = null;
+  if (reportMatch?.[1]) {
+    try {
+      reviewReport = JSON.parse(reportMatch[1]);
+    } catch (_error) {
+      reviewReport = null;
+    }
+  }
+  const cleanedResponse = String(item.response || "")
+    .replace(/\n?\[\[PROGRAM_REVIEW_REPORT\]\][\s\S]*?\[\[\/PROGRAM_REVIEW_REPORT\]\]\s*/g, "")
+    .trim();
   const programIdMatch = String(item.query || "").match(/\[programId:(\d+)\]/);
   const programTitleMatch = String(item.query || "").match(/\[program:([^\]]+)\]/);
   const assistantModeMatch = String(item.query || "").match(/\[mode:([^\]]+)\]/);
@@ -168,7 +180,8 @@ function formatChatInteraction(item) {
     id: item.id,
     query: item.query,
     cleanQuery,
-    response: item.response,
+    response: cleanedResponse,
+    reviewReport,
     mode: item.mode,
     programId: programIdMatch?.[1] ? Number(programIdMatch[1]) : null,
     programTitle: programTitleMatch?.[1] || null,

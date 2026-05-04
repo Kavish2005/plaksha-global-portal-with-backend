@@ -151,6 +151,7 @@ export type ChatInteraction = {
   query: string;
   cleanQuery?: string;
   response: string;
+  reviewReport?: ProgramReviewReport | null;
   mode: string;
   programId?: number | null;
   programTitle?: string | null;
@@ -158,8 +159,35 @@ export type ChatInteraction = {
   createdAt: string;
 };
 
+export type ProgramReviewCategoryScore = {
+  name: string;
+  score: number;
+  weightLabel: string;
+  rationale: string;
+};
+
+export type ProgramReviewPriorityAction = {
+  action: string;
+  whyItMatters: string;
+  urgency: string;
+};
+
+export type ProgramReviewReport = {
+  overallScore: number;
+  overallLabel: string;
+  competitivenessVerdict: string;
+  confidenceNote: string;
+  rubricRationale: string;
+  categories: ProgramReviewCategoryScore[];
+  strengths: string[];
+  gaps: string[];
+  priorityActions: ProgramReviewPriorityAction[];
+  bottomLine: string;
+};
+
 export type ProgramAssistantReply = {
   reply: string;
+  reviewReport?: ProgramReviewReport | null;
   mode: string;
   interaction: ChatInteraction;
 };

@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/components/AuthProvider";
 import StatusBadge from "@/components/StatusBadge";
 import { apiDelete, apiGet, apiPost } from "@/services/api";
-import type { ChatInteraction, Program, ProgramAssistantReply } from "@/types";
+import type { ChatInteraction, Program, ProgramAssistantReply, ProgramReviewReport } from "@/types";
 import { formatIsoDate, getErrorMessage } from "@/lib/utils";
 
 type AssistantMessage = {
@@ -16,6 +16,7 @@ type AssistantMessage = {
   content: string;
   mode: "qa" | "review";
   createdAt?: string;
+  reviewReport?: ProgramReviewReport | null;
 };
 
 type PendingUpload = {
@@ -33,6 +34,15 @@ type UploadRequirement = {
   deadlineDate: string;
   requirementLabel: string;
 };
+
+function cleanAssistantMarkdown(text: string) {
+  return String(text || "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .trim();
+}
 
 export default function ProgramAssistantPage() {
   const searchParams = useSearchParams();
@@ -137,7 +147,7 @@ export default function ProgramAssistantPage() {
 
       const parsed = JSON.parse(stored) as Record<string, PendingUpload[]>;
       setPendingUploads(parsed || {});
-    } catch (_error) {
+    } catch {
       setPendingUploads({});
     }
   }, [selectedProgramId]);
@@ -255,7 +265,13 @@ export default function ProgramAssistantPage() {
       setMessages((current) => [
         ...current,
         { role: "user", content: message, mode },
-        { role: "assistant", content: reply.reply, mode, createdAt: reply.interaction.createdAt },
+        {
+          role: "assistant",
+          content: reply.reply,
+          mode,
+          createdAt: reply.interaction.createdAt,
+          reviewReport: reply.reviewReport ?? null,
+        },
       ]);
 
       if (mode === "qa") {
@@ -562,7 +578,10 @@ export default function ProgramAssistantPage() {
                           : "Program Answer"
                         : "You"}
                     </p>
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    {message.role === "assistant" && message.mode === "review" && message.reviewReport ? (
+                      <ProgramReviewReportCard report={message.reviewReport} />
+                    ) : null}
+                    <p className="whitespace-pre-wrap">{cleanAssistantMarkdown(message.content)}</p>
                   </div>
                 ))
               )}
@@ -615,9 +634,218 @@ function flattenHistory(history: ChatInteraction[]): AssistantMessage[] {
         content: entry.response,
         mode,
         createdAt: entry.createdAt,
+        reviewReport: entry.reviewReport ?? null,
       },
     ];
   });
+}
+
+function ProgramReviewReportCard({ report }: { report: ProgramReviewReport }) {
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  function downloadReport() {
+    const sections = [
+      `Overall score: ${report.overallScore.toFixed(1)} / 5`,
+      `Overall label: ${report.overallLabel}`,
+      "",
+      "Current standing",
+      report.competitivenessVerdict,
+      "",
+      "Why this rubric was used",
+      report.rubricRationale,
+      "",
+      "Confidence note",
+      report.confidenceNote,
+      "",
+      "Category scores",
+      ...report.categories.map(
+        (category) =>
+          `- ${category.name}: ${category.score.toFixed(1)} / 5 (${category.weightLabel})\n  ${category.rationale}`,
+      ),
+      "",
+      "What is helping",
+      ...report.strengths.map((item) => `- ${item}`),
+      "",
+      "What needs work",
+      ...report.gaps.map((item) => `- ${item}`),
+      "",
+      "Highest-priority improvements",
+      ...report.priorityActions.map(
+        (item, index) => `${index + 1}. ${item.action} [${item.urgency}]\n   Why it matters: ${item.whyItMatters}`,
+      ),
+      "",
+      "Bottom line",
+      report.bottomLine,
+    ].filter(Boolean);
+
+    const blob = new Blob([sections.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "program-review-report.txt";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <>
+      <div className="mb-4 rounded-2xl border border-[var(--portal-teal)]/10 bg-[var(--portal-panel)] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Structured review report</p>
+            <h3 className="mt-1 text-lg font-semibold text-[var(--portal-ink)]">{report.overallLabel}</h3>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{report.competitivenessVerdict}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className={`rounded-2xl px-4 py-3 text-center ${scoreColorClasses(report.overallScore)}`}>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-80">Overall score</p>
+              <p className="mt-1 text-2xl font-bold">{report.overallScore.toFixed(1)} / 5</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[var(--portal-ink)]"
+            >
+              View review report
+            </button>
+            <button
+              type="button"
+              onClick={downloadReport}
+              className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[var(--portal-ink)]"
+            >
+              Download report
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {isPreviewOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="flex h-[min(86vh,52rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-black/10 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-black/5 px-6 py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Application review report</p>
+                <h3 className="mt-1 text-2xl font-semibold text-[var(--portal-ink)]">{report.overallLabel}</h3>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={downloadReport}
+                  className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[var(--portal-ink)]"
+                >
+                  Download report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-slate-600"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto px-6 py-6">
+              <div className="mt-5 flex flex-wrap items-center gap-4">
+                <div className={`rounded-2xl px-5 py-4 text-center ${scoreColorClasses(report.overallScore)}`}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-80">Overall score</p>
+                  <p className="mt-1 text-3xl font-bold">{report.overallScore.toFixed(1)} / 5</p>
+                </div>
+                <div className="max-w-2xl rounded-2xl bg-slate-100 px-4 py-3 text-sm font-medium leading-6 text-slate-700">
+                  {report.competitivenessVerdict}
+                </div>
+              </div>
+
+              {report.categories.length > 0 ? (
+                <div className="mt-6 grid gap-3 xl:grid-cols-2">
+                  {report.categories.map((category) => (
+                    <div key={category.name} className="rounded-2xl border border-black/5 bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-[var(--portal-ink)]">{category.name}</p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.12em] text-slate-400">{category.weightLabel}</p>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-sm font-semibold ${scoreColorClasses(category.score)}`}>
+                          {category.score.toFixed(1)} / 5
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-slate-600">{category.rationale}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                <div className="rounded-2xl border border-black/5 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">What is helping</p>
+                  {report.strengths.length > 0 ? (
+                    <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                      {report.strengths.map((item) => (
+                        <li key={item} className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-900">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-500">No clear strengths were identified from the current evidence.</p>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-black/5 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">What needs work</p>
+                  {report.gaps.length > 0 ? (
+                    <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                      {report.gaps.map((item) => (
+                        <li key={item} className="rounded-xl bg-rose-50 px-3 py-2 text-rose-900">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-500">No major gaps were identified from the current evidence.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-black/5 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Highest-priority improvements</p>
+                {report.priorityActions.length > 0 ? (
+                  <div className="mt-3 space-y-3">
+                    {report.priorityActions.map((item, index) => (
+                      <div key={`${item.action}-${index}`} className="rounded-2xl bg-[var(--portal-panel)] px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">Priority {index + 1}</span>
+                          <span className="rounded-full border border-amber-200 px-2 py-1 text-xs font-semibold text-amber-700">{item.urgency}</span>
+                        </div>
+                        <p className="mt-2 font-semibold text-[var(--portal-ink)]">{item.action}</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-600">{item.whyItMatters}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-500">No ranked action list was returned for this review.</p>
+                )}
+              </div>
+
+              {report.bottomLine ? (
+                <div className="mt-6 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-medium leading-6 text-slate-700">
+                  {report.bottomLine}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function scoreColorClasses(score: number) {
+  if (score >= 4) return "bg-emerald-50 text-emerald-800";
+  if (score >= 3) return "bg-amber-50 text-amber-800";
+  return "bg-rose-50 text-rose-800";
 }
 
 function InfoTile({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
