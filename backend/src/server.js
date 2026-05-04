@@ -3,6 +3,7 @@ const cors = require("cors");
 const prisma = require("./prisma");
 const { requireAdmin, requireMentor, requireOfficeOrMentor, requireStudent, resolveActor } = require("./auth");
 const { createProgramAssistantReply, respond } = require("./chatService");
+const { discoverOpportunities } = require("./opportunityDiscoveryService");
 const {
   failure,
   formatApplication,
@@ -16,7 +17,6 @@ const {
   formatProgram,
   getTagsJson,
   normalizeDateString,
-  parseJsonArray,
   success,
 } = require("./utils");
 
@@ -1794,7 +1794,7 @@ app.get("/api/dashboard/me", async (req, res) => {
           return [];
         }
 
-        const requiredDocuments = parseJsonArray(deadline.requiredDocumentsJson);
+        const requiredDocuments = parseRequiredDocuments(deadline.requiredDocumentsJson);
         const uploadedLabels = uploadedLabelsByDeadline.get(deadline.id) || new Set();
 
         if (requiredDocuments.length > 0) {
@@ -2151,6 +2151,23 @@ app.get("/api/admin/dashboard", async (req, res) => {
         .map(formatApplication),
     }),
   );
+});
+
+app.post("/api/admin/opportunity-discovery", async (req, res) => {
+  if (!(await requireAdminResponse(req, res))) return;
+
+  const normalizedRequest = String(req.body?.query || "").trim();
+  if (!normalizedRequest) {
+    return sendError(res, "Please describe the kind of opportunity you want to discover.", 400);
+  }
+
+  try {
+    const discovery = await discoverOpportunities(normalizedRequest);
+    res.json(success(discovery));
+  } catch (error) {
+    console.error("Opportunity discovery failed.", error);
+    sendError(res, error.message || "Opportunity discovery failed.", 500);
+  }
 });
 
 app.use((error, _req, res, _next) => {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, BriefcaseBusiness, ClipboardCheck, LayoutGrid, ShieldCheck, Users } from "lucide-react";
+import { Bot, BriefcaseBusiness, ClipboardCheck, Compass, LayoutGrid, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { cx } from "@/lib/utils";
 
@@ -34,6 +34,13 @@ const sections = [
     shortLabel: "Applications",
     description: "Review, approve, and nominate",
     icon: ClipboardCheck,
+  },
+  {
+    href: "/admin/discovery",
+    label: "Discovery",
+    shortLabel: "Discovery",
+    description: "Research new opportunities",
+    icon: Compass,
   },
   {
     href: "/admin/assistant",
@@ -90,7 +97,7 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
       </div>
 
       <div className="mt-8 rounded-[2rem] border border-black/5 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           {visibleSections.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);

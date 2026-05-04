@@ -164,6 +164,48 @@ export type ProgramAssistantReply = {
   interaction: ChatInteraction;
 };
 
+export type OpportunityDiscoveryDraft = {
+  title: string;
+  university: string;
+  country: string;
+  type: string;
+  description: string;
+  eligibility: string;
+  duration: string;
+  startDate: string | null;
+  endDate: string | null;
+  externalLink: string | null;
+  tags: string[];
+};
+
+export type OpportunityDiscoveryResult = {
+  id: string;
+  title: string;
+  institution: string;
+  country: string;
+  confidenceTier?: "best_match" | "strong_match" | "needs_manual_review";
+  confidenceLabel?: string;
+  rankingScore?: number;
+  opportunityType: string;
+  summary: string;
+  fitReason: string;
+  eligibility: string;
+  timing: string;
+  deadline: string;
+  url: string;
+  sourceLabel: string;
+  sourceSnippet: string;
+  tags: string[];
+  draftProgram: OpportunityDiscoveryDraft;
+};
+
+export type OpportunityDiscoveryResponse = {
+  normalizedRequest: string;
+  overview: string;
+  searchedQueries: string[];
+  results: OpportunityDiscoveryResult[];
+};
+
 export type KnowledgeDocument = {
   id: number;
   title: string;

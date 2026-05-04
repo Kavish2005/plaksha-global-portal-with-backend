@@ -1,6 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/components/AuthProvider";
 import StatusBadge from "@/components/StatusBadge";
@@ -15,11 +16,14 @@ import type {
   KnowledgeDocument,
   Mentor,
   Nomination,
+  OpportunityDiscoveryDraft,
+  OpportunityDiscoveryResponse,
+  OpportunityDiscoveryResult,
   Program,
 } from "@/types";
 import { formatIsoDate, getErrorMessage, toIsoDate } from "@/lib/utils";
 
-export type AdminSectionKey = "overview" | "programs" | "mentors" | "deadlines" | "applications" | "assistant";
+export type AdminSectionKey = "overview" | "programs" | "mentors" | "deadlines" | "applications" | "discovery" | "assistant";
 
 type ProgramFormState = {
   title: string;
@@ -87,8 +91,10 @@ const emptyKnowledgeDocumentForm: KnowledgeDocumentFormState = {
 };
 
 const statusOptions: ApplicationStatus[] = ["Draft", "Submitted", "Under Review", "Approved", "Rejected", "Nominated"];
+const DISCOVERY_DRAFT_STORAGE_KEY = "admin-opportunity-discovery-draft";
 
 export default function AdminClient({ section }: { section: AdminSectionKey }) {
+  const router = useRouter();
   const { activeUser, loading: authLoading } = useAuth();
   const isMentorUser = activeUser?.role === "mentor";
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
@@ -127,6 +133,38 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
   const [deadlineRequiredDocuments, setDeadlineRequiredDocuments] = useState<string[]>([""]);
 
   const [applicationFilter, setApplicationFilter] = useState({ student: "", program: "", status: "" });
+
+  useEffect(() => {
+    if (section !== "programs") return;
+    if (typeof window === "undefined") return;
+
+    const storedDraft = window.sessionStorage.getItem(DISCOVERY_DRAFT_STORAGE_KEY);
+    if (!storedDraft) return;
+
+    try {
+      const draft = JSON.parse(storedDraft) as OpportunityDiscoveryDraft;
+      setEditingProgramId(null);
+      setSelectedProgramId(null);
+      setProgramForm({
+        title: draft.title || "",
+        university: draft.university || "",
+        country: draft.country || "",
+        type: draft.type || "Exchange",
+        description: draft.description || "",
+        eligibility: draft.eligibility || "",
+        duration: draft.duration || "",
+        startDate: draft.startDate || "",
+        endDate: draft.endDate || "",
+        externalLink: draft.externalLink || "",
+        featured: false,
+        tags: Array.isArray(draft.tags) ? draft.tags.join(", ") : "",
+      });
+      window.sessionStorage.removeItem(DISCOVERY_DRAFT_STORAGE_KEY);
+      toast.success("Discovery result copied into the program form.");
+    } catch (_error) {
+      window.sessionStorage.removeItem(DISCOVERY_DRAFT_STORAGE_KEY);
+    }
+  }, [section]);
 
   async function loadAllData() {
     setLoading(true);
@@ -638,6 +676,17 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
         />
       ) : null}
 
+      {!isMentorUser && section === "discovery" ? (
+        <DiscoverySection
+          onPrepareProgramDraft={(draft) => {
+            if (typeof window !== "undefined") {
+              window.sessionStorage.setItem(DISCOVERY_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+            }
+            router.push("/admin/programs");
+          }}
+        />
+      ) : null}
+
       {section === "assistant" ? (
         <AssistantSection
           isMentorUser={isMentorUser}
@@ -1110,6 +1159,289 @@ function ProgramsSection({
         </div>
       </div>
     </AdminSection>
+  );
+}
+
+function DiscoverySection({
+  onPrepareProgramDraft,
+}: {
+  onPrepareProgramDraft: (draft: OpportunityDiscoveryDraft) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [topicFilter, setTopicFilter] = useState("");
+  const [opportunityTypeFilter, setOpportunityTypeFilter] = useState("");
+  const [regionFilter, setRegionFilter] = useState("");
+  const [studentLevelFilter, setStudentLevelFilter] = useState("");
+  const [discovery, setDiscovery] = useState<OpportunityDiscoveryResponse | null>(null);
+  const [loadingDiscovery, setLoadingDiscovery] = useState(false);
+
+  const topicOptions: SearchableOption[] = [
+    { value: "AI", label: "Artificial Intelligence" },
+    { value: "Robotics", label: "Robotics" },
+    { value: "Data Science", label: "Data Science" },
+    { value: "Computer Science", label: "Computer Science" },
+    { value: "Design", label: "Design" },
+    { value: "Entrepreneurship", label: "Entrepreneurship" },
+    { value: "Research", label: "General Research" },
+  ];
+
+  const opportunityTypeOptions: SearchableOption[] = [
+    { value: "Research", label: "Research Opportunity" },
+    { value: "Summer School", label: "Summer School" },
+    { value: "Exchange", label: "Exchange Program" },
+    { value: "Fellowship", label: "Fellowship" },
+    { value: "Internship", label: "Internship" },
+  ];
+
+  const regionOptions: SearchableOption[] = [
+    { value: "Europe", label: "Europe" },
+    { value: "Asia", label: "Asia" },
+    { value: "North America", label: "North America" },
+    { value: "Global", label: "Global / Any Region" },
+  ];
+
+  const studentLevelOptions: SearchableOption[] = [
+    { value: "Undergraduate", label: "Undergraduate" },
+    { value: "Graduate", label: "Graduate" },
+    { value: "Any level", label: "Any Level" },
+  ];
+
+  const builtFilterRequest = useMemo(() => {
+    const parts = [
+      opportunityTypeFilter || "opportunities",
+      topicFilter ? `in ${topicFilter}` : "",
+      regionFilter && regionFilter !== "Global" ? `in ${regionFilter}` : "",
+      studentLevelFilter && studentLevelFilter !== "Any level" ? `for ${studentLevelFilter.toLowerCase()} students` : "",
+    ].filter(Boolean);
+
+    return parts.join(" ").replace(/\s+/g, " ").trim();
+  }, [opportunityTypeFilter, regionFilter, studentLevelFilter, topicFilter]);
+
+  async function runDiscovery() {
+    const normalizedQuery = query.trim() || builtFilterRequest;
+    if (!normalizedQuery) {
+      toast.error("Add a short request or choose a few filters so we know what to look for.");
+      return;
+    }
+
+    setLoadingDiscovery(true);
+    try {
+      const response = await apiPost<OpportunityDiscoveryResponse>("/admin/opportunity-discovery", {
+        query: normalizedQuery,
+      });
+      setDiscovery(response);
+      if (response.results.length === 0) {
+        toast.success("Discovery finished, but no credible opportunities were returned.");
+      } else {
+        toast.success(`Found ${response.results.length} opportunity suggestions.`);
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setLoadingDiscovery(false);
+    }
+  }
+
+  return (
+    <AdminSection
+      eyebrow="Discovery"
+      title="Explore external opportunities"
+      description="Use this space to look for new global opportunities for students. You can type what you need in plain language, or use the filters if you prefer a guided search."
+    >
+      <div className="grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
+        <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
+          <h3 className="text-xl font-semibold">What would you like to find?</h3>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            You can either type a request in your own words or use the filters below. For example: “Find summer school options in robotics” or “Show research opportunities in AI for undergraduates in Europe.”
+          </p>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <SearchableSelect
+              value={topicFilter}
+              onChange={setTopicFilter}
+              options={topicOptions}
+              placeholder="Topic or interest area"
+              searchPlaceholder="Search topic"
+              allowClear
+            />
+            <SearchableSelect
+              value={opportunityTypeFilter}
+              onChange={setOpportunityTypeFilter}
+              options={opportunityTypeOptions}
+              placeholder="Opportunity type"
+              searchPlaceholder="Search type"
+              allowClear
+            />
+            <SearchableSelect
+              value={regionFilter}
+              onChange={setRegionFilter}
+              options={regionOptions}
+              placeholder="Region"
+              searchPlaceholder="Search region"
+              allowClear
+            />
+            <SearchableSelect
+              value={studentLevelFilter}
+              onChange={setStudentLevelFilter}
+              options={studentLevelOptions}
+              placeholder="Student level"
+              searchPlaceholder="Search level"
+              allowClear
+            />
+          </div>
+
+          {builtFilterRequest ? (
+            <div className="mt-4 rounded-2xl border border-black/5 bg-white/70 p-4 text-sm text-slate-600">
+              <p className="font-medium text-[var(--portal-ink)]">Suggested search from filters</p>
+              <p className="mt-2">{builtFilterRequest}</p>
+            </div>
+          ) : null}
+
+          <textarea
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="mt-5 min-h-40 w-full rounded-2xl border border-black/10 px-4 py-3"
+            placeholder="Optional: type a more specific request here if you want to guide the search in your own words..."
+          />
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              onClick={() => void runDiscovery()}
+              disabled={loadingDiscovery}
+              className="rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {loadingDiscovery ? "Researching opportunities..." : "Discover Opportunities"}
+            </button>
+            <button
+              onClick={() => {
+                setQuery("");
+                setTopicFilter("");
+                setOpportunityTypeFilter("");
+                setRegionFilter("");
+                setStudentLevelFilter("");
+                setDiscovery(null);
+              }}
+              className="rounded-full border border-black/10 px-5 py-3 text-sm font-semibold"
+            >
+              Reset
+            </button>
+          </div>
+
+        </div>
+
+        <div className="space-y-6">
+          {discovery?.results?.length ? (
+            <div className="space-y-4">
+              {discovery.results.map((result, index) => (
+                <OpportunityResultCard
+                  key={result.id}
+                  index={index}
+                  result={result}
+                  onPrepareProgramDraft={onPrepareProgramDraft}
+                />
+              ))}
+            </div>
+          ) : discovery ? (
+            <div className="rounded-3xl border border-dashed border-black/10 p-6 text-sm text-slate-500">
+              <p>{discovery.overview || "We couldn’t find strong matches from the current request. Try narrowing the search by topic, region, opportunity type, or student level."}</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </AdminSection>
+  );
+}
+
+function OpportunityResultCard({
+  index,
+  result,
+  onPrepareProgramDraft,
+}: {
+  index: number;
+  result: OpportunityDiscoveryResult;
+  onPrepareProgramDraft: (draft: OpportunityDiscoveryDraft) => void;
+}) {
+  const tierTone =
+    result.confidenceTier === "best_match"
+      ? "bg-emerald-50 text-emerald-700"
+      : result.confidenceTier === "strong_match"
+        ? "bg-sky-50 text-sky-700"
+        : "bg-amber-50 text-amber-700";
+
+  return (
+    <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+              #{index + 1}
+            </span>
+            <p className="text-xl font-semibold">{result.title}</p>
+            <StatusBadge label={result.opportunityType} />
+            {result.country ? <StatusBadge label={result.country} /> : null}
+            {result.confidenceLabel ? (
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${tierTone}`}>
+                {result.confidenceLabel}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-sm text-slate-500">{result.institution}</p>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <a
+            href={result.url}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold"
+          >
+            Open source
+          </a>
+          <button
+            onClick={() => onPrepareProgramDraft(result.draftProgram)}
+            className="rounded-full bg-[var(--portal-teal)] px-4 py-2 text-sm font-semibold text-white"
+          >
+            Prepare in Programs
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-4 text-sm leading-6 text-slate-600">{result.summary}</p>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl bg-[var(--portal-panel)] p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Why it fits</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{result.fitReason}</p>
+        </div>
+        <div className="rounded-2xl bg-[var(--portal-panel)] p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Eligibility</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{result.eligibility}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-slate-100 p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Timing</p>
+          <p className="mt-2 text-sm text-slate-600">{result.timing}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-100 p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Deadline</p>
+          <p className="mt-2 text-sm text-slate-600">{result.deadline}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-100 p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Source</p>
+          <p className="mt-2 text-sm text-slate-600">{result.sourceLabel}</p>
+        </div>
+      </div>
+
+      {result.tags?.length ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {result.tags.map((tag) => (
+            <StatusBadge key={`${result.id}-${tag}`} label={tag} />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
