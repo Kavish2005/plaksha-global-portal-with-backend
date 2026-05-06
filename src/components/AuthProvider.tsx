@@ -7,9 +7,10 @@ import type { AuthOptions, DemoUser } from "@/types";
 type AuthContextValue = {
   adminOptions: DemoUser[];
   mentorOptions: DemoUser[];
+  reviewerOptions: DemoUser[];
   activeUser: DemoUser | null;
   loading: boolean;
-  login: (payload: { role: "student" | "admin" | "mentor"; email: string; name?: string }) => Promise<DemoUser>;
+  login: (payload: { role: "student" | "admin" | "mentor" | "reviewer"; email: string; name?: string }) => Promise<DemoUser>;
   logout: () => Promise<void>;
 };
 
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [adminOptions, setAdminOptions] = useState<DemoUser[]>([]);
   const [mentorOptions, setMentorOptions] = useState<DemoUser[]>([]);
+  const [reviewerOptions, setReviewerOptions] = useState<DemoUser[]>([]);
   const [activeUser, setActiveUserState] = useState<DemoUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -27,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const options = await apiGet<AuthOptions>("/auth/options");
         setAdminOptions(options.admins);
         setMentorOptions(options.mentors);
+        setReviewerOptions(options.reviewers);
 
         const stored = window.localStorage.getItem(DEMO_USER_STORAGE_KEY);
         let parsed: DemoUser | null = null;
@@ -53,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (_error) {
         setAdminOptions([]);
         setMentorOptions([]);
+        setReviewerOptions([]);
         setActiveUserState(null);
       } finally {
         setLoading(false);
@@ -66,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       adminOptions,
       mentorOptions,
+      reviewerOptions,
       activeUser,
       loading,
       login: async (payload) => {
@@ -84,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setActiveUserState(null);
       },
     }),
-    [activeUser, adminOptions, loading, mentorOptions],
+    [activeUser, adminOptions, loading, mentorOptions, reviewerOptions],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -7,6 +7,7 @@ async function resetModel(model) {
 }
 
 async function main() {
+  await resetModel("workflowEmailLog");
   await resetModel("notificationLog");
   await resetModel("nomination");
   await resetModel("knowledgeDocument");
@@ -15,9 +16,11 @@ async function main() {
   await resetModel("booking");
   await resetModel("availability");
   await resetModel("applicationDocument");
+  await resetModel("applicationWorkflowStage");
   await resetModel("deadline");
   await resetModel("application");
   await resetModel("savedProgram");
+  await resetModel("reviewer");
   await resetModel("mentor");
   await resetModel("program");
   await resetModel("admin");
@@ -44,6 +47,30 @@ async function main() {
       email: "global.office@plaksha.edu.in",
     },
   });
+
+  const [studentLifeReviewer, ugAcademicsReviewer, deanReviewer] = await Promise.all([
+    prisma.reviewer.create({
+      data: {
+        name: "Student Life Office",
+        email: "studentlife@plaksha.edu.in",
+        organizationLabel: "Student Life",
+      },
+    }),
+    prisma.reviewer.create({
+      data: {
+        name: "UG Academics Office",
+        email: "ugacademics@plaksha.edu.in",
+        organizationLabel: "UG Academics",
+      },
+    }),
+    prisma.reviewer.create({
+      data: {
+        name: "Dean Office",
+        email: "dean.office@plaksha.edu.in",
+        organizationLabel: "Dean's Office",
+      },
+    }),
+  ]);
 
   const programs = await Promise.all([
     prisma.program.create({
@@ -375,6 +402,147 @@ async function main() {
       fileData: "data:application/pdf;base64,VEVTVF9UUkFOU0NSSVBU",
     },
   });
+
+  await Promise.all([
+    prisma.applicationWorkflowStage.create({
+      data: {
+        applicationId: applicationOne.id,
+        order: 1,
+        stageLabel: "Global Engagement initial review",
+        reviewerEmail: admin.email,
+        reviewerName: admin.name,
+        reviewerRoleLabel: "Global Engagement Office",
+        status: "ACTIVE",
+        instructions: "Review the submitted materials and decide which office should assess the application next.",
+        studentVisibleUpdate: "Your application is under initial review by the Global Engagement Office.",
+        requestedByAdminId: admin.id,
+      },
+    }),
+    prisma.applicationWorkflowStage.create({
+      data: {
+        applicationId: applicationTwo.id,
+        order: 1,
+        stageLabel: "Global Engagement initial review",
+        reviewerEmail: admin.email,
+        reviewerName: admin.name,
+        reviewerRoleLabel: "Global Engagement Office",
+        status: "FORWARDED",
+        instructions: "Confirm baseline eligibility and forward to the appropriate internal office.",
+        internalNotes: "Transcript validation required before we can continue to nomination consideration.",
+        studentVisibleUpdate: "Your application has moved beyond initial review and is awaiting academics verification.",
+        requestedByAdminId: admin.id,
+        completedAt: new Date("2026-03-29T10:30:00.000Z"),
+      },
+    }),
+    prisma.applicationWorkflowStage.create({
+      data: {
+        applicationId: applicationTwo.id,
+        order: 2,
+        stageLabel: "UG Academics review",
+        reviewerEmail: ugAcademicsReviewer.email,
+        reviewerName: ugAcademicsReviewer.name,
+        reviewerRoleLabel: ugAcademicsReviewer.organizationLabel,
+        reviewerId: ugAcademicsReviewer.id,
+        status: "ACTIVE",
+        instructions: "Check transcript validity, credit standing, and academic eligibility for exchange nomination.",
+        studentVisibleUpdate: "Your application is now with UG Academics for transcript and eligibility verification.",
+        requestedByAdminId: admin.id,
+      },
+    }),
+    prisma.applicationWorkflowStage.create({
+      data: {
+        applicationId: applicationThree.id,
+        order: 1,
+        stageLabel: "Global Engagement initial review",
+        reviewerEmail: admin.email,
+        reviewerName: admin.name,
+        reviewerRoleLabel: "Global Engagement Office",
+        status: "FORWARDED",
+        instructions: "Assess program fit and route to the next reviewing office.",
+        internalNotes: "Strong research fit; needs cross-office confirmation before dean review.",
+        studentVisibleUpdate: "Your application has cleared the initial Global Engagement review.",
+        requestedByAdminId: admin.id,
+        completedAt: new Date("2026-03-27T10:30:00.000Z"),
+      },
+    }),
+    prisma.applicationWorkflowStage.create({
+      data: {
+        applicationId: applicationThree.id,
+        order: 2,
+        stageLabel: "Student Life review",
+        reviewerEmail: studentLifeReviewer.email,
+        reviewerName: studentLifeReviewer.name,
+        reviewerRoleLabel: studentLifeReviewer.organizationLabel,
+        reviewerId: studentLifeReviewer.id,
+        status: "FORWARDED",
+        instructions: "Confirm student readiness and any student-life clearance requirements.",
+        studentVisibleUpdate: "Student Life has completed its review and the application is moving forward.",
+        requestedByAdminId: admin.id,
+        completedAt: new Date("2026-03-28T09:00:00.000Z"),
+      },
+    }),
+    prisma.applicationWorkflowStage.create({
+      data: {
+        applicationId: applicationThree.id,
+        order: 3,
+        stageLabel: "Dean review",
+        reviewerEmail: deanReviewer.email,
+        reviewerName: deanReviewer.name,
+        reviewerRoleLabel: deanReviewer.organizationLabel,
+        reviewerId: deanReviewer.id,
+        status: "APPROVED",
+        instructions: "Make the final internal nomination decision for Tokyo AI Lab.",
+        studentVisibleUpdate: "The dean's office approved your nomination for Tokyo AI Lab.",
+        requestedByAdminId: admin.id,
+        completedAt: new Date("2026-03-30T09:00:00.000Z"),
+      },
+    }),
+    prisma.applicationWorkflowStage.create({
+      data: {
+        applicationId: applicationFour.id,
+        order: 1,
+        stageLabel: "Global Engagement initial review",
+        reviewerEmail: admin.email,
+        reviewerName: admin.name,
+        reviewerRoleLabel: "Global Engagement Office",
+        status: "APPROVED",
+        instructions: "Review documentation and approve the student for next-stage processing.",
+        studentVisibleUpdate: "Your application was approved for the next stage of documentation.",
+        requestedByAdminId: admin.id,
+        completedAt: new Date("2026-03-28T14:15:00.000Z"),
+      },
+    }),
+  ]);
+
+  await Promise.all([
+    prisma.workflowEmailLog.create({
+      data: {
+        applicationId: applicationTwo.id,
+        toEmail: ugAcademicsReviewer.email,
+        subject: `Plaksha review request: ${applicationTwo.statement ? programs[0].title : "Application"} review`,
+        body: "Please review Aman Sharma's ETH Zurich Exchange application for transcript validity and academic standing.",
+        deliveryStatus: "Sent",
+      },
+    }),
+    prisma.workflowEmailLog.create({
+      data: {
+        applicationId: applicationThree.id,
+        toEmail: studentLifeReviewer.email,
+        subject: "Plaksha review request: Tokyo AI Lab student-life review",
+        body: "Please review Aman Sharma's Tokyo AI Lab nomination case for student-life clearance and readiness.",
+        deliveryStatus: "Sent",
+      },
+    }),
+    prisma.workflowEmailLog.create({
+      data: {
+        applicationId: applicationThree.id,
+        toEmail: deanReviewer.email,
+        subject: "Plaksha review request: Tokyo AI Lab dean decision",
+        body: "Please make the final dean-level nomination decision for Aman Sharma's Tokyo AI Lab application.",
+        deliveryStatus: "Sent",
+      },
+    }),
+  ]);
 
   await Promise.all([
     prisma.knowledgeDocument.create({

@@ -1,7 +1,17 @@
 const express = require("express");
 const cors = require("cors");
+const nodemailer = require("nodemailer");
+const { Prisma } = require("@prisma/client");
 const prisma = require("./prisma");
-const { requireAdmin, requireMentor, requireOfficeOrMentor, requireStudent, resolveActor } = require("./auth");
+const {
+  hasReviewerModel,
+  requireAdmin,
+  requireMentor,
+  requireOfficeOrMentor,
+  requireReviewer,
+  requireStudent,
+  resolveActor,
+} = require("./auth");
 const { createProgramAssistantReply, respond } = require("./chatService");
 const { discoverOpportunities } = require("./opportunityDiscoveryService");
 const {
@@ -15,13 +25,50 @@ const {
   formatMentor,
   formatNotification,
   formatProgram,
+  formatReviewer,
+  formatStageReviewRequest,
+  formatWorkflowStage,
   getTagsJson,
   normalizeDateString,
+  parseJsonArray,
   success,
 } = require("./utils");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+
+let workflowMailerPromise = null;
+
+function getWorkflowMailer() {
+  if (workflowMailerPromise) {
+    return workflowMailerPromise;
+  }
+
+  workflowMailerPromise = (async () => {
+    const host = process.env.SMTP_HOST;
+    const port = Number(process.env.SMTP_PORT || 0);
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    const secure = String(process.env.SMTP_SECURE || "false").toLowerCase() === "true";
+
+    if (!host || !port || !user || !pass) {
+      return null;
+    }
+
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: {
+        user,
+        pass,
+      },
+    });
+  })();
+
+  return workflowMailerPromise;
+}
 
 app.use(
   cors({
@@ -35,6 +82,65 @@ app.use(async (req, _res, next) => {
   req.actor = await resolveActor(req);
   next();
 });
+
+const runtimeModels = Prisma.dmmf?.datamodel?.models || [];
+const runtimeModelNames = new Set(runtimeModels.map((model) => model.name));
+const applicationRuntimeFieldNames = new Set(
+  (runtimeModels.find((model) => model.name === "Application")?.fields || []).map((field) => field.name),
+);
+
+function hasRuntimeModel(modelName) {
+  return runtimeModelNames.has(modelName);
+}
+
+function hasApplicationRelation(fieldName) {
+  return applicationRuntimeFieldNames.has(fieldName);
+}
+
+const applicationInclude = {
+  student: true,
+  program: {
+    include: {
+      deadlines: {
+        orderBy: { date: "asc" },
+      },
+    },
+  },
+  approvedByAdmin: true,
+  documents: {
+    include: {
+      deadline: true,
+    },
+    orderBy: { uploadedAt: "asc" },
+  },
+  nominations: {
+    include: { admin: true },
+  },
+  ...(hasApplicationRelation("workflowStages") && hasRuntimeModel("ApplicationWorkflowStage")
+    ? {
+        workflowStages: {
+          include: {
+            ...(hasRuntimeModel("Reviewer") ? { reviewer: true } : {}),
+            requestedByAdmin: true,
+            ...(hasRuntimeModel("StageReviewRequest")
+              ? { reviewRequests: { orderBy: { createdAt: "asc" } } }
+              : {}),
+          },
+          orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+        },
+      }
+    : {}),
+  ...(hasApplicationRelation("emailLogs") && hasRuntimeModel("WorkflowEmailLog")
+    ? {
+        emailLogs: {
+          include: {
+            ...(hasRuntimeModel("ApplicationWorkflowStage") ? { workflowStage: true } : {}),
+          },
+          orderBy: { createdAt: "desc" },
+        },
+      }
+    : {}),
+};
 
 function sendError(res, error, status = 400, details) {
   return res.status(status).json({
@@ -138,6 +244,317 @@ function parseDeadlinePayload(body) {
     date: new Date(`${String(date).slice(0, 10)}T00:00:00.000Z`),
     priority: String(priority).trim(),
     requiredDocumentsJson: JSON.stringify(parseRequiredDocuments(requiredDocuments)),
+  };
+}
+
+function statusFromWorkflow(stage) {
+  if (!stage) return "Submitted";
+
+  if (stage.status === "REJECTED") return "Rejected";
+  if (stage.stageLabel.toLowerCase().includes("nominated")) return "Nominated";
+  if (["PENDING", "ACTIVE", "FORWARDED", "APPROVED", "CHANGES_REQUESTED"].includes(stage.status)) {
+    return "Under Review";
+  }
+
+  return "Submitted";
+}
+
+function getActorDisplay(actor) {
+  if (!actor) return { name: "System", email: "", typeLabel: "System" };
+  if (actor.type === "admin") return { name: actor.admin.name, email: actor.admin.email, typeLabel: "Global Engagement Office" };
+  if (actor.type === "reviewer") {
+    return {
+      name: actor.reviewer.name,
+      email: actor.reviewer.email,
+      typeLabel: actor.reviewer.organizationLabel || "Reviewer",
+    };
+  }
+  if (actor.type === "mentor") return { name: actor.mentor.name, email: actor.mentor.email, typeLabel: "Mentor" };
+  return { name: actor.student.name, email: actor.student.email, typeLabel: "Student" };
+}
+
+async function createStudentWorkflowNotification(application, stage) {
+  const message =
+    stage.studentVisibleUpdate ||
+    `Your application for ${application.program.title} is now at ${stage.stageLabel}.`;
+
+  await prisma.notificationLog.create({
+    data: {
+      studentId: application.studentId,
+      applicationId: application.id,
+      workflowStageId: stage.id,
+      title: `Application moved to ${stage.stageLabel}`,
+      message,
+    },
+  });
+}
+
+async function createWorkflowEmailLog({ applicationId, workflowStageId, toEmail, subject, body }) {
+  return prisma.workflowEmailLog.create({
+    data: {
+      applicationId,
+      workflowStageId: workflowStageId || null,
+      toEmail,
+      subject,
+      body,
+      deliveryStatus: "Queued",
+      direction: "outbound",
+    },
+  });
+}
+
+async function markWorkflowEmailLogDelivery(logId, deliveryStatus) {
+  return prisma.workflowEmailLog.update({
+    where: { id: logId },
+    data: {
+      deliveryStatus,
+    },
+  });
+}
+
+async function deliverWorkflowEmail({ applicationId, workflowStageId, toEmail, subject, body }) {
+  const log = await createWorkflowEmailLog({
+    applicationId,
+    workflowStageId,
+    toEmail,
+    subject,
+    body,
+  });
+
+  try {
+    const transporter = await getWorkflowMailer();
+    if (!transporter) {
+      await markWorkflowEmailLogDelivery(log.id, "Simulated (SMTP not configured)");
+      return {
+        logId: log.id,
+        deliveryStatus: "Simulated (SMTP not configured)",
+      };
+    }
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: toEmail,
+      subject,
+      text: body,
+    });
+
+    await markWorkflowEmailLogDelivery(log.id, "Sent");
+    return {
+      logId: log.id,
+      deliveryStatus: "Sent",
+    };
+  } catch (error) {
+    console.error("Workflow email delivery failed", error);
+    await markWorkflowEmailLogDelivery(log.id, "Failed");
+    return {
+      logId: log.id,
+      deliveryStatus: "Failed",
+    };
+  }
+}
+
+function getLatestWorkflowStage(application) {
+  const stages = (application.workflowStages || [])
+    .slice()
+    .sort((a, b) => {
+      if (b.order !== a.order) return b.order - a.order;
+      return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
+    });
+
+  return stages[0] || null;
+}
+
+function getActiveWorkflowStage(application) {
+  return (application.workflowStages || [])
+    .slice()
+    .sort((a, b) => {
+      if (b.order !== a.order) return b.order - a.order;
+      return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
+    })
+    .find((stage) => ["ACTIVE", "PENDING", "CHANGES_REQUESTED", "APPROVED"].includes(stage.status)) || null;
+}
+
+async function notifyStudentOfStageMovement(application, stage, senderLabel, statusLabel = "Under Review") {
+  await createStudentWorkflowNotification(application, stage);
+  const studentEmailPayload = buildStudentWorkflowEmail({
+    application,
+    stage,
+    senderLabel,
+    statusLabel,
+  });
+  await deliverWorkflowEmail({
+    applicationId: application.id,
+    workflowStageId: stage.id,
+    toEmail: application.student.email,
+    subject: studentEmailPayload.subject,
+    body: studentEmailPayload.body,
+  });
+}
+
+async function upsertReviewerByEmail({ email, name, organizationLabel }) {
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const safeName = String(name || normalizedEmail.split("@")[0] || "Reviewer").trim();
+  return prisma.reviewer.upsert({
+    where: { email: normalizedEmail },
+    update: {
+      name: safeName,
+      organizationLabel: organizationLabel ? String(organizationLabel).trim() : undefined,
+    },
+    create: {
+      email: normalizedEmail,
+      name: safeName,
+      organizationLabel: organizationLabel ? String(organizationLabel).trim() : null,
+    },
+  });
+}
+
+async function createWorkflowStage({
+  applicationId,
+  order,
+  stageLabel,
+  reviewerEmail,
+  reviewerName,
+  reviewerRoleLabel,
+  instructions,
+  studentVisibleUpdate,
+  requestedByAdminId,
+  status,
+}) {
+  const reviewer = await upsertReviewerByEmail({
+    email: reviewerEmail,
+    name: reviewerName,
+    organizationLabel: reviewerRoleLabel,
+  });
+
+  return prisma.applicationWorkflowStage.create({
+    data: {
+      applicationId,
+      order,
+      stageLabel,
+      reviewerEmail: reviewer.email,
+      reviewerName: reviewer.name,
+      reviewerRoleLabel: reviewerRoleLabel ? String(reviewerRoleLabel).trim() : null,
+      reviewerId: reviewer.id,
+      instructions: String(instructions || "").trim(),
+      studentVisibleUpdate: studentVisibleUpdate ? String(studentVisibleUpdate).trim() : null,
+      requestedByAdminId: requestedByAdminId || null,
+      status: status || "PENDING",
+    },
+    include: {
+      reviewer: true,
+      requestedByAdmin: true,
+    },
+  });
+}
+
+async function advanceApplicationStatusFromWorkflow(applicationId) {
+  const latestStage = await prisma.applicationWorkflowStage.findFirst({
+    where: { applicationId },
+    orderBy: [{ order: "desc" }, { updatedAt: "desc" }],
+  });
+
+  return prisma.application.update({
+    where: { id: applicationId },
+    data: { status: statusFromWorkflow(latestStage) },
+  });
+}
+
+function buildWorkflowEmail({ application, stage, senderLabel }) {
+  const studentName = application.student?.name || "Student";
+  const programTitle = application.program?.title || "Program";
+  const senderName = senderLabel?.name || "Global Engagement Office";
+  const senderRole = senderLabel?.typeLabel || "Global Engagement Office";
+
+  return {
+    subject: `[Global Engagement Workflow] ${studentName} • ${programTitle} • ${stage.stageLabel}`,
+    body: [
+      `Hello,`,
+      ``,
+      `${senderName} (${senderRole}) has sent the application for ${studentName} (${application.student?.email || "no email"}) to you for review.`,
+      ``,
+      `Program: ${programTitle}`,
+      `Stage: ${stage.stageLabel}`,
+      `What to review: ${stage.instructions}`,
+      ``,
+      `Please open the portal dashboard with your reviewer account to record your review and send your recommendation back to the Global Engagement Office.`,
+      `${FRONTEND_URL}/dashboard`,
+      ``,
+      `Student-visible update: ${stage.studentVisibleUpdate || "No student-facing update provided yet."}`,
+    ].join("\n"),
+  };
+}
+
+function buildReviewRequestEmail({ application, stage, reviewRequest, senderLabel }) {
+  const studentName = application.student?.name || "Student";
+  const programTitle = application.program?.title || "Program";
+  const senderName = senderLabel?.name || "Global Engagement Office";
+
+  return {
+    subject: `[Review Request] ${studentName} · ${programTitle} · ${stage.stageLabel}`,
+    body: [
+      `Hello${reviewRequest.toName ? ` ${reviewRequest.toName}` : ""},`,
+      ``,
+      `${senderName} (Global Engagement Office) is requesting your advisory review for the following application.`,
+      ``,
+      `Student: ${studentName} (${application.student?.email || ""})`,
+      `Program: ${programTitle}`,
+      `Review stage: ${stage.stageLabel}`,
+      ``,
+      `What to review:`,
+      reviewRequest.instructions,
+      ``,
+      `Please log in to your reviewer dashboard to write your recommendation and send it back to the Global Engagement Office.`,
+      `${FRONTEND_URL}/dashboard`,
+      ``,
+      `Note: You are an advisory reviewer. Your role is to send your recommendation back to the GEO — the GEO will decide all routing and final decisions.`,
+    ].join("\n"),
+  };
+}
+
+function buildReviewResponseEmail({ application, stage, reviewRequest, statusLabel, notes, ogeAdminName }) {
+  const studentName = application.student?.name || "Student";
+  const programTitle = application.program?.title || "Program";
+  const reviewerLabel = reviewRequest.toName || reviewRequest.toRoleLabel || reviewRequest.toEmail;
+
+  return {
+    subject: `[Reviewer Response] ${studentName} · ${programTitle} · ${stage.stageLabel}`,
+    body: [
+      `Hello ${ogeAdminName || "Global Engagement Office"},`,
+      ``,
+      `${reviewerLabel} has sent their advisory review back for the following application.`,
+      ``,
+      `Student: ${studentName} (${application.student?.email || ""})`,
+      `Program: ${programTitle}`,
+      `Stage: ${stage.stageLabel}`,
+      `Response: ${statusLabel}`,
+      ``,
+      `Notes / recommendation:`,
+      notes || "No additional notes were provided.",
+      ``,
+      `Please open the admin workflow manager to decide the next step (keep in current stage, move to next stage, request student changes, reject, or record final nomination).`,
+      `${FRONTEND_URL}/admin`,
+    ].join("\n"),
+  };
+}
+
+function buildStudentWorkflowEmail({ application, stage, senderLabel, statusLabel }) {
+  const programTitle = application.program?.title || "Program";
+  const senderName = senderLabel?.name || senderLabel?.typeLabel || "Global Engagement Office";
+  return {
+    subject: `[Global Engagement Update] ${programTitle} • ${stage.stageLabel}`,
+    body: [
+      `Hello ${application.student?.name || "Student"},`,
+      ``,
+      `${senderName} has updated your application for ${programTitle}.`,
+      ``,
+      `Current stage: ${stage.stageLabel}`,
+      `Current status: ${statusLabel}`,
+      ``,
+      `${stage.studentVisibleUpdate || `Your application is now with ${stage.reviewerRoleLabel || stage.reviewerName || stage.reviewerEmail} for review.`}`,
+      ``,
+      `You can track the stage progress from your dashboard:`,
+      `${FRONTEND_URL}/dashboard`,
+    ].join("\n"),
   };
 }
 
@@ -303,6 +720,14 @@ async function requireOfficeOrMentorResponse(req, res) {
   return true;
 }
 
+async function requireReviewerResponse(req, res) {
+  if (!requireReviewer(req.actor)) {
+    sendError(res, "Reviewer access required.", 403);
+    return false;
+  }
+  return true;
+}
+
 async function createStatusNotification(application, status) {
   await prisma.notificationLog.create({
     data: {
@@ -327,13 +752,18 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.get("/api/auth/options", async (_req, res) => {
-  const [admins, mentors] = await Promise.all([
+  const [admins, mentors, reviewers] = await Promise.all([
     prisma.admin.findMany({
       orderBy: { name: "asc" },
     }),
     prisma.mentor.findMany({
       orderBy: { name: "asc" },
     }),
+    hasReviewerModel()
+      ? prisma.reviewer.findMany({
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   res.json(
@@ -350,6 +780,7 @@ app.get("/api/auth/options", async (_req, res) => {
         email: mentor.email,
         role: "mentor",
       })),
+      reviewers: reviewers.map(formatReviewer),
     }),
   );
 });
@@ -433,6 +864,26 @@ app.post("/api/auth/login", async (req, res) => {
     );
   }
 
+  if (normalizedRole === "reviewer") {
+    if (!hasReviewerModel()) {
+      return sendError(
+        res,
+        "Reviewer accounts are temporarily unavailable until the backend Prisma client is regenerated.",
+        503,
+      );
+    }
+
+    const reviewer = await prisma.reviewer.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!reviewer) {
+      return sendError(res, "Reviewer account not found for that email.", 404);
+    }
+
+    return res.json(success(formatReviewer(reviewer)));
+  }
+
   return sendError(res, "Unsupported login role.", 400);
 });
 
@@ -448,6 +899,8 @@ app.get("/api/me", async (req, res) => {
   const payload =
     req.actor.type === "admin"
       ? { id: req.actor.admin.id, name: req.actor.admin.name, email: req.actor.admin.email, role: "admin" }
+      : req.actor.type === "reviewer"
+        ? formatReviewer(req.actor.reviewer)
       : req.actor.type === "mentor"
         ? { id: req.actor.mentor.id, name: req.actor.mentor.name, email: req.actor.mentor.email, role: "mentor" }
         : { id: req.actor.student.id, name: req.actor.student.name, email: req.actor.student.email, role: "student" };
@@ -513,18 +966,7 @@ app.get("/api/programs/:id", async (req, res) => {
           programId: id,
           studentId: req.actor.student.id,
         },
-        include: {
-          student: true,
-          program: { include: { deadlines: { orderBy: { date: "asc" } } } },
-          approvedByAdmin: true,
-          documents: {
-            include: {
-              deadline: true,
-            },
-            orderBy: { uploadedAt: "asc" },
-          },
-          nominations: { include: { admin: true } },
-        },
+        include: applicationInclude,
         orderBy: { createdAt: "desc" },
       }),
       prisma.savedProgram.findUnique({
@@ -1109,7 +1551,7 @@ app.post("/api/applications", async (req, res) => {
 
   const parsedUploads = parseApplicationUploads(uploads, program.deadlines);
 
-  const application = await prisma.application.create({
+  const created = await prisma.application.create({
     data: {
       studentId: req.actor.student.id,
       programId: Number(programId),
@@ -1121,18 +1563,33 @@ app.post("/api/applications", async (req, res) => {
           }
         : undefined,
     },
-    include: {
-      student: true,
-      program: { include: { deadlines: { orderBy: { date: "asc" } } } },
-      approvedByAdmin: true,
-      documents: {
-        include: {
-          deadline: true,
-        },
-        orderBy: { uploadedAt: "asc" },
-      },
-      nominations: { include: { admin: true } },
-    },
+    include: applicationInclude,
+  });
+
+  const officeAdmin = await prisma.admin.findFirst({
+    orderBy: { id: "asc" },
+  });
+
+  if (officeAdmin) {
+    const initialStage = await createWorkflowStage({
+      applicationId: created.id,
+      order: 1,
+      stageLabel: "Global Engagement initial review",
+      reviewerEmail: officeAdmin.email,
+      reviewerName: officeAdmin.name,
+      reviewerRoleLabel: "Global Engagement Office",
+      instructions: "Review the student's materials, confirm baseline fit, and decide which office should receive the next review handoff.",
+      studentVisibleUpdate: "Your application is now with the Global Engagement Office for initial review.",
+      requestedByAdminId: officeAdmin.id,
+      status: "ACTIVE",
+    });
+    await createStudentWorkflowNotification(created, initialStage);
+    await advanceApplicationStatusFromWorkflow(created.id);
+  }
+
+  const application = await prisma.application.findUnique({
+    where: { id: created.id },
+    include: applicationInclude,
   });
 
   res.status(201).json(success(formatApplication(application)));
@@ -1145,26 +1602,7 @@ app.get("/api/applications/me", async (req, res) => {
     where: {
       studentId: req.actor.student.id,
     },
-    include: {
-      student: true,
-      program: {
-        include: {
-          deadlines: {
-            orderBy: { date: "asc" },
-          },
-        },
-      },
-      approvedByAdmin: true,
-      documents: {
-        include: {
-          deadline: true,
-        },
-        orderBy: { uploadedAt: "asc" },
-      },
-      nominations: {
-        include: { admin: true },
-      },
-    },
+    include: applicationInclude,
     orderBy: { createdAt: "desc" },
   });
 
@@ -1175,26 +1613,7 @@ app.get("/api/applications/:id", async (req, res) => {
   const id = Number(req.params.id);
   const application = await prisma.application.findUnique({
     where: { id },
-    include: {
-      student: true,
-      program: {
-        include: {
-          deadlines: {
-            orderBy: { date: "asc" },
-          },
-        },
-      },
-      approvedByAdmin: true,
-      documents: {
-        include: {
-          deadline: true,
-        },
-        orderBy: { uploadedAt: "asc" },
-      },
-      nominations: {
-        include: { admin: true },
-      },
-    },
+    include: applicationInclude,
   });
 
   if (!application) {
@@ -1218,26 +1637,7 @@ app.put("/api/applications/:id/documents", async (req, res) => {
 
   const application = await prisma.application.findUnique({
     where: { id },
-    include: {
-      student: true,
-      program: {
-        include: {
-          deadlines: {
-            orderBy: { date: "asc" },
-          },
-        },
-      },
-      approvedByAdmin: true,
-      documents: {
-        include: {
-          deadline: true,
-        },
-        orderBy: { uploadedAt: "asc" },
-      },
-      nominations: {
-        include: { admin: true },
-      },
-    },
+    include: applicationInclude,
   });
 
   if (!application || application.studentId !== req.actor.student.id) {
@@ -1266,26 +1666,7 @@ app.put("/api/applications/:id/documents", async (req, res) => {
 
   const updated = await prisma.application.findUnique({
     where: { id },
-    include: {
-      student: true,
-      program: {
-        include: {
-          deadlines: {
-            orderBy: { date: "asc" },
-          },
-        },
-      },
-      approvedByAdmin: true,
-      documents: {
-        include: {
-          deadline: true,
-        },
-        orderBy: { uploadedAt: "asc" },
-      },
-      nominations: {
-        include: { admin: true },
-      },
-    },
+    include: applicationInclude,
   });
 
   res.json(success(formatApplication(updated)));
@@ -1316,8 +1697,17 @@ app.get("/api/application-documents/:id", async (req, res) => {
 
   const isAdmin = requireAdmin(req.actor);
   const isOwnerStudent = requireStudent(req.actor) && document.application.studentId === req.actor.student.id;
+  const isAssignedReviewer =
+    requireReviewer(req.actor) &&
+    (await prisma.applicationWorkflowStage.findFirst({
+      where: {
+        applicationId: document.applicationId,
+        reviewerEmail: req.actor.reviewer.email,
+      },
+      select: { id: true },
+    }));
 
-  if (!isAdmin && !isOwnerStudent) {
+  if (!isAdmin && !isOwnerStudent && !isAssignedReviewer) {
     return sendError(res, "You do not have access to this document.", 403);
   }
 
@@ -1362,26 +1752,7 @@ app.get("/api/applications", async (req, res) => {
           }
         : {}),
     },
-    include: {
-      student: true,
-      program: {
-        include: {
-          deadlines: {
-            orderBy: { date: "asc" },
-          },
-        },
-      },
-      approvedByAdmin: true,
-      documents: {
-        include: {
-          deadline: true,
-        },
-        orderBy: { uploadedAt: "asc" },
-      },
-      nominations: {
-        include: { admin: true },
-      },
-    },
+    include: applicationInclude,
     orderBy: { updatedAt: "desc" },
   });
 
@@ -1416,26 +1787,7 @@ app.put("/api/applications/:id/status", async (req, res) => {
       approvedByAdminId: req.actor.admin.id,
       reviewedAt: new Date(),
     },
-    include: {
-      student: true,
-      program: {
-        include: {
-          deadlines: {
-            orderBy: { date: "asc" },
-          },
-        },
-      },
-      approvedByAdmin: true,
-      documents: {
-        include: {
-          deadline: true,
-        },
-        orderBy: { uploadedAt: "asc" },
-      },
-      nominations: {
-        include: { admin: true },
-      },
-    },
+    include: applicationInclude,
   });
 
   await createStatusNotification(updated, String(status));
@@ -1460,29 +1812,422 @@ app.put("/api/applications/:id/review-notes", async (req, res) => {
       approvedByAdminId: req.actor.admin.id,
       reviewedAt: new Date(),
     },
+    include: applicationInclude,
+  });
+
+  res.json(success(formatApplication(updated)));
+});
+
+app.post("/api/applications/:id/workflow/forward", async (req, res) => {
+  if (!(await requireAdminResponse(req, res))) return;
+
+  const applicationId = Number(req.params.id);
+  const {
+    stageLabel,
+    reviewerEmail,
+    reviewerName = "",
+    reviewerRoleLabel = "",
+    instructions = "",
+    internalNotes = "",
+    studentVisibleUpdate = "",
+    moveToNextStage = false,
+  } = req.body;
+
+  if (!reviewerEmail || !instructions) {
+    return sendError(res, "reviewerEmail and instructions are required.", 400);
+  }
+
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    include: applicationInclude,
+  });
+
+  if (!application) {
+    return sendError(res, "Application not found.", 404);
+  }
+
+  const latestStage = getLatestWorkflowStage(application);
+  const nextOrder = moveToNextStage
+    ? Math.max(0, ...(application.workflowStages || []).map((stage) => stage.order)) + 1
+    : latestStage?.order || 1;
+
+  let nextStage;
+  if (moveToNextStage || !latestStage) {
+    if (moveToNextStage && latestStage && ["ACTIVE", "PENDING", "APPROVED", "CHANGES_REQUESTED"].includes(latestStage.status)) {
+      await prisma.applicationWorkflowStage.update({
+        where: { id: latestStage.id },
+        data: {
+          status: "COMPLETED",
+          internalNotes: internalNotes ? String(internalNotes).trim() : latestStage.internalNotes,
+          completedAt: new Date(),
+        },
+      });
+    }
+    nextStage = await createWorkflowStage({
+      applicationId: application.id,
+      order: nextOrder,
+      stageLabel: String((stageLabel || latestStage?.stageLabel || "Global Engagement review")).trim(),
+      reviewerEmail: String(reviewerEmail),
+      reviewerName: reviewerName ? String(reviewerName) : null,
+      reviewerRoleLabel: reviewerRoleLabel ? String(reviewerRoleLabel) : null,
+      instructions: String(instructions),
+      studentVisibleUpdate:
+        studentVisibleUpdate ||
+        `Your application is now in ${String((stageLabel || latestStage?.stageLabel || "Global Engagement review")).trim()}.`,
+      requestedByAdminId: req.actor.admin.id,
+      status: "ACTIVE",
+    });
+  } else {
+    const reviewer = await upsertReviewerByEmail({
+      email: reviewerEmail,
+      name: reviewerName,
+      organizationLabel: reviewerRoleLabel,
+    });
+    nextStage = await prisma.applicationWorkflowStage.update({
+      where: { id: latestStage.id },
+      data: {
+        reviewerEmail: reviewer.email,
+        reviewerName: reviewer.name,
+        reviewerRoleLabel: reviewerRoleLabel ? String(reviewerRoleLabel).trim() : latestStage.reviewerRoleLabel,
+        reviewerId: reviewer.id,
+        instructions: String(instructions).trim(),
+        internalNotes: internalNotes ? String(internalNotes).trim() : latestStage.internalNotes,
+        requestedByAdminId: req.actor.admin.id,
+        status: "ACTIVE",
+        completedAt: null,
+      },
+      include: {
+        reviewer: true,
+        requestedByAdmin: true,
+      },
+    });
+  }
+
+  const senderLabel = getActorDisplay(req.actor);
+  const emailPayload = buildWorkflowEmail({
+    application,
+    stage: nextStage,
+    senderLabel,
+  });
+
+  await deliverWorkflowEmail({
+    applicationId: application.id,
+    workflowStageId: nextStage.id,
+    toEmail: nextStage.reviewerEmail,
+    subject: emailPayload.subject,
+    body: emailPayload.body,
+  });
+
+  if (moveToNextStage || !latestStage) {
+    await notifyStudentOfStageMovement(application, nextStage, senderLabel, "Under Review");
+  }
+  await advanceApplicationStatusFromWorkflow(application.id);
+
+  const updatedApplication = await prisma.application.findUnique({
+    where: { id: application.id },
+    include: applicationInclude,
+  });
+
+  res.status(201).json(success(formatApplication(updatedApplication)));
+});
+
+app.post("/api/applications/:id/workflow/start", async (req, res) => {
+  if (!(await requireAdminResponse(req, res))) return;
+
+  const applicationId = Number(req.params.id);
+  const {
+    stageLabel = "Global Engagement review",
+    reviewerEmail = req.actor.admin.email,
+    reviewerName = req.actor.admin.name,
+    reviewerRoleLabel = "Global Engagement Office",
+    instructions = "Review the application, add notes, and either make a decision or forward it to the next stakeholder.",
+    studentVisibleUpdate = "Your application is now with the Global Engagement Office for the next review step.",
+  } = req.body || {};
+
+  if (!stageLabel || !reviewerEmail || !instructions) {
+    return sendError(res, "stageLabel, reviewerEmail, and instructions are required.", 400);
+  }
+
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    include: applicationInclude,
+  });
+
+  if (!application) {
+    return sendError(res, "Application not found.", 404);
+  }
+
+  const activeStage = (application.workflowStages || [])
+    .slice()
+    .sort((a, b) => b.order - a.order)
+    .find((stage) => ["ACTIVE", "PENDING", "CHANGES_REQUESTED"].includes(stage.status));
+
+  if (activeStage) {
+    return sendError(res, "This application already has an active workflow stage.", 400);
+  }
+
+  const nextOrder = Math.max(0, ...(application.workflowStages || []).map((stage) => stage.order)) + 1;
+  const nextStage = await createWorkflowStage({
+    applicationId: application.id,
+    order: nextOrder,
+    stageLabel: String(stageLabel),
+    reviewerEmail: String(reviewerEmail),
+    reviewerName: reviewerName ? String(reviewerName) : null,
+    reviewerRoleLabel: reviewerRoleLabel ? String(reviewerRoleLabel) : null,
+    instructions: String(instructions),
+    studentVisibleUpdate: String(studentVisibleUpdate),
+    requestedByAdminId: req.actor.admin.id,
+    status: "ACTIVE",
+  });
+
+  const senderLabel = getActorDisplay(req.actor);
+  const emailPayload = buildWorkflowEmail({
+    application,
+    stage: nextStage,
+    senderLabel,
+  });
+
+  await deliverWorkflowEmail({
+    applicationId: application.id,
+    workflowStageId: nextStage.id,
+    toEmail: nextStage.reviewerEmail,
+    subject: emailPayload.subject,
+    body: emailPayload.body,
+  });
+
+  await createStudentWorkflowNotification(application, nextStage);
+  const studentEmailPayload = buildStudentWorkflowEmail({
+    application,
+    stage: nextStage,
+    senderLabel,
+    statusLabel: "Under Review",
+  });
+  await deliverWorkflowEmail({
+    applicationId: application.id,
+    workflowStageId: nextStage.id,
+    toEmail: application.student.email,
+    subject: studentEmailPayload.subject,
+    body: studentEmailPayload.body,
+  });
+
+  await advanceApplicationStatusFromWorkflow(application.id);
+
+  const updatedApplication = await prisma.application.findUnique({
+    where: { id: application.id },
+    include: applicationInclude,
+  });
+
+  res.status(201).json(success(formatApplication(updatedApplication)));
+});
+
+// OGE sends an advisory review request to a stakeholder — stays within current stage, no stage movement
+app.post("/api/applications/:id/workflow/send-review-request", async (req, res) => {
+  if (!(await requireAdminResponse(req, res))) return;
+
+  const applicationId = Number(req.params.id);
+  const { toEmail, toName = "", toRoleLabel = "", instructions } = req.body;
+
+  if (!toEmail || !instructions) {
+    return sendError(res, "toEmail and instructions are required.", 400);
+  }
+
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    include: applicationInclude,
+  });
+
+  if (!application) return sendError(res, "Application not found.", 404);
+
+  const activeStage = getLatestWorkflowStage(application);
+  if (!activeStage || !["ACTIVE", "PENDING", "CHANGES_REQUESTED"].includes(activeStage.status)) {
+    return sendError(res, "No active workflow stage. Start a stage first.", 400);
+  }
+
+  const reviewRequest = await prisma.stageReviewRequest.create({
+    data: {
+      stageId: activeStage.id,
+      applicationId: application.id,
+      toEmail: String(toEmail).trim(),
+      toName: toName ? String(toName).trim() : null,
+      toRoleLabel: toRoleLabel ? String(toRoleLabel).trim() : null,
+      instructions: String(instructions).trim(),
+      status: "PENDING",
+    },
+  });
+
+  // Upsert reviewer so they appear in the reviewer dashboard
+  await upsertReviewerByEmail({
+    email: String(toEmail).trim(),
+    name: toName || "",
+    organizationLabel: toRoleLabel || "",
+  });
+
+  const senderLabel = getActorDisplay(req.actor);
+  const emailPayload = buildReviewRequestEmail({
+    application,
+    stage: activeStage,
+    reviewRequest,
+    senderLabel,
+  });
+
+  await deliverWorkflowEmail({
+    applicationId: application.id,
+    workflowStageId: activeStage.id,
+    toEmail: String(toEmail).trim(),
+    subject: emailPayload.subject,
+    body: emailPayload.body,
+  });
+
+  const updatedApplication = await prisma.application.findUnique({
+    where: { id: application.id },
+    include: applicationInclude,
+  });
+
+  res.status(201).json(success(formatApplication(updatedApplication)));
+});
+
+// Stakeholder responds to an advisory review request — sends recommendation back to OGE, no stage movement
+app.put("/api/review-requests/:id/respond", async (req, res) => {
+  if (!(await requireReviewerResponse(req, res))) return;
+
+  const requestId = Number(req.params.id);
+  const { status, reviewerNotes = "" } = req.body;
+
+  const allowedStatuses = ["RESPONDED", "INFO_REQUESTED", "REJECTED_RECOMMENDATION"];
+  if (!allowedStatuses.includes(String(status))) {
+    return sendError(res, "Invalid response status. Must be RESPONDED, INFO_REQUESTED, or REJECTED_RECOMMENDATION.", 400);
+  }
+
+  const reviewRequest = await prisma.stageReviewRequest.findUnique({
+    where: { id: requestId },
     include: {
-      student: true,
-      program: {
-        include: {
-          deadlines: {
-            orderBy: { date: "asc" },
-          },
-        },
-      },
-      approvedByAdmin: true,
-      documents: {
-        include: {
-          deadline: true,
-        },
-        orderBy: { uploadedAt: "asc" },
-      },
-      nominations: {
-        include: { admin: true },
+      stage: { include: { requestedByAdmin: true } },
+      application: { include: applicationInclude },
+    },
+  });
+
+  if (!reviewRequest) return sendError(res, "Review request not found.", 404);
+
+  if (reviewRequest.toEmail !== req.actor.reviewer.email) {
+    return sendError(res, "This review request is not assigned to you.", 403);
+  }
+
+  const updated = await prisma.stageReviewRequest.update({
+    where: { id: requestId },
+    data: {
+      status: String(status),
+      reviewerNotes: String(reviewerNotes).trim(),
+      respondedAt: new Date(),
+    },
+  });
+
+  const ogeRecipientEmail =
+    reviewRequest.stage.requestedByAdmin?.email ||
+    process.env.WORKFLOW_DEFAULT_OGE_EMAIL ||
+    process.env.SMTP_USER;
+
+  if (ogeRecipientEmail) {
+    const statusLabel =
+      status === "RESPONDED"
+        ? "Recommendation sent"
+        : status === "INFO_REQUESTED"
+          ? "More information requested"
+          : "Rejection recommended";
+
+    const emailPayload = buildReviewResponseEmail({
+      application: reviewRequest.application,
+      stage: reviewRequest.stage,
+      reviewRequest,
+      statusLabel,
+      notes: String(reviewerNotes).trim(),
+      ogeAdminName: reviewRequest.stage.requestedByAdmin?.name || "Global Engagement Office",
+    });
+
+    await deliverWorkflowEmail({
+      applicationId: reviewRequest.applicationId,
+      workflowStageId: reviewRequest.stageId,
+      toEmail: ogeRecipientEmail,
+      subject: emailPayload.subject,
+      body: emailPayload.body,
+    });
+  }
+
+  res.json(
+    success(
+      formatStageReviewRequest(updated),
+    ),
+  );
+});
+
+app.put("/api/workflow-stages/:id", async (req, res) => {
+  if (!(await requireAdminResponse(req, res))) return;
+
+  const stageId = Number(req.params.id);
+  const { status, internalNotes = "", studentVisibleUpdate = "" } = req.body;
+  const allowedStatuses = ["PENDING", "ACTIVE", "FORWARDED", "APPROVED", "CHANGES_REQUESTED", "REJECTED", "COMPLETED"];
+
+  if (status && !allowedStatuses.includes(String(status))) {
+    return sendError(res, "Invalid workflow stage status.", 400);
+  }
+
+  const stage = await prisma.applicationWorkflowStage.findUnique({
+    where: { id: stageId },
+    include: {
+      reviewer: true,
+      requestedByAdmin: true,
+      application: {
+        include: applicationInclude,
       },
     },
   });
 
-  res.json(success(formatApplication(updated)));
+  if (!stage) {
+    return sendError(res, "Workflow stage not found.", 404);
+  }
+
+  const nextStatus = status ? String(status) : stage.status;
+  const updatedStage = await prisma.applicationWorkflowStage.update({
+    where: { id: stage.id },
+    data: {
+      status: nextStatus,
+      internalNotes: String(internalNotes),
+      studentVisibleUpdate: String(studentVisibleUpdate),
+      completedAt: ["APPROVED", "REJECTED", "COMPLETED", "FORWARDED", "CHANGES_REQUESTED"].includes(nextStatus) ? new Date() : null,
+    },
+    include: {
+      reviewer: true,
+      requestedByAdmin: true,
+    },
+  });
+
+  if (nextStatus === "CHANGES_REQUESTED" || nextStatus === "REJECTED") {
+    const senderLabel = getActorDisplay(req.actor);
+    await notifyStudentOfStageMovement(stage.application, {
+      ...updatedStage,
+      reviewerEmail: updatedStage.reviewerEmail || stage.reviewerEmail,
+      reviewerName: updatedStage.reviewerName || stage.reviewerName,
+      reviewerRoleLabel: updatedStage.reviewerRoleLabel || stage.reviewerRoleLabel,
+      studentVisibleUpdate:
+        studentVisibleUpdate ||
+        (nextStatus === "REJECTED"
+          ? `Your application for ${stage.application.program.title} is no longer moving forward.`
+          : `Your application needs updates before it can continue to the next review step.`),
+    }, senderLabel, nextStatus === "REJECTED" ? "Rejected" : "Changes Requested");
+  }
+
+  await advanceApplicationStatusFromWorkflow(stage.applicationId);
+
+  const updatedApplication = await prisma.application.findUnique({
+    where: { id: stage.applicationId },
+    include: applicationInclude,
+  });
+
+  res.json(
+    success({
+      stage: formatWorkflowStage(updatedStage),
+      application: formatApplication(updatedApplication),
+    }),
+  );
 });
 
 app.post("/api/nominations", async (req, res) => {
@@ -1494,7 +2239,7 @@ app.post("/api/nominations", async (req, res) => {
 
   const application = await prisma.application.findUnique({
     where: { id: Number(applicationId) },
-    include: { program: true },
+    include: { program: true, student: true },
   });
   if (!application) {
     return sendError(res, "Application not found.", 404);
@@ -1527,14 +2272,29 @@ app.post("/api/nominations", async (req, res) => {
     },
   });
 
-  await prisma.notificationLog.create({
-    data: {
-      studentId: application.studentId,
-      applicationId: application.id,
-      title: "Application nominated",
-      message: `Your application for ${application.program.title} has been nominated by the Global Engagement Office.`,
-    },
+  const existingStages = await prisma.applicationWorkflowStage.findMany({
+    where: { applicationId: Number(applicationId) },
+    orderBy: [{ order: "desc" }, { createdAt: "desc" }],
   });
+  const finalStage = await createWorkflowStage({
+    applicationId: Number(applicationId),
+    order: Math.max(0, ...existingStages.map((stage) => stage.order)) + 1,
+    stageLabel: "Nominated",
+    reviewerEmail: req.actor.admin.email,
+    reviewerName: req.actor.admin.name,
+    reviewerRoleLabel: "Global Engagement Office",
+    instructions: "Final nomination decision recorded by the Global Engagement Office.",
+    studentVisibleUpdate: `Your application for ${application.program.title} has been nominated by the Global Engagement Office.`,
+    requestedByAdminId: req.actor.admin.id,
+    status: "COMPLETED",
+  });
+
+  await notifyStudentOfStageMovement(
+    { ...application, student: { name: application.student?.name || "", email: application.student?.email || "" }, program: application.program },
+    finalStage,
+    { name: req.actor.admin.name, typeLabel: "Global Engagement Office" },
+    "Nominated",
+  );
 
   res.status(201).json(
     success({
@@ -1716,26 +2476,7 @@ app.get("/api/dashboard/me", async (req, res) => {
   const [applications, meetings, savedPrograms, chatHistory, notifications] = await Promise.all([
     prisma.application.findMany({
       where: { studentId },
-      include: {
-        student: true,
-        program: {
-          include: {
-            deadlines: {
-              orderBy: { date: "asc" },
-            },
-          },
-        },
-        approvedByAdmin: true,
-        documents: {
-          include: {
-            deadline: true,
-          },
-          orderBy: { uploadedAt: "asc" },
-        },
-        nominations: {
-          include: { admin: true },
-        },
-      },
+      include: applicationInclude,
       orderBy: { createdAt: "desc" },
     }),
     prisma.booking.findMany({
@@ -1853,6 +2594,42 @@ app.get("/api/dashboard/me", async (req, res) => {
       savedPrograms: savedPrograms.map((item) => formatProgram(item.program)),
       chatHistory: chatHistory.map(formatChatInteraction),
       notifications: notifications.map(formatNotification),
+    }),
+  );
+});
+
+app.get("/api/reviewer/tasks", async (req, res) => {
+  if (!(await requireReviewerResponse(req, res))) return;
+
+  // Reviewers see pending StageReviewRequests addressed to their email.
+  // They are advisory only — they respond back to OGE and do not control routing.
+  const reviewRequests = await prisma.stageReviewRequest.findMany({
+    where: {
+      toEmail: req.actor.reviewer.email,
+      status: "PENDING",
+    },
+    include: {
+      stage: {
+        include: {
+          requestedByAdmin: true,
+          reviewRequests: { orderBy: { createdAt: "asc" } },
+        },
+      },
+      application: {
+        include: applicationInclude,
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.json(
+    success({
+      reviewer: formatReviewer(req.actor.reviewer),
+      tasks: reviewRequests.map((reviewRequest) => ({
+        reviewRequest: formatStageReviewRequest(reviewRequest),
+        stage: formatWorkflowStage(reviewRequest.stage),
+        application: formatApplication(reviewRequest.application),
+      })),
     }),
   );
 });
@@ -2070,26 +2847,7 @@ app.get("/api/admin/approval-queue", async (req, res) => {
         in: ["Submitted", "Under Review", "Approved", "Nominated", "Rejected"],
       },
     },
-    include: {
-      student: true,
-      program: {
-        include: {
-          deadlines: {
-            orderBy: { date: "asc" },
-          },
-        },
-      },
-      approvedByAdmin: true,
-      documents: {
-        include: {
-          deadline: true,
-        },
-        orderBy: { uploadedAt: "asc" },
-      },
-      nominations: {
-        include: { admin: true },
-      },
-    },
+    include: applicationInclude,
     orderBy: { updatedAt: "desc" },
   });
 
@@ -2111,26 +2869,7 @@ app.get("/api/admin/dashboard", async (req, res) => {
     prisma.program.count(),
     prisma.mentor.count(),
     prisma.application.findMany({
-      include: {
-        student: true,
-        program: {
-          include: {
-            deadlines: {
-              orderBy: { date: "asc" },
-            },
-          },
-        },
-        approvedByAdmin: true,
-        documents: {
-          include: {
-            deadline: true,
-          },
-          orderBy: { uploadedAt: "asc" },
-        },
-        nominations: {
-          include: { admin: true },
-        },
-      },
+      include: applicationInclude,
     }),
     prisma.deadline.findMany({
       include: { program: true },

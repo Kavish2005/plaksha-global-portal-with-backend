@@ -1,5 +1,9 @@
 const prisma = require("./prisma");
 
+function hasReviewerModel() {
+  return Boolean(prisma.reviewer && typeof prisma.reviewer.findUnique === "function");
+}
+
 async function resolveActor(req) {
   const roleHeader = String(req.headers["x-demo-user-role"] || req.query.role || "").toLowerCase();
   const emailHeader = String(req.headers["x-demo-user-email"] || "").toLowerCase();
@@ -45,6 +49,28 @@ async function resolveActor(req) {
     };
   }
 
+  if (roleHeader === "reviewer") {
+    if (!hasReviewerModel()) {
+      return null;
+    }
+
+    const reviewer =
+      (emailHeader &&
+        (await prisma.reviewer.findUnique({
+          where: { email: emailHeader },
+        }))) ||
+      null;
+
+    if (!reviewer) {
+      return null;
+    }
+
+    return {
+      type: "reviewer",
+      reviewer,
+    };
+  }
+
   const student =
     (emailHeader &&
       (await prisma.student.findUnique({
@@ -78,14 +104,25 @@ function requireMentor(actor) {
   return actor?.type === "mentor";
 }
 
+function requireReviewer(actor) {
+  return actor?.type === "reviewer";
+}
+
 function requireOfficeOrMentor(actor) {
   return actor?.type === "admin" || actor?.type === "mentor";
 }
 
+function requireWorkflowStakeholder(actor) {
+  return actor?.type === "admin" || actor?.type === "reviewer";
+}
+
 module.exports = {
+  hasReviewerModel,
   requireAdmin,
   requireMentor,
   requireOfficeOrMentor,
+  requireReviewer,
   requireStudent,
+  requireWorkflowStakeholder,
   resolveActor,
 };

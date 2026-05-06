@@ -10,6 +10,7 @@ import type {
   AdminDashboard,
   Application,
   ApplicationDocumentAsset,
+  ApplicationWorkflowStage,
   ApplicationStatus,
   ApprovalQueue,
   Booking,
@@ -20,6 +21,7 @@ import type {
   OpportunityDiscoveryResponse,
   OpportunityDiscoveryResult,
   Program,
+  WorkflowStageStatus,
 } from "@/types";
 import { formatIsoDate, getErrorMessage, toIsoDate } from "@/lib/utils";
 
@@ -459,36 +461,85 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     }
   }
 
-  async function updateApplicationStatus(applicationId: number, status: ApplicationStatus) {
+  async function updateWorkflowStage(
+    stageId: number,
+    payload: {
+      status: WorkflowStageStatus;
+      internalNotes: string;
+      studentVisibleUpdate: string;
+    },
+  ) {
     try {
-      await apiPut(`/applications/${applicationId}/status`, { status });
-      toast.success("Application status updated.");
+      await apiPut(`/workflow-stages/${stageId}`, payload);
+      toast.success("Workflow stage updated.");
       await loadAllData();
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   }
 
-  async function saveReviewNotes(application: Application) {
+  async function forwardWorkflowStage(
+    applicationId: number,
+    payload: {
+      stageLabel: string;
+      reviewerEmail: string;
+      reviewerName: string;
+      reviewerRoleLabel: string;
+      instructions: string;
+      internalNotes: string;
+      studentVisibleUpdate: string;
+      moveToNextStage?: boolean;
+    },
+  ) {
     try {
-      await apiPut(`/applications/${application.id}/review-notes`, {
-        reviewerNotes: application.reviewerNotes,
-        nominationNotes: application.nominationNotes,
-      });
-      toast.success("Review notes saved.");
+      await apiPost(`/applications/${applicationId}/workflow/forward`, payload);
+      toast.success("Application forwarded and email queued.");
       await loadAllData();
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   }
 
-  async function nominateApplication(application: Application) {
+  async function startWorkflowStage(
+    applicationId: number,
+    payload: {
+      stageLabel: string;
+      reviewerEmail: string;
+      reviewerName: string;
+      reviewerRoleLabel: string;
+      instructions: string;
+      studentVisibleUpdate: string;
+    },
+  ) {
+    try {
+      await apiPost(`/applications/${applicationId}/workflow/start`, payload);
+      toast.success("Workflow stage opened and email queued.");
+      await loadAllData();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function sendWorkflowReviewRequest(
+    applicationId: number,
+    payload: { toEmail: string; toName: string; toRoleLabel: string; instructions: string },
+  ) {
+    try {
+      await apiPost(`/applications/${applicationId}/workflow/send-review-request`, payload);
+      toast.success("Review request sent and email queued.");
+      await loadAllData();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function recordNomination(applicationId: number, notes: string) {
     try {
       await apiPost("/nominations", {
-        applicationId: application.id,
-        notes: application.nominationNotes || "Nominated by Global Engagement Office.",
+        applicationId,
+        notes,
       });
-      toast.success("Application nominated.");
+      toast.success("Final nomination recorded.");
       await loadAllData();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -569,7 +620,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
   return (
     <section className="space-y-8">
       {!isMentorUser && section === "overview" ? (
-        <OverviewSection dashboard={dashboard} approvalQueue={approvalQueue} nominations={nominations} />
+        <OverviewSection dashboard={dashboard!} approvalQueue={approvalQueue!} nominations={nominations} />
       ) : null}
 
       {!isMentorUser && section === "programs" ? (
@@ -664,15 +715,16 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
 
       {!isMentorUser && section === "applications" ? (
         <ApplicationsSection
-          approvalQueue={approvalQueue}
+          approvalQueue={approvalQueue!}
           applications={applications}
           applicationFilter={applicationFilter}
           nominations={nominations}
           onApplicationFilterChange={setApplicationFilter}
-          onApplicationsChange={setApplications}
-          onStatusChange={updateApplicationStatus}
-          onSaveNotes={saveReviewNotes}
-          onNominate={nominateApplication}
+          onWorkflowStageUpdate={updateWorkflowStage}
+          onForwardWorkflowStage={forwardWorkflowStage}
+          onStartWorkflowStage={startWorkflowStage}
+          onSendReviewRequest={sendWorkflowReviewRequest}
+          onRecordNomination={recordNomination}
         />
       ) : null}
 
@@ -1764,23 +1816,70 @@ function ApplicationsSection({
   applicationFilter,
   nominations,
   onApplicationFilterChange,
-  onApplicationsChange,
-  onStatusChange,
-  onSaveNotes,
-  onNominate,
+  onWorkflowStageUpdate,
+  onForwardWorkflowStage,
+  onStartWorkflowStage,
+  onSendReviewRequest,
+  onRecordNomination,
 }: {
   approvalQueue: ApprovalQueue;
   applications: Application[];
   applicationFilter: { student: string; program: string; status: string };
   nominations: Nomination[];
   onApplicationFilterChange: React.Dispatch<React.SetStateAction<{ student: string; program: string; status: string }>>;
-  onApplicationsChange: React.Dispatch<React.SetStateAction<Application[]>>;
-  onStatusChange: (applicationId: number, status: ApplicationStatus) => Promise<void>;
-  onSaveNotes: (application: Application) => Promise<void>;
-  onNominate: (application: Application) => Promise<void>;
+  onWorkflowStageUpdate: (stageId: number, payload: { status: WorkflowStageStatus; internalNotes: string; studentVisibleUpdate: string }) => Promise<void>;
+  onForwardWorkflowStage: (applicationId: number, payload: {
+    stageLabel: string;
+    reviewerEmail: string;
+    reviewerName: string;
+    reviewerRoleLabel: string;
+    instructions: string;
+    internalNotes: string;
+    studentVisibleUpdate: string;
+    moveToNextStage?: boolean;
+  }) => Promise<void>;
+  onStartWorkflowStage: (applicationId: number, payload: {
+    stageLabel: string;
+    reviewerEmail: string;
+    reviewerName: string;
+    reviewerRoleLabel: string;
+    instructions: string;
+    studentVisibleUpdate: string;
+  }) => Promise<void>;
+  onSendReviewRequest: (applicationId: number, payload: {
+    toEmail: string;
+    toName: string;
+    toRoleLabel: string;
+    instructions: string;
+  }) => Promise<void>;
+  onRecordNomination: (applicationId: number, notes: string) => Promise<void>;
 }) {
   const [documentActionLoadingId, setDocumentActionLoadingId] = useState<number | null>(null);
   const [previewDocument, setPreviewDocument] = useState<ApplicationDocumentAsset | null>(null);
+  const [submittingActionKey, setSubmittingActionKey] = useState<string | null>(null);
+
+  // For starting the first stage when no active stage exists
+  const [workflowSeedDrafts, setWorkflowSeedDrafts] = useState<
+    Record<number, { stageLabel: string; reviewerEmail: string; reviewerName: string; reviewerRoleLabel: string; instructions: string; studentVisibleUpdate: string }>
+  >({});
+
+  // Internal notes + student-visible update for the active stage
+  const [stageDrafts, setStageDrafts] = useState<
+    Record<number, { internalNotes: string; studentVisibleUpdate: string }>
+  >({});
+
+  // "Send review request" communication panel (no stage movement)
+  const [sendReviewDrafts, setSendReviewDrafts] = useState<
+    Record<number, { toEmail: string; toName: string; toRoleLabel: string; instructions: string }>
+  >({});
+
+  // "Move to next stage" decision form
+  const [moveNextDrafts, setMoveNextDrafts] = useState<
+    Record<number, { nextStageLabel: string; studentVisibleUpdate: string }>
+  >({});
+
+  // Whether the move-to-next-stage form is expanded for a given application
+  const [expandedMoveForm, setExpandedMoveForm] = useState<Record<number, boolean>>({});
   const studentOptions = useMemo(
     () => Array.from(new Set(applications.map((application) => application.studentName))).sort(),
     [applications],
@@ -1807,6 +1906,64 @@ function ApplicationsSection({
     [applications, deferredProgramFilter, deferredStatusFilter, deferredStudentFilter],
   );
 
+  useEffect(() => {
+    setStageDrafts((current) => {
+      const next = { ...current };
+      for (const application of applications) {
+        for (const stage of application.workflowStages) {
+          if (!next[stage.id]) {
+            next[stage.id] = {
+              internalNotes: stage.internalNotes || "",
+              studentVisibleUpdate: stage.studentVisibleUpdate || "",
+            };
+          }
+        }
+      }
+      return next;
+    });
+
+    setSendReviewDrafts((current) => {
+      const next = { ...current };
+      for (const application of applications) {
+        for (const stage of application.workflowStages) {
+          if (!next[stage.id]) {
+            next[stage.id] = { toEmail: "", toName: "", toRoleLabel: "", instructions: "" };
+          }
+        }
+      }
+      return next;
+    });
+
+    setMoveNextDrafts((current) => {
+      const next = { ...current };
+      for (const application of applications) {
+        if (!next[application.id]) {
+          next[application.id] = { nextStageLabel: "", studentVisibleUpdate: "" };
+        }
+      }
+      return next;
+    });
+  }, [applications]);
+
+  useEffect(() => {
+    setWorkflowSeedDrafts((current) => {
+      const next = { ...current };
+      for (const application of applications) {
+        if (!next[application.id]) {
+          next[application.id] = {
+            stageLabel: "Global Engagement review",
+            reviewerEmail: "",
+            reviewerName: "",
+            reviewerRoleLabel: "Global Engagement Office",
+            instructions: "Review the application and record the office decision.",
+            studentVisibleUpdate: "Your application is now with the Global Engagement Office for review.",
+          };
+        }
+      }
+      return next;
+    });
+  }, [applications]);
+
   const previewableDocument = useMemo(() => {
     if (!previewDocument) return null;
 
@@ -1822,6 +1979,140 @@ function ApplicationsSection({
       canInlinePreview,
     };
   }, [previewDocument]);
+
+  function getActiveStage(application: Application) {
+    return (
+      application.workflowStages
+        .slice()
+        .sort((a, b) => b.order - a.order)
+        .find((stage) => ["ACTIVE", "PENDING", "CHANGES_REQUESTED"].includes(stage.status)) || null
+    );
+  }
+
+  // OGE saves internal notes + student-visible update to the current stage (no status change)
+  async function saveStageNotes(stage: ApplicationWorkflowStage) {
+    const draft = stageDrafts[stage.id];
+    try {
+      setSubmittingActionKey(`${stage.id}:save`);
+      await onWorkflowStageUpdate(stage.id, {
+        status: stage.status,
+        internalNotes: draft?.internalNotes || "",
+        studentVisibleUpdate: draft?.studentVisibleUpdate || "",
+      });
+    } finally {
+      setSubmittingActionKey(null);
+    }
+  }
+
+  // OGE sets stage status (CHANGES_REQUESTED or REJECTED) — distinct from routing
+  async function ogeStageDecision(stage: ApplicationWorkflowStage, status: WorkflowStageStatus) {
+    const draft = stageDrafts[stage.id];
+    try {
+      setSubmittingActionKey(`${stage.id}:${status}`);
+      await onWorkflowStageUpdate(stage.id, {
+        status,
+        internalNotes: draft?.internalNotes || "",
+        studentVisibleUpdate: draft?.studentVisibleUpdate || "",
+      });
+    } finally {
+      setSubmittingActionKey(null);
+    }
+  }
+
+  // OGE sends an advisory review request to a stakeholder — stays in the current stage
+  async function sendReviewRequestToStakeholder(application: Application) {
+    const activeStage = getActiveStage(application);
+    if (!activeStage) {
+      toast.error("No active stage. Start a workflow stage first.");
+      return;
+    }
+    const draft = sendReviewDrafts[activeStage.id];
+    if (!draft?.toEmail.trim() || !draft?.instructions.trim()) {
+      toast.error("Email address and instructions are required to send a review request.");
+      return;
+    }
+    try {
+      setSubmittingActionKey(`app:${application.id}:sendReview`);
+      await onSendReviewRequest(application.id, {
+        toEmail: draft.toEmail.trim(),
+        toName: draft.toName.trim(),
+        toRoleLabel: draft.toRoleLabel.trim(),
+        instructions: draft.instructions.trim(),
+      });
+      setSendReviewDrafts((current) => ({
+        ...current,
+        [activeStage.id]: { toEmail: "", toName: "", toRoleLabel: "", instructions: "" },
+      }));
+    } finally {
+      setSubmittingActionKey(null);
+    }
+  }
+
+  // OGE explicitly moves the application to the next stage
+  async function moveToNextStage(application: Application) {
+    const activeStage = getActiveStage(application);
+    const draft = moveNextDrafts[application.id];
+    if (!draft?.nextStageLabel.trim()) {
+      toast.error("Enter the next stage label before moving the application forward.");
+      return;
+    }
+    try {
+      setSubmittingActionKey(`app:${application.id}:move`);
+      await onForwardWorkflowStage(application.id, {
+        stageLabel: draft.nextStageLabel.trim(),
+        reviewerEmail: activeStage?.reviewerEmail || "",
+        reviewerName: activeStage?.reviewerName || "",
+        reviewerRoleLabel: activeStage?.reviewerRoleLabel || "",
+        instructions: `OGE moved the application to ${draft.nextStageLabel.trim()}.`,
+        internalNotes: stageDrafts[activeStage?.id ?? 0]?.internalNotes || "",
+        studentVisibleUpdate:
+          draft.studentVisibleUpdate.trim() ||
+          `Your application has moved to the next stage: ${draft.nextStageLabel.trim()}.`,
+        moveToNextStage: true,
+      });
+      setMoveNextDrafts((current) => ({ ...current, [application.id]: { nextStageLabel: "", studentVisibleUpdate: "" } }));
+      setExpandedMoveForm((current) => ({ ...current, [application.id]: false }));
+    } finally {
+      setSubmittingActionKey(null);
+    }
+  }
+
+  async function startStage(application: Application) {
+    const draft = workflowSeedDrafts[application.id];
+    if (!draft?.stageLabel.trim() || !draft?.reviewerEmail.trim() || !draft?.instructions.trim()) {
+      toast.error("Stage label, email, and instructions are required to start the workflow.");
+      return;
+    }
+    try {
+      setSubmittingActionKey(`app:${application.id}:start`);
+      await onStartWorkflowStage(application.id, {
+        stageLabel: draft.stageLabel.trim(),
+        reviewerEmail: draft.reviewerEmail.trim(),
+        reviewerName: draft.reviewerName.trim(),
+        reviewerRoleLabel: draft.reviewerRoleLabel.trim(),
+        instructions: draft.instructions.trim(),
+        studentVisibleUpdate: draft.studentVisibleUpdate.trim(),
+      });
+    } finally {
+      setSubmittingActionKey(null);
+    }
+  }
+
+  async function nominateApplication(application: Application) {
+    const latestStage = application.workflowStages
+      .slice()
+      .sort((a, b) => {
+        if (b.order !== a.order) return b.order - a.order;
+        return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
+      })[0];
+    const notes = latestStage ? stageDrafts[latestStage.id]?.internalNotes || "" : "";
+    try {
+      setSubmittingActionKey(`app:${application.id}:nominate`);
+      await onRecordNomination(application.id, notes);
+    } finally {
+      setSubmittingActionKey(null);
+    }
+  }
 
   async function openApplicationDocument(documentId: number, mode: "preview" | "download") {
     try {
@@ -1899,21 +2190,21 @@ function ApplicationsSection({
 
       <AdminSection
         eyebrow="Approval Queue"
-        title="Review workflow"
-        description="Overview-only workflow lanes. Each lane shows the most recent item so the page highlights movement without turning into a long queue wall."
+        title="Workflow snapshot"
+        description="A compact view of the latest movement in each lane. The detailed stage-by-stage control lives in the workflow cards below."
       >
         <div className="grid gap-4 xl:grid-cols-2">
-          <ApprovalColumn title="Submitted" items={approvalQueue.submitted} onStatusChange={onStatusChange} />
-          <ApprovalColumn title="Under Review" items={approvalQueue.underReview} onStatusChange={onStatusChange} />
-          <ApprovalColumn title="Approved" items={approvalQueue.approved} onStatusChange={onStatusChange} />
-          <ApprovalColumn title="Nominated" items={approvalQueue.nominated} onStatusChange={onStatusChange} />
+          <ApprovalColumn title="Submitted" items={approvalQueue.submitted} />
+          <ApprovalColumn title="Under Review" items={approvalQueue.underReview} />
+          <ApprovalColumn title="Approved" items={approvalQueue.approved} />
+          <ApprovalColumn title="Nominated" items={approvalQueue.nominated} />
         </div>
       </AdminSection>
 
       <AdminSection
         eyebrow="Applications"
-        title="Applications review panel"
-        description="Search by student or program, narrow by status, and work on the specific application you need instead of scanning a giant list."
+        title="Applications workflow manager"
+        description="Track every stage, write internal and student-facing updates, forward to the next stakeholder by email, and keep the whole approval chain visible in one place."
       >
         <div className="grid gap-3 md:grid-cols-3">
           <SearchableSelect
@@ -1948,15 +2239,45 @@ function ApplicationsSection({
         <div className="mt-6 space-y-5">
           {filteredApplications.map((application) => (
             <div key={application.id} className="rounded-3xl border border-slate-100 p-5">
+              {(() => {
+                const activeStage = getActiveStage(application);
+                const stageDraft = activeStage ? stageDrafts[activeStage.id] : null;
+                const sendReviewDraft = activeStage ? sendReviewDrafts[activeStage.id] : null;
+                const moveNextDraft = moveNextDrafts[application.id];
+                const seedDraft = workflowSeedDrafts[application.id];
+                const isMoving = expandedMoveForm[application.id] ?? false;
+
+                return (
+                  <>
+              {/* ── Application header ── */}
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="text-lg font-semibold">{application.programTitle}</p>
                     <StatusBadge label={application.status} />
+                    {activeStage ? <StatusBadge label={activeStage.stageLabel} /> : null}
                   </div>
                   <p className="mt-2 text-sm font-medium text-[var(--portal-ink)]">Student: {application.studentName}</p>
                   <p className="text-sm text-slate-500">{application.studentEmail}</p>
-                  <p className="mt-2 text-sm text-slate-500">Program: {application.programTitle}</p>
+                  {/* Current stage status (OGE-internal) */}
+                  {activeStage ? (
+                    <div className="mt-3 rounded-2xl border border-slate-100 bg-[var(--portal-panel)] px-4 py-3 text-sm text-slate-600">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium text-[var(--portal-ink)]">Active stage</p>
+                        <StatusBadge label={activeStage.status.replaceAll("_", " ")} />
+                      </div>
+                      <p className="mt-1 font-semibold text-[var(--portal-ink)]">{activeStage.stageLabel}</p>
+                      <p className="text-xs text-slate-500">{activeStage.reviewerEmail}</p>
+                      {activeStage.studentVisibleUpdate ? (
+                        <p className="mt-2 text-xs leading-6 text-slate-500">Student-facing update: {activeStage.studentVisibleUpdate}</p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-[var(--portal-panel)] px-4 py-3 text-sm text-slate-600">
+                      <p className="font-medium text-[var(--portal-ink)]">No active workflow stage</p>
+                      <p className="mt-1 leading-6">Use the panels below to open the first stage and begin the review process.</p>
+                    </div>
+                  )}
                   {application.documents.length > 0 ? (
                     <div className="mt-4 space-y-3">
                       <p className="text-sm font-medium text-slate-700">Student uploads</p>
@@ -1999,52 +2320,471 @@ function ApplicationsSection({
                     </div>
                   ) : null}
                 </div>
-                <div className="w-full max-w-[14rem]">
-                  <SearchableSelect
-                    value={application.status}
-                    onChange={(value) => {
-                      if (value) {
-                        void onStatusChange(application.id, value as ApplicationStatus);
-                      }
-                    }}
-                    options={statusOptions.map((status) => ({ value: status, label: status }))}
-                    placeholder="Application status"
-                    searchPlaceholder="Search status"
-                  />
+                <div className="w-full max-w-[20rem] rounded-2xl border border-slate-100 bg-[var(--portal-panel)] px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Timeline</p>
+                  <div className="mt-3 space-y-3">
+                    {application.workflowStages.length > 0 ? (
+                      application.workflowStages.map((stage) => (
+                        <div key={stage.id} className="rounded-2xl border border-white/80 bg-white px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                              Stage {stage.order}
+                            </span>
+                            <StatusBadge label={stage.stageLabel} />
+                            <StatusBadge label={stage.status.replaceAll("_", " ")} />
+                          </div>
+                          {stage.studentVisibleUpdate ? (
+                            <p className="mt-2 text-xs leading-6 text-slate-500">Student update: {stage.studentVisibleUpdate}</p>
+                          ) : null}
+                          {stage.reviewRequests && stage.reviewRequests.length > 0 ? (
+                            <p className="mt-1 text-xs text-slate-400">{stage.reviewRequests.length} advisory request{stage.reviewRequests.length > 1 ? "s" : ""}</p>
+                          ) : null}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-white/80 bg-white px-4 py-4 text-sm leading-6 text-slate-500">
+                        No workflow stages yet.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                <textarea
-                  value={application.reviewerNotes}
-                  onChange={(e) =>
-                    onApplicationsChange((prev) =>
-                      prev.map((item) => (item.id === application.id ? { ...item, reviewerNotes: e.target.value } : item)),
-                    )
-                  }
-                  className="min-h-24 rounded-2xl border border-black/10 px-4 py-3"
-                  placeholder="Reviewer notes"
-                />
-                <textarea
-                  value={application.nominationNotes}
-                  onChange={(e) =>
-                    onApplicationsChange((prev) =>
-                      prev.map((item) => (item.id === application.id ? { ...item, nominationNotes: e.target.value } : item)),
-                    )
-                  }
-                  className="min-h-24 rounded-2xl border border-black/10 px-4 py-3"
-                  placeholder="Nomination notes"
-                />
+              {/* ── Bottom action panels ── */}
+              <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_0.95fr]">
+                {/* Panel A: Office notes */}
+                <div className="rounded-3xl bg-[var(--portal-panel)] p-5">
+                  <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Office review notes</h4>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Private notes stay internal. The student-facing update appears in the student&apos;s dashboard.
+                  </p>
+                  {activeStage ? (
+                    <>
+                      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                        <textarea
+                          value={stageDraft?.internalNotes || ""}
+                          onChange={(e) =>
+                            setStageDrafts((current) => ({
+                              ...current,
+                              [activeStage.id]: {
+                                ...(current[activeStage.id] || { internalNotes: "", studentVisibleUpdate: "" }),
+                                internalNotes: e.target.value,
+                              },
+                            }))
+                          }
+                          className="min-h-28 rounded-2xl border border-black/10 px-4 py-3"
+                          placeholder="Internal office notes (not visible to student)"
+                        />
+                        <textarea
+                          value={stageDraft?.studentVisibleUpdate || ""}
+                          onChange={(e) =>
+                            setStageDrafts((current) => ({
+                              ...current,
+                              [activeStage.id]: {
+                                ...(current[activeStage.id] || { internalNotes: "", studentVisibleUpdate: "" }),
+                                studentVisibleUpdate: e.target.value,
+                              },
+                            }))
+                          }
+                          className="min-h-28 rounded-2xl border border-black/10 px-4 py-3"
+                          placeholder="Short student-facing update shown in their dashboard"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void saveStageNotes(activeStage)}
+                        disabled={submittingActionKey === `${activeStage.id}:save`}
+                        className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                      >
+                        {submittingActionKey === `${activeStage.id}:save` ? "Saving..." : "Save notes"}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="mt-4 rounded-2xl border border-slate-100 bg-white px-4 py-4 text-sm text-slate-500">
+                      <p className="font-medium text-[var(--portal-ink)]">No active stage</p>
+                      <p className="mt-1 leading-6">Start a workflow stage below before adding notes.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Panel B: Send advisory review request */}
+                <div className="rounded-3xl bg-[var(--portal-panel)] p-5">
+                  <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Send advisory review request</h4>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Ask a stakeholder for their input. This does not move the application — only OGE controls stage transitions.
+                  </p>
+                  {activeStage ? (
+                    <>
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        <input
+                          value={sendReviewDraft?.toEmail || ""}
+                          onChange={(e) =>
+                            setSendReviewDrafts((current) => ({
+                              ...current,
+                              [activeStage.id]: {
+                                ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
+                                toEmail: e.target.value,
+                              },
+                            }))
+                          }
+                          className="rounded-2xl border border-black/10 px-4 py-3 md:col-span-2"
+                          placeholder="Stakeholder email"
+                          type="email"
+                        />
+                        <input
+                          value={sendReviewDraft?.toName || ""}
+                          onChange={(e) =>
+                            setSendReviewDrafts((current) => ({
+                              ...current,
+                              [activeStage.id]: {
+                                ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
+                                toName: e.target.value,
+                              },
+                            }))
+                          }
+                          className="rounded-2xl border border-black/10 px-4 py-3"
+                          placeholder="Stakeholder name"
+                        />
+                        <input
+                          value={sendReviewDraft?.toRoleLabel || ""}
+                          onChange={(e) =>
+                            setSendReviewDrafts((current) => ({
+                              ...current,
+                              [activeStage.id]: {
+                                ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
+                                toRoleLabel: e.target.value,
+                              },
+                            }))
+                          }
+                          className="rounded-2xl border border-black/10 px-4 py-3"
+                          placeholder="Role / office label"
+                        />
+                      </div>
+                      <textarea
+                        value={sendReviewDraft?.instructions || ""}
+                        onChange={(e) =>
+                          setSendReviewDrafts((current) => ({
+                            ...current,
+                            [activeStage.id]: {
+                              ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
+                              instructions: e.target.value,
+                            },
+                          }))
+                        }
+                        className="mt-3 min-h-24 w-full rounded-2xl border border-black/10 px-4 py-3"
+                        placeholder="What should this stakeholder review or provide input on?"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void sendReviewRequestToStakeholder(application)}
+                        disabled={submittingActionKey === `app:${application.id}:sendReview`}
+                        className="mt-4 rounded-full bg-[var(--portal-gold)] px-5 py-3 text-sm font-semibold text-[var(--portal-ink)] disabled:opacity-60"
+                      >
+                        {submittingActionKey === `app:${application.id}:sendReview` ? "Sending..." : "Send review request"}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="mt-4 rounded-2xl border border-slate-100 bg-white px-4 py-4 text-sm text-slate-500">
+                      <p className="font-medium text-[var(--portal-ink)]">No active stage</p>
+                      <p className="mt-1 leading-6">Start a workflow stage before sending advisory requests.</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button onClick={() => void onSaveNotes(application)} className="rounded-full bg-[var(--portal-teal)] px-4 py-2 text-sm font-semibold text-white">
-                  Save Notes
-                </button>
-                <button onClick={() => void onNominate(application)} className="rounded-full bg-[var(--portal-gold)] px-4 py-2 text-sm font-semibold text-[var(--portal-ink)]">
-                  Nominate
-                </button>
+              {/* ── OGE decisions panel ── */}
+              <div className="mt-5 rounded-3xl bg-[var(--portal-panel)] p-5">
+                <h4 className="text-lg font-semibold text-[var(--portal-ink)]">OGE stage decisions</h4>
+                <p className="mt-1 text-sm text-slate-600">
+                  Only GEO can control stage transitions, request student changes, or record the final nomination decision.
+                </p>
+
+                {activeStage ? (
+                  <div className="mt-5 space-y-5">
+                    {/* Move to next stage */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedMoveForm((current) => ({
+                            ...current,
+                            [application.id]: !current[application.id],
+                          }))
+                        }
+                        className="rounded-full border border-[var(--portal-teal)] px-4 py-2 text-sm font-semibold text-[var(--portal-teal)]"
+                      >
+                        {isMoving ? "Cancel move" : "Move to next stage →"}
+                      </button>
+                      {isMoving ? (
+                        <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-4">
+                          <p className="text-sm font-medium text-[var(--portal-ink)]">Next stage details</p>
+                          <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            <input
+                              value={moveNextDraft?.nextStageLabel || ""}
+                              onChange={(e) =>
+                                setMoveNextDrafts((current) => ({
+                                  ...current,
+                                  [application.id]: {
+                                    ...(current[application.id] || { nextStageLabel: "", studentVisibleUpdate: "" }),
+                                    nextStageLabel: e.target.value,
+                                  },
+                                }))
+                              }
+                              className="rounded-2xl border border-black/10 px-4 py-3 md:col-span-2"
+                              placeholder="Label for the next stage (e.g. 'Faculty Review')"
+                            />
+                            <textarea
+                              value={moveNextDraft?.studentVisibleUpdate || ""}
+                              onChange={(e) =>
+                                setMoveNextDrafts((current) => ({
+                                  ...current,
+                                  [application.id]: {
+                                    ...(current[application.id] || { nextStageLabel: "", studentVisibleUpdate: "" }),
+                                    studentVisibleUpdate: e.target.value,
+                                  },
+                                }))
+                              }
+                              className="min-h-20 rounded-2xl border border-black/10 px-4 py-3 md:col-span-2"
+                              placeholder="Student-facing update for this transition"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void moveToNextStage(application)}
+                            disabled={submittingActionKey === `app:${application.id}:move`}
+                            className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                          >
+                            {submittingActionKey === `app:${application.id}:move` ? "Moving..." : "Confirm move to next stage"}
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* Other decisions */}
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void ogeStageDecision(activeStage, "CHANGES_REQUESTED")}
+                        disabled={submittingActionKey === `${activeStage.id}:CHANGES_REQUESTED`}
+                        className="rounded-full border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-700 disabled:opacity-60"
+                      >
+                        {submittingActionKey === `${activeStage.id}:CHANGES_REQUESTED` ? "Saving..." : "Request changes from student"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void ogeStageDecision(activeStage, "REJECTED")}
+                        disabled={submittingActionKey === `${activeStage.id}:REJECTED`}
+                        className="rounded-full border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 disabled:opacity-60"
+                      >
+                        {submittingActionKey === `${activeStage.id}:REJECTED` ? "Saving..." : "Reject application"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void nominateApplication(application)}
+                        disabled={submittingActionKey === `app:${application.id}:nominate`}
+                        className="rounded-full border border-[var(--portal-gold)] px-4 py-2 text-sm font-semibold text-[var(--portal-ink)] disabled:opacity-60"
+                      >
+                        {submittingActionKey === `app:${application.id}:nominate` ? "Recording..." : "Record nominated decision"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="mt-4 text-sm text-slate-500">Start the first workflow stage to enable decisions.</p>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <input
+                        value={seedDraft?.stageLabel || ""}
+                        onChange={(e) =>
+                          setWorkflowSeedDrafts((current) => ({
+                            ...current,
+                            [application.id]: {
+                              ...(current[application.id] || {
+                                stageLabel: "",
+                                reviewerEmail: "",
+                                reviewerName: "",
+                                reviewerRoleLabel: "",
+                                instructions: "",
+                                studentVisibleUpdate: "",
+                              }),
+                              stageLabel: e.target.value,
+                            },
+                          }))
+                        }
+                        className="rounded-2xl border border-black/10 px-4 py-3"
+                        placeholder="Stage label (e.g. 'Initial Review')"
+                      />
+                      <input
+                        value={seedDraft?.reviewerRoleLabel || ""}
+                        onChange={(e) =>
+                          setWorkflowSeedDrafts((current) => ({
+                            ...current,
+                            [application.id]: {
+                              ...(current[application.id] || {
+                                stageLabel: "",
+                                reviewerEmail: "",
+                                reviewerName: "",
+                                reviewerRoleLabel: "",
+                                instructions: "",
+                                studentVisibleUpdate: "",
+                              }),
+                              reviewerRoleLabel: e.target.value,
+                            },
+                          }))
+                        }
+                        className="rounded-2xl border border-black/10 px-4 py-3"
+                        placeholder="Role / office label"
+                      />
+                      <input
+                        value={seedDraft?.reviewerEmail || ""}
+                        onChange={(e) =>
+                          setWorkflowSeedDrafts((current) => ({
+                            ...current,
+                            [application.id]: {
+                              ...(current[application.id] || {
+                                stageLabel: "",
+                                reviewerEmail: "",
+                                reviewerName: "",
+                                reviewerRoleLabel: "",
+                                instructions: "",
+                                studentVisibleUpdate: "",
+                              }),
+                              reviewerEmail: e.target.value,
+                            },
+                          }))
+                        }
+                        className="rounded-2xl border border-black/10 px-4 py-3 md:col-span-2"
+                        placeholder="OGE email to record as responsible party"
+                      />
+                      <input
+                        value={seedDraft?.reviewerName || ""}
+                        onChange={(e) =>
+                          setWorkflowSeedDrafts((current) => ({
+                            ...current,
+                            [application.id]: {
+                              ...(current[application.id] || {
+                                stageLabel: "",
+                                reviewerEmail: "",
+                                reviewerName: "",
+                                reviewerRoleLabel: "",
+                                instructions: "",
+                                studentVisibleUpdate: "",
+                              }),
+                              reviewerName: e.target.value,
+                            },
+                          }))
+                        }
+                        className="rounded-2xl border border-black/10 px-4 py-3 md:col-span-2"
+                        placeholder="OGE officer name (optional)"
+                      />
+                    </div>
+                    <textarea
+                      value={seedDraft?.instructions || ""}
+                      onChange={(e) =>
+                        setWorkflowSeedDrafts((current) => ({
+                          ...current,
+                          [application.id]: {
+                            ...(current[application.id] || {
+                              stageLabel: "",
+                              reviewerEmail: "",
+                              reviewerName: "",
+                              reviewerRoleLabel: "",
+                              instructions: "",
+                              studentVisibleUpdate: "",
+                            }),
+                            instructions: e.target.value,
+                          },
+                        }))
+                      }
+                      className="mt-3 min-h-24 w-full rounded-2xl border border-black/10 px-4 py-3"
+                      placeholder="Internal stage instructions"
+                    />
+                    <textarea
+                      value={seedDraft?.studentVisibleUpdate || ""}
+                      onChange={(e) =>
+                        setWorkflowSeedDrafts((current) => ({
+                          ...current,
+                          [application.id]: {
+                            ...(current[application.id] || {
+                              stageLabel: "",
+                              reviewerEmail: "",
+                              reviewerName: "",
+                              reviewerRoleLabel: "",
+                              instructions: "",
+                              studentVisibleUpdate: "",
+                            }),
+                            studentVisibleUpdate: e.target.value,
+                          },
+                        }))
+                      }
+                      className="mt-3 min-h-20 w-full rounded-2xl border border-black/10 px-4 py-3"
+                      placeholder="Student-facing update for opening this stage"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void startStage(application)}
+                      disabled={submittingActionKey === `app:${application.id}:start`}
+                      className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      {submittingActionKey === `app:${application.id}:start` ? "Opening..." : "Open first workflow stage"}
+                    </button>
+                  </>
+                )}
               </div>
+
+              {/* ── Advisory review requests trail ── */}
+              {activeStage && activeStage.reviewRequests && activeStage.reviewRequests.length > 0 ? (
+                <div className="mt-5 rounded-3xl border border-slate-100 p-5">
+                  <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Advisory review requests</h4>
+                  <p className="mt-1 text-sm text-slate-600">Requests sent to stakeholders for this stage and their responses back to OGE.</p>
+                  <div className="mt-4 space-y-3">
+                    {activeStage.reviewRequests.map((req) => (
+                      <div key={req.id} className="rounded-2xl bg-[var(--portal-panel)] px-4 py-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <StatusBadge label={req.status} />
+                          {req.toRoleLabel ? <StatusBadge label={req.toRoleLabel} /> : null}
+                        </div>
+                        <p className="mt-2 text-sm font-medium text-[var(--portal-ink)]">
+                          {req.toName || req.toEmail}
+                        </p>
+                        <p className="text-xs text-slate-500">{req.toEmail}</p>
+                        {req.instructions ? (
+                          <p className="mt-2 text-sm leading-6 text-slate-600">Instructions: {req.instructions}</p>
+                        ) : null}
+                        {req.reviewerNotes ? (
+                          <div className="mt-3 rounded-xl border border-slate-100 bg-white px-3 py-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Response</p>
+                            <p className="mt-1 text-sm leading-6 text-slate-700">{req.reviewerNotes}</p>
+                            {req.respondedAt ? (
+                              <p className="mt-1 text-xs text-slate-400">{formatIsoDate(req.respondedAt)}</p>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Nominations only — no email trail */}
+              {application.nominations.length > 0 ? (
+                <div className="mt-5 rounded-3xl border border-slate-100 p-5">
+                  <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Nomination log</h4>
+                  <div className="mt-4 space-y-3">
+                    {application.nominations.map((nomination) => (
+                      <div key={nomination.id} className="rounded-2xl bg-[var(--portal-panel)] px-4 py-4">
+                        <p className="text-sm font-medium text-[var(--portal-ink)]">Nomination recorded</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {nomination.adminName} · {formatIsoDate(nomination.createdAt)}
+                        </p>
+                        <p className="mt-3 text-sm leading-6 text-slate-600">{nomination.notes}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+                  </>
+                );
+              })()}
             </div>
           ))}
           {filteredApplications.length === 0 ? (
@@ -2058,7 +2798,7 @@ function ApplicationsSection({
       <AdminSection
         eyebrow="Nominations"
         title="Nominations log"
-        description="Track official nominations already sent to partner institutions."
+        description="Track final nomination decisions already recorded for partner-facing submission."
       >
         <div className="space-y-3">
           {nominations.map((nomination) => (
@@ -2392,11 +3132,9 @@ function parseDisplayTimeToMinutes(value: string) {
 function ApprovalColumn({
   title,
   items,
-  onStatusChange,
 }: {
   title: string;
   items: Application[];
-  onStatusChange: (applicationId: number, status: ApplicationStatus) => Promise<void>;
 }) {
   const previewItems = items.slice(0, 1);
 
@@ -2413,20 +3151,12 @@ function ApprovalColumn({
             <p className="font-medium">{item.programTitle}</p>
             <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-400">Student</p>
             <p className="text-sm text-slate-500">{item.studentName}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {statusOptions
-                .filter((status) => status !== item.status)
-                .slice(0, 3)
-                .map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => void onStatusChange(item.id, status)}
-                    className="rounded-full border border-black/10 px-3 py-1 text-xs"
-                  >
-                    Mark {status}
-                  </button>
-                ))}
-            </div>
+            {item.currentWorkflowStage ? (
+              <p className="mt-3 text-xs text-slate-500">
+                Current stage: {item.currentWorkflowStage.stageLabel} ·{" "}
+                {item.currentWorkflowStage.reviewerRoleLabel || item.currentWorkflowStage.reviewerEmail}
+              </p>
+            ) : null}
           </div>
         ))}
         {items.length > previewItems.length ? (

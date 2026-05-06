@@ -1,10 +1,11 @@
-export type DemoRole = "student" | "admin" | "mentor";
+export type DemoRole = "student" | "admin" | "mentor" | "reviewer";
 
 export type DemoUser = {
   id: number;
   name: string;
   email: string;
   role: DemoRole;
+  organizationLabel?: string;
 };
 
 export type Deadline = {
@@ -85,6 +86,69 @@ export type ApplicationStatus =
   | "Rejected"
   | "Nominated";
 
+export type WorkflowStageStatus =
+  | "PENDING"
+  | "ACTIVE"
+  | "FORWARDED"
+  | "APPROVED"
+  | "CHANGES_REQUESTED"
+  | "REJECTED"
+  | "COMPLETED";
+
+export type StageReviewRequestStatus =
+  | "PENDING"
+  | "RESPONDED"
+  | "INFO_REQUESTED"
+  | "REJECTED_RECOMMENDATION";
+
+export type StageReviewRequest = {
+  id: number;
+  stageId: number;
+  applicationId: number;
+  toEmail: string;
+  toName: string;
+  toRoleLabel: string;
+  instructions: string;
+  status: StageReviewRequestStatus;
+  reviewerNotes: string;
+  respondedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApplicationWorkflowStage = {
+  id: number;
+  applicationId: number;
+  order: number;
+  stageLabel: string;
+  reviewerEmail: string;
+  reviewerName: string;
+  reviewerRoleLabel: string;
+  reviewerId: number | null;
+  status: WorkflowStageStatus;
+  instructions: string;
+  internalNotes: string;
+  studentVisibleUpdate: string;
+  requestedByAdminId: number | null;
+  requestedByAdminName: string;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reviewRequests: StageReviewRequest[];
+};
+
+export type WorkflowEmailLog = {
+  id: number;
+  applicationId: number;
+  workflowStageId: number | null;
+  toEmail: string;
+  subject: string;
+  body: string;
+  deliveryStatus: string;
+  direction: string;
+  createdAt: string;
+};
+
 export type Nomination = {
   id: number;
   applicationId: number;
@@ -120,6 +184,9 @@ export type Application = {
   updatedAt: string;
   documents: ApplicationDocument[];
   nominations: Nomination[];
+  workflowStages: ApplicationWorkflowStage[];
+  currentWorkflowStage: ApplicationWorkflowStage | null;
+  emailLogs: WorkflowEmailLog[];
 };
 
 export type ApplicationDocument = {
@@ -252,6 +319,7 @@ export type NotificationItem = {
   title: string;
   message: string;
   applicationId: number | null;
+  workflowStageId?: number | null;
   createdAt: string;
 };
 
@@ -270,6 +338,17 @@ export type StudentDashboard = {
   savedPrograms: Program[];
   chatHistory: ChatInteraction[];
   notifications: NotificationItem[];
+};
+
+export type ReviewerTask = {
+  reviewRequest: StageReviewRequest;
+  stage: ApplicationWorkflowStage;
+  application: Application;
+};
+
+export type ReviewerDashboard = {
+  reviewer: DemoUser;
+  tasks: ReviewerTask[];
 };
 
 export type AdminDashboard = {
@@ -292,4 +371,5 @@ export type ApprovalQueue = {
 export type AuthOptions = {
   admins: DemoUser[];
   mentors: DemoUser[];
+  reviewers: DemoUser[];
 };

@@ -10,6 +10,17 @@ datasource db {
 enum UserRole {
   STUDENT
   ADMIN
+  REVIEWER
+}
+
+enum WorkflowStageStatus {
+  PENDING
+  ACTIVE
+  FORWARDED
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
+  COMPLETED
 }
 
 model Student {
@@ -34,6 +45,7 @@ model Admin {
   reviewedApplications Application[] @relation("ApplicationReviewer")
   nominations         Nomination[]
   knowledgeDocuments  KnowledgeDocument[] @relation("AdminKnowledgeDocuments")
+  initiatedWorkflowStages ApplicationWorkflowStage[] @relation("WorkflowStageRequestedByAdmin")
 }
 
 model Program {
@@ -116,6 +128,9 @@ model Application {
   nominations       Nomination[]
   notifications     NotificationLog[]
   documents         ApplicationDocument[]
+  workflowStages    ApplicationWorkflowStage[]
+  emailLogs         WorkflowEmailLog[]
+  reviewRequests    StageReviewRequest[]
 }
 
 model Deadline {
@@ -145,6 +160,58 @@ model ApplicationDocument {
   deadline         Deadline    @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
 }
 
+model Reviewer {
+  id                Int                      @id @default(autoincrement())
+  name              String
+  email             String                   @unique
+  role              UserRole                 @default(REVIEWER)
+  organizationLabel String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  assignedStages    ApplicationWorkflowStage[] @relation("WorkflowStageReviewer")
+}
+
+model ApplicationWorkflowStage {
+  id                   Int                 @id @default(autoincrement())
+  applicationId        Int
+  order                Int
+  stageLabel           String
+  reviewerEmail        String
+  reviewerName         String?
+  reviewerRoleLabel    String?
+  reviewerId           Int?
+  status               WorkflowStageStatus @default(PENDING)
+  instructions         String
+  internalNotes        String?
+  studentVisibleUpdate String?
+  requestedByAdminId   Int?
+  completedAt          DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  application          Application         @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewer             Reviewer?           @relation("WorkflowStageReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  requestedByAdmin     Admin?              @relation("WorkflowStageRequestedByAdmin", fields: [requestedByAdminId], references: [id], onDelete: SetNull)
+  studentUpdates       NotificationLog[]   @relation("WorkflowStageStudentNotifications")
+  emailLogs            WorkflowEmailLog[]
+  reviewRequests       StageReviewRequest[]
+
+  @@unique([applicationId, order])
+}
+
+model WorkflowEmailLog {
+  id               Int                       @id @default(autoincrement())
+  applicationId    Int
+  workflowStageId  Int?
+  toEmail          String
+  subject          String
+  body             String
+  deliveryStatus   String                    @default("Queued")
+  direction        String                    @default("outbound")
+  createdAt        DateTime                  @default(now())
+  application      Application               @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  workflowStage    ApplicationWorkflowStage? @relation(fields: [workflowStageId], references: [id], onDelete: SetNull)
+}
+
 model ChatInteraction {
   id        Int       @id @default(autoincrement())
   studentId Int?
@@ -166,6 +233,23 @@ model KnowledgeDocument {
   updatedAt        DateTime @updatedAt
   uploadedByAdmin  Admin?   @relation("AdminKnowledgeDocuments", fields: [uploadedByAdminId], references: [id], onDelete: SetNull)
   uploadedByMentor Mentor?  @relation("MentorKnowledgeDocuments", fields: [uploadedByMentorId], references: [id], onDelete: SetNull)
+}
+
+model StageReviewRequest {
+  id            Int       @id @default(autoincrement())
+  stageId       Int
+  applicationId Int
+  toEmail       String
+  toName        String?
+  toRoleLabel   String?
+  instructions  String
+  status        String    @default("PENDING")
+  reviewerNotes String?
+  respondedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  stage         ApplicationWorkflowStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  application   Application              @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model ContactMessage {
@@ -202,9 +286,11 @@ model NotificationLog {
   id            Int          @id @default(autoincrement())
   studentId     Int
   applicationId Int?
+  workflowStageId Int?
   title         String
   message       String
   createdAt     DateTime     @default(now())
   student       Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  workflowStage ApplicationWorkflowStage? @relation("WorkflowStageStudentNotifications", fields: [workflowStageId], references: [id], onDelete: SetNull)
 }

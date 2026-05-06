@@ -16,6 +16,18 @@ function trimSnippet(text, maxLength = 260) {
   return `${value.slice(0, maxLength - 3)}...`;
 }
 
+function sanitizeReportText(text, maxLength = 260) {
+  const cleaned = String(text || "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return trimSnippet(cleaned, maxLength);
+}
+
 function stripHtmlToText(html) {
   return String(html || "")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -71,10 +83,10 @@ function normalizeProgramReviewReport(report) {
   const categories = Array.isArray(report?.categories)
     ? report.categories
         .map((category) => ({
-          name: String(category?.name || "").trim(),
+          name: sanitizeReportText(category?.name, 80),
           score: normalizeReviewScore(category?.score, 1),
-          weightLabel: String(category?.weightLabel || "Standard").trim() || "Standard",
-          rationale: trimSnippet(String(category?.rationale || "").trim(), 260),
+          weightLabel: sanitizeReportText(category?.weightLabel || "Standard", 40) || "Standard",
+          rationale: sanitizeReportText(category?.rationale, 260),
         }))
         .filter((category) => category.name && category.rationale)
         .slice(0, 8)
@@ -83,33 +95,39 @@ function normalizeProgramReviewReport(report) {
   const priorityActions = Array.isArray(report?.priorityActions)
     ? report.priorityActions
         .map((item) => ({
-          action: trimSnippet(String(item?.action || "").trim(), 180),
-          whyItMatters: trimSnippet(String(item?.whyItMatters || "").trim(), 220),
-          urgency: String(item?.urgency || "High").trim() || "High",
+          action: sanitizeReportText(item?.action, 180),
+          whyItMatters: sanitizeReportText(item?.whyItMatters, 220),
+          urgency: sanitizeReportText(item?.urgency || "High", 20) || "High",
         }))
         .filter((item) => item.action && item.whyItMatters)
         .slice(0, 6)
     : [];
 
   const strengths = Array.isArray(report?.strengths)
-    ? report.strengths.map((item) => trimSnippet(String(item || "").trim(), 180)).filter(Boolean).slice(0, 6)
+    ? report.strengths.map((item) => sanitizeReportText(item, 180)).filter(Boolean).slice(0, 6)
     : [];
 
   const gaps = Array.isArray(report?.gaps)
-    ? report.gaps.map((item) => trimSnippet(String(item || "").trim(), 180)).filter(Boolean).slice(0, 6)
+    ? report.gaps.map((item) => sanitizeReportText(item, 180)).filter(Boolean).slice(0, 6)
     : [];
+
+  const normalizedBottomLine = sanitizeReportText(report?.bottomLine, 280);
+  const normalizedVerdict = sanitizeReportText(report?.competitivenessVerdict, 220);
 
   return {
     overallScore: normalizeReviewScore(report?.overallScore, 1),
-    overallLabel: trimSnippet(String(report?.overallLabel || "Needs major work").trim(), 90),
-    competitivenessVerdict: trimSnippet(String(report?.competitivenessVerdict || "").trim(), 220),
-    confidenceNote: trimSnippet(String(report?.confidenceNote || "").trim(), 220),
-    rubricRationale: trimSnippet(String(report?.rubricRationale || "").trim(), 240),
+    overallLabel: sanitizeReportText(report?.overallLabel || "Needs major work", 90),
+    competitivenessVerdict:
+      normalizedVerdict && !/honest application review|what you've submitted|current standing/i.test(normalizedVerdict)
+        ? normalizedVerdict
+        : normalizedBottomLine,
+    confidenceNote: sanitizeReportText(report?.confidenceNote, 220),
+    rubricRationale: sanitizeReportText(report?.rubricRationale, 240),
     categories,
     strengths,
     gaps,
     priorityActions,
-    bottomLine: trimSnippet(String(report?.bottomLine || "").trim(), 280),
+    bottomLine: normalizedBottomLine,
   };
 }
 

@@ -696,7 +696,7 @@ function ProgramReviewReportCard({ report }: { report: ProgramReviewReport }) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Structured review report</p>
             <h3 className="mt-1 text-lg font-semibold text-[var(--portal-ink)]">{report.overallLabel}</h3>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{report.competitivenessVerdict}</p>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{report.bottomLine || report.competitivenessVerdict}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className={`rounded-2xl px-4 py-3 text-center ${scoreColorClasses(report.overallScore)}`}>
@@ -753,9 +753,7 @@ function ProgramReviewReportCard({ report }: { report: ProgramReviewReport }) {
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-80">Overall score</p>
                   <p className="mt-1 text-3xl font-bold">{report.overallScore.toFixed(1)} / 5</p>
                 </div>
-                <div className="max-w-2xl rounded-2xl bg-slate-100 px-4 py-3 text-sm font-medium leading-6 text-slate-700">
-                  {report.competitivenessVerdict}
-                </div>
+                {report.bottomLine ? <p className="max-w-3xl text-sm leading-7 text-slate-600">{report.bottomLine}</p> : null}
               </div>
 
               {report.categories.length > 0 ? (
@@ -828,12 +826,6 @@ function ProgramReviewReportCard({ report }: { report: ProgramReviewReport }) {
                   <p className="mt-3 text-sm text-slate-500">No ranked action list was returned for this review.</p>
                 )}
               </div>
-
-              {report.bottomLine ? (
-                <div className="mt-6 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-medium leading-6 text-slate-700">
-                  {report.bottomLine}
-                </div>
-              ) : null}
             </div>
           </div>
         </div>

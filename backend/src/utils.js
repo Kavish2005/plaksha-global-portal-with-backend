@@ -101,8 +101,70 @@ function formatBooking(booking) {
   };
 }
 
+function formatStageReviewRequest(item) {
+  return {
+    id: item.id,
+    stageId: item.stageId,
+    applicationId: item.applicationId,
+    toEmail: item.toEmail,
+    toName: item.toName || "",
+    toRoleLabel: item.toRoleLabel || "",
+    instructions: item.instructions || "",
+    status: item.status,
+    reviewerNotes: item.reviewerNotes || "",
+    respondedAt: item.respondedAt || null,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+function formatWorkflowStage(stage) {
+  return {
+    id: stage.id,
+    applicationId: stage.applicationId,
+    order: stage.order,
+    stageLabel: stage.stageLabel,
+    reviewerEmail: stage.reviewerEmail,
+    reviewerName: stage.reviewerName || stage.reviewer?.name || "",
+    reviewerRoleLabel: stage.reviewerRoleLabel || stage.reviewer?.organizationLabel || "",
+    reviewerId: stage.reviewerId || null,
+    status: stage.status,
+    instructions: stage.instructions || "",
+    internalNotes: stage.internalNotes || "",
+    studentVisibleUpdate: stage.studentVisibleUpdate || "",
+    requestedByAdminId: stage.requestedByAdminId || null,
+    requestedByAdminName: stage.requestedByAdmin?.name || "",
+    completedAt: stage.completedAt || null,
+    createdAt: stage.createdAt,
+    updatedAt: stage.updatedAt,
+    reviewRequests: (stage.reviewRequests || []).map(formatStageReviewRequest),
+  };
+}
+
+function formatWorkflowEmailLog(item) {
+  return {
+    id: item.id,
+    applicationId: item.applicationId,
+    workflowStageId: item.workflowStageId || null,
+    toEmail: item.toEmail,
+    subject: item.subject,
+    body: item.body,
+    deliveryStatus: item.deliveryStatus,
+    direction: item.direction,
+    createdAt: item.createdAt,
+  };
+}
+
 function formatApplication(application) {
   const primaryDeadline = application.program?.deadlines?.[0]?.date || null;
+  const workflowStages = (application.workflowStages || []).map(formatWorkflowStage).sort((a, b) => a.order - b.order);
+  const currentWorkflowStage =
+    workflowStages
+      .slice()
+      .sort((a, b) => {
+        if (b.order !== a.order) return b.order - a.order;
+        return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
+      })[0] || null;
   return {
     id: application.id,
     studentId: application.studentId,
@@ -121,6 +183,9 @@ function formatApplication(application) {
     deadline: primaryDeadline ? normalizeDateString(primaryDeadline) : null,
     createdAt: application.createdAt,
     updatedAt: application.updatedAt,
+    workflowStages,
+    currentWorkflowStage,
+    emailLogs: (application.emailLogs || []).map(formatWorkflowEmailLog),
     documents:
       application.documents?.map((document) => ({
         id: document.id,
@@ -217,7 +282,20 @@ function formatNotification(item) {
     title: item.title,
     message: item.message,
     applicationId: item.applicationId,
+    workflowStageId: item.workflowStageId || null,
     createdAt: item.createdAt,
+  };
+}
+
+function formatReviewer(reviewer) {
+  return {
+    id: reviewer.id,
+    name: reviewer.name,
+    email: reviewer.email,
+    role: "reviewer",
+    organizationLabel: reviewer.organizationLabel || "",
+    createdAt: reviewer.createdAt,
+    updatedAt: reviewer.updatedAt,
   };
 }
 
@@ -240,6 +318,10 @@ module.exports = {
   formatMentor,
   formatNotification,
   formatProgram,
+  formatReviewer,
+  formatStageReviewRequest,
+  formatWorkflowEmailLog,
+  formatWorkflowStage,
   formatKnowledgeDocument,
   getTagsJson,
   normalizeDateString,

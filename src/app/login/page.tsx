@@ -3,20 +3,21 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { ArrowRight, ShieldCheck, GraduationCap } from "lucide-react";
+import { ArrowRight, ShieldCheck, GraduationCap, Building2 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { getErrorMessage } from "@/lib/utils";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { adminOptions, mentorOptions, login, loading } = useAuth();
-  const [role, setRole] = useState<"student" | "admin" | "mentor">("student");
+  const { adminOptions, mentorOptions, reviewerOptions, login, loading } = useAuth();
+  const [role, setRole] = useState<"student" | "admin" | "mentor" | "reviewer">("student");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const adminEmails = useMemo(() => adminOptions.map((admin) => admin.email), [adminOptions]);
   const mentorEmails = useMemo(() => mentorOptions.map((mentor) => mentor.email), [mentorOptions]);
+  const reviewerEmails = useMemo(() => reviewerOptions.map((reviewer) => reviewer.email), [reviewerOptions]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,7 +30,15 @@ export default function LoginPage() {
         ...(role === "student" ? { name } : {}),
       });
       toast.success(`Welcome, ${user.name}.`);
-      router.replace(user.role === "student" ? "/" : user.role === "admin" ? "/admin" : "/admin/mentors");
+      router.replace(
+        user.role === "student"
+          ? "/"
+          : user.role === "admin"
+            ? "/admin"
+            : user.role === "mentor"
+              ? "/admin/mentors"
+              : "/dashboard",
+      );
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -81,7 +90,7 @@ export default function LoginPage() {
             Use student sign-in for the student portal, or sign in as the Global Engagement Office to manage programs and applications.
           </p>
 
-          <div className="mt-8 grid gap-3 md:grid-cols-3">
+          <div className="mt-8 grid gap-3 md:grid-cols-4">
             <button
               type="button"
               onClick={() => setRole("student")}
@@ -114,6 +123,17 @@ export default function LoginPage() {
               <ShieldCheck className="text-[var(--portal-teal)]" />
               <p className="mt-4 text-lg font-semibold">Mentor</p>
               <p className="mt-2 text-sm text-slate-600">Update your availability and review meetings booked by students.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole("reviewer")}
+              className={`rounded-3xl border p-5 text-left transition ${
+                role === "reviewer" ? "border-[var(--portal-teal)] bg-[var(--portal-panel)]" : "border-black/10 bg-white"
+              }`}
+            >
+              <Building2 className="text-[var(--portal-teal)]" />
+              <p className="mt-4 text-lg font-semibold">Reviewer</p>
+              <p className="mt-2 text-sm text-slate-600">Review assigned applications, add notes, and forward them to the next office or dean.</p>
             </button>
           </div>
 
@@ -153,12 +173,33 @@ export default function LoginPage() {
                   </option>
                 ))}
               </select>
+            ) : role === "reviewer" && reviewerEmails.length > 0 ? (
+              <select
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="w-full rounded-2xl border border-black/10 px-4 py-3"
+              >
+                <option value="">Select reviewer account</option>
+                {reviewerOptions.map((reviewer) => (
+                  <option key={reviewer.email} value={reviewer.email}>
+                    {reviewer.name} ({reviewer.email})
+                  </option>
+                ))}
+              </select>
             ) : (
               <input
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 className="w-full rounded-2xl border border-black/10 px-4 py-3"
-                placeholder={role === "student" ? "Email address" : role === "admin" ? "Office email" : "Mentor email"}
+                placeholder={
+                  role === "student"
+                    ? "Email address"
+                    : role === "admin"
+                      ? "Office email"
+                      : role === "mentor"
+                        ? "Mentor email"
+                        : "Reviewer email"
+                }
                 type="email"
               />
             )}
@@ -174,7 +215,9 @@ export default function LoginPage() {
                   ? "Enter Student Portal"
                   : role === "admin"
                     ? "Enter Office Portal"
-                    : "Enter Mentor Portal"}
+                    : role === "mentor"
+                      ? "Enter Mentor Portal"
+                      : "Enter Reviewer Workspace"}
               <ArrowRight size={16} />
             </button>
           </form>
