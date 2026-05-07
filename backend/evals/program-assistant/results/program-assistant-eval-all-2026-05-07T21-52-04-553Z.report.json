@@ -1,0 +1,259 @@
+{
+  "generatedAt": "2026-05-07T21:52:04.540Z",
+  "summary": {
+    "modeFilter": "all",
+    "actor": {
+      "role": "student",
+      "email": "aman@student.plaksha.edu.in"
+    },
+    "baseUrl": "http://localhost:5001/api",
+    "total": 8,
+    "qaCases": 5,
+    "reviewCases": 3,
+    "reviewsWithStructuredReport": 3,
+    "deterministicPassed": 6,
+    "deterministicPassRate": 0.75,
+    "averageJudgeCorrectness": 3.63,
+    "averageJudgeCompleteness": 3.63,
+    "averageJudgeGroundedness": 3.63,
+    "averageJudgeClarity": 4.25
+  },
+  "results": [
+    {
+      "id": "pa-qa-eth-eligibility",
+      "category": "qa",
+      "mode": "qa",
+      "programId": 1,
+      "programTitle": "ETH Zurich Exchange",
+      "input": "What are the eligibility requirements for this program?",
+      "groundTruthLabel": "Should return ETH Zurich specific eligibility, not another program's",
+      "responseMode": "program_chat_llm",
+      "answer": "Based on the program information for the **ETH Zurich Exchange**, the eligibility requirements are:\n\n## Eligibility Requirements\n\n- **Academic Year**: 2nd and 3rd year undergraduate students\n- **CGPA Requirement**: Minimum CGPA of 7.5 or above\n\nThese are the core eligibility criteria you need to meet to be considered for this semester exchange program at ETH Zurich.\n\n**Note**: Your application is currently **Under Review** and the reviewer has noted that they are awaiting transcript validation from the academics office.",
+      "hasReviewReport": false,
+      "reviewReportScore": null,
+      "reviewReportCategories": 0,
+      "deterministic": {
+        "missing": [],
+        "forbidden": [],
+        "reportStructureOk": null,
+        "passed": true
+      },
+      "judge": {
+        "correctness": 5,
+        "completeness": 5,
+        "groundedness": 4,
+        "clarity": 5,
+        "passed": true,
+        "reason": "The answer correctly identifies the ETH Zurich Exchange program and provides clear eligibility requirements (2nd/3rd year students, 7.5 CGPA minimum). The response avoids mentioning other programs like Stanford or Tokyo. However, the final note about application status being 'Under Review' and awaiting transcript validation appears to be context from a specific student case that wasn't requested in this QA question about general eligibility requirements. This ungrounded addition slightly reduces the groundedness score, as it mixes general program information with what seems to be individual application status. The core eligibility information is well-structured and actionable."
+      },
+      "durationMs": 11756
+    },
+    {
+      "id": "pa-qa-eth-deadlines",
+      "category": "qa",
+      "mode": "qa",
+      "programId": 1,
+      "programTitle": "ETH Zurich Exchange",
+      "input": "What documents do I need to submit and by when?",
+      "groundTruthLabel": "Should list required documents and deadline dates from the database",
+      "responseMode": "program_chat_llm",
+      "answer": "Hi Aman,\n\nBased on your application for the **ETH Zurich Exchange** program, here's the status of your document submissions:\n\n## What You've Already Submitted:\n✅ **Transcript** - `aman-sharma-transcript.pdf` (submitted)\n\n## Current Status:\nYour application is currently **Under Review**, and the reviewer has noted: *\"Awaiting transcript validation from academics office.\"* This means your submitted transcript is being verified internally.\n\n## Important Deadline:\n📅 **Student Application Deadline: May 12, 2026** (High Priority)\n\n## What's Required:\nAccording to the system, there are **no additional required documents** showing as missing for your application at this time. However, since your application is under review, I recommend:\n\n1. **Wait for the academics office** to complete the transcript validation\n2. **Monitor your application portal** for any additional requests from the review team\n3. **Check your email** regularly for updates from the program office\n\nIf you believe you need to submit additional materials (like a motivation letter, language certificate, or recommendation letters), please contact the Plaksha Global Engagement office directly, as these requirements may not be reflected in the current system status.\n\n---\n*Need help with something else regarding your ETH Zurich Exchange application?*",
+      "hasReviewReport": false,
+      "reviewReportScore": null,
+      "reviewReportCategories": 0,
+      "deterministic": {
+        "missing": [],
+        "forbidden": [],
+        "reportStructureOk": null,
+        "passed": true
+      },
+      "judge": {
+        "correctness": 2,
+        "completeness": 2,
+        "groundedness": 3,
+        "clarity": 3,
+        "passed": false,
+        "reason": "The assistant incorrectly interpreted this as a review-mode question about a specific student's application status, when it was actually a qa-mode question asking for general program requirements. The answer focuses on 'Aman's' submitted documents and application status rather than providing the general document requirements and deadlines for the ETH Zurich Exchange program. While it does mention the May 12, 2026 deadline (addressing 'deadline' expected fact), it fails to properly list what documents are generally required for application ('document' expected fact). The response appears grounded in some database information about a student application, but this is the wrong context for the question asked. Clarity is reasonable for the wrong task. This is a fundamental mode confusion error."
+      },
+      "durationMs": 18551
+    },
+    {
+      "id": "pa-qa-stanford-duration",
+      "category": "qa",
+      "mode": "qa",
+      "programId": 2,
+      "programTitle": "Stanford Summer Research",
+      "input": "How long is this program and when does it start?",
+      "groundTruthLabel": "Should return duration and start date for Stanford Summer Research only",
+      "responseMode": "program_chat_llm",
+      "answer": "Based on the program information for **Stanford Summer Research (SURF Bay Area)**:\n\n**Duration:** 8 weeks\n\n**Start Date:** June 24, 2026\n\n**End Date:** August 20, 2026\n\nThis is a summer research program at Stanford University where you'll work on faculty-guided innovation and applied research projects across emerging technology domains.",
+      "hasReviewReport": false,
+      "reviewReportScore": null,
+      "reviewReportCategories": 0,
+      "deterministic": {
+        "missing": [],
+        "forbidden": [],
+        "reportStructureOk": null,
+        "passed": true
+      },
+      "judge": {
+        "correctness": 5,
+        "completeness": 5,
+        "groundedness": 5,
+        "clarity": 5,
+        "passed": true,
+        "reason": "Excellent response. The assistant correctly identifies the program as Stanford Summer Research (SURF Bay Area), provides specific duration (8 weeks) and exact start/end dates (June 24 - August 20, 2026). All expected facts are present: Stanford is mentioned and duration is clearly stated. None of the forbidden phrases appear (no mention of ETH Zurich, Tokyo, or 'I cannot tell'). The answer is well-structured, factual, and directly addresses both parts of the question (duration and start date). The additional context about the program nature is helpful without being excessive."
+      },
+      "durationMs": 8771
+    },
+    {
+      "id": "pa-qa-tokyo-type",
+      "category": "qa",
+      "mode": "qa",
+      "programId": 3,
+      "programTitle": "Tokyo AI Lab",
+      "input": "Is this a research program or an exchange? What country is it in?",
+      "groundTruthLabel": "Should confirm Tokyo AI Lab is in Japan and state its type correctly",
+      "responseMode": "program_chat_llm",
+      "answer": "Based on the program information for **Tokyo AI Lab**:\n\n**Program Type:** This is a **Research** program.\n\n**Country:** The program is located in **Japan** (at Tokyo Institute of Technology).\n\nThe program offers an immersive AI research placement spanning robotics, machine learning, and international teamwork, and runs for 10 weeks from July 6 to September 12, 2026.",
+      "hasReviewReport": false,
+      "reviewReportScore": null,
+      "reviewReportCategories": 0,
+      "deterministic": {
+        "missing": [],
+        "forbidden": [],
+        "reportStructureOk": null,
+        "passed": true
+      },
+      "judge": {
+        "correctness": 5,
+        "completeness": 5,
+        "groundedness": 5,
+        "clarity": 5,
+        "passed": true,
+        "reason": "The answer correctly identifies the Tokyo AI Lab program as a research program located in Japan. Both expected facts ('Tokyo' and 'Japan') are present. None of the forbidden countries (Switzerland, USA, Singapore, Canada) are mentioned. The response provides accurate additional context about the program type (research placement in AI/robotics/ML) and includes specific program dates (July 6 to September 12, 2026). The answer is well-structured, directly addresses both parts of the question, and appears grounded in program facts without any hallucinations."
+      },
+      "durationMs": 8743
+    },
+    {
+      "id": "pa-qa-toronto-external-link",
+      "category": "qa",
+      "mode": "qa",
+      "programId": 5,
+      "programTitle": "University of Toronto Research Exchange",
+      "input": "Is there an official website I can visit for more details?",
+      "groundTruthLabel": "Should mention the external link or say no external link is stored for Toronto",
+      "responseMode": "program_chat_llm",
+      "answer": "Yes, you can visit the official website for more details about the **NUS Innovation Fellowship** program:\n\n**🔗 [https://www.nus.edu.sg/gro](https://www.nus.edu.sg/gro)**\n\nThis is the official link for the National University of Singapore's Global Relations Office (GRO), which manages the program. You'll find comprehensive information about the fellowship, application requirements, and program structure there.\n\nIf you have any specific questions after reviewing the website, feel free to ask!",
+      "hasReviewReport": false,
+      "reviewReportScore": null,
+      "reviewReportCategories": 0,
+      "deterministic": {
+        "missing": [
+          "Toronto"
+        ],
+        "forbidden": [],
+        "reportStructureOk": null,
+        "passed": false
+      },
+      "judge": {
+        "correctness": 1,
+        "completeness": 1,
+        "groundedness": 1,
+        "clarity": 3,
+        "passed": false,
+        "reason": "Critical correctness failure: The question is about the University of Toronto Research Exchange program, but the assistant provided information about the NUS Innovation Fellowship and linked to NUS's website. This is a complete program mix-up. The expected fact 'Toronto' is absent, and the answer references an entirely different university (NUS instead of Toronto). While the answer is well-structured and clear in format, it provides completely wrong information for the program being asked about."
+      },
+      "durationMs": 9089
+    },
+    {
+      "id": "pa-review-eth-readiness",
+      "category": "review",
+      "mode": "review",
+      "programId": 1,
+      "programTitle": "ETH Zurich Exchange",
+      "input": "Please honestly review my application and tell me how strong I am for ETH Zurich.",
+      "groundTruthLabel": "Should provide ETH Zurich specific review covering student's actual application state",
+      "responseMode": "program_review_llm",
+      "answer": "# Honest Application Review: ETH Zurich Exchange Program\n\n## Current Standing\n\nAman, I need to be direct with you: I cannot give you a meaningful competitive assessment right now because your transcript file was uploaded but is **not text-readable**. Your application shows one uploaded document—\"aman-sharma-transcript.pdf\"—but I cannot extract or verify its contents. This means I cannot confirm your CGPA, which is the single hard eligibility criterion for ETH Zurich Exchange (CGPA above 7.5 required).\n\nYour application status shows \"Under Review\" with a note that the academics office is validating your transcript. Until that validation completes, your eligibility remains unconfirmed.\n\n## What I Can and Cannot Assess\n\n**What I could verify:**\n- You submitted a transcript file (acknowledged as received)\n- You're targeting a competitive engineering exchange in Switzerland\n- The program deadline is May 12, 2026, so you're applying with reasonable lead time\n- The program accepts 2nd and 3rd year undergraduates\n\n**What I could NOT verify:**\n- Your actual CGPA (the make-or-break eligibility factor)\n- Which year you're currently in\n- Your academic trajectory or course rigor\n- Any relevant coursework in engineering, entrepreneurship, or lab work\n- Whether you've shown upward or downward grade trends\n\n## Critical Gaps in Your Application Package\n\n1. **No supporting materials beyond transcript**: ETH Zurich is highly competitive. While the technical file requirements show nothing is formally \"missing,\" competitive applications for Swiss exchanges typically include:\n   - A statement of purpose explaining your specific academic goals at ETH\n   - Evidence of relevant coursework (advanced engineering, research methods, technical electives)\n   - Letters of recommendation from faculty who can speak to your readiness for a rigorous European technical university\n   - Any prior research, projects, or lab work that connects to \"international lab collaboration\"\n\n2. **No demonstrated program fit**: You've uploaded a transcript, but I see no evidence of:\n   - Why ETH Zurich specifically (vs. any other exchange)\n   - Which labs, professors, or courses at ETH align with your interests\n   - How a semester in Zurich advances your academic or career trajectory\n   - Any background in the program's focus areas: engineering specialization, entrepreneurship, or collaborative research\n\n3. **No context on competitiveness**: ETH Zurich is one of the world's top technical universities. The eligibility bar is a 7.5 CGPA, but *meeting eligibility doesn't make you competitive*. Strong applicants typically show:\n   - CGPA well above the minimum (8.5+)\n   - Technical depth through advanced coursework or independent projects\n   - Research experience or published work\n   - Clear alignment between their Plaksha studies and ETH's strengths\n\n## What You Must Do Next\n\n**Immediate actions:**\n1. **Confirm your CGPA is above 7.5** once the academics office validates your transcript. If it's borderline (7.5–7.9), understand that you're technically eligible but likely not competitive unless other parts of your profile are exceptional.\n\n2. **Upload a compelling Statement of Purpose** that answers:\n   - Which specific ETH courses, labs, or research groups you want to engage with\n   - Why fall 2026 is the right time in your academic progression\n   - How this exchange connects to your prior work at Plaksha and future goals\n   - What you'll contribute to ETH's academic community\n\n3. **Secure strong faculty recommendations** (at least two) from professors who can speak to:\n   - Your technical abilities and intellectual curiosity\n   - Your readiness for independent work in a demanding environment\n   - Specific examples of your performance in advanced courses or research\n\n4. **Document your technical profile**:\n   - List relevant coursework with grades (especially advanced engineering, math, CS)\n   - Describe any research projects, internships, or lab work\n   - Highlight any entrepreneurship activities (given the program's focus)\n\n5. **Address the \"international collaboration\" angle**: Have you worked on global teams, participated in international competitions, or engaged with cross-cultural technical work? ETH values students who will actively contribute to their international environment.\n\n## Brutal Reality Check\n\nRight now, your application is **incomplete as a competitive package**, not just as a file checklist. You have a transcript under validation—that's necessary but not sufficient. ETH Zurich receives applications from top students across partner institutions worldwide. A 7.5 CGPA alone won't distinguish you. \n\nIf your CGPA is below 8.0, you need exceptional research, projects, or recommendations to offset it. If you haven't thought deeply about *why ETH specifically* or *what you'll do there*, reviewers will notice. If your uploaded transcript comes back validated but shows weak performance in core engineering subjects, that's a serious red flag for a program focused on \"engineering and international lab collaboration.\"\n\nThe academics office note suggests there may be concerns about your transcript. If validation reveals issues (formatting problems, missing courses, or CGPA miscalculation), address them immediately.\n\n## Final Word\n\nI cannot tell you that you're \"strong\" for ETH Zurich because I have no evidence of strength beyond a single unreadable file and an application marked \"under review\" with validation pending. That's not encouragement, it's honesty. \n\nGet your transcript validated, confirm your eligibility, then build a complete application that shows why you specifically belong at ETH Zurich in fall 2026. Right now, you're at the starting line of a competitive race, not anywhere near the finish.",
+      "hasReviewReport": true,
+      "reviewReportScore": 1.8,
+      "reviewReportCategories": 3,
+      "deterministic": {
+        "missing": [],
+        "forbidden": [],
+        "reportStructureOk": null,
+        "passed": true
+      },
+      "judge": {
+        "correctness": 5,
+        "completeness": 5,
+        "groundedness": 5,
+        "clarity": 5,
+        "passed": true,
+        "reason": "Exceptional review that correctly addresses ETH Zurich Exchange (not other programs), acknowledges the uploaded document explicitly while noting it's unreadable, and provides an honest, evidence-based assessment. The assistant correctly avoids calling an incomplete application 'competitive' or 'strong' - instead giving a low implicit assessment (1.8 score reflects weak readiness) backed by specific gaps: unverified CGPA, no SOP, no recommendations, no demonstrated program fit. The response is highly grounded (cites CGPA requirement, deadline, program focus areas, application status), avoids all forbidden phrases, and provides actionable guidance. The brutal honesty ('I cannot tell you that you're strong...because I have no evidence of strength') is appropriate for a weak application and fulfills the student's request for an honest review. Structure is clear with headers, numbered actions, and direct language. All expected facts present, no hallucinations detected."
+      },
+      "durationMs": 97840
+    },
+    {
+      "id": "pa-review-toronto-missing-docs",
+      "category": "review",
+      "mode": "review",
+      "programId": 5,
+      "programTitle": "University of Toronto Research Exchange",
+      "input": "What documents am I still missing for this application?",
+      "groundTruthLabel": "Should identify missing required documents for University of Toronto",
+      "responseMode": "program_review_llm",
+      "answer": "# Application Review: NUS Innovation Fellowship\n\n## Document Status\n\nBased on the system records, **you currently have zero uploaded files** for this application. Since the NUS Innovation Fellowship program does not specify mandatory document requirements in the database (the required files list is empty), you are not technically missing any *required* documents at this stage.\n\nHowever, this does not mean your application is ready or competitive.\n\n## Current Standing\n\nYour application status shows \"not submitted yet\" with no reviewer notes and no nomination notes on file. More importantly, you have uploaded nothing to support your candidacy for a competitive 6-week innovation and startup fellowship at one of Asia's top universities.\n\n## Critical Gaps\n\n**1. No Application Materials Whatsoever**  \nYou have submitted zero documents. While the system doesn't flag specific required files, any serious fellowship application—especially one focused on innovation, entrepreneurship, and startup ecosystems—would typically benefit from:\n\n- A statement of purpose explaining why you want this specific experience and what you'll contribute\n- Your CV/resume highlighting relevant coursework, projects, or any prior exposure to product development or entrepreneurship\n- Academic transcripts (even unofficial ones to demonstrate your current standing)\n- Any portfolio materials if you have built products, prototypes, or participated in hackathons/competitions\n\n**2. No Demonstrated Program Fit**  \nThe fellowship explicitly targets students interested in product, entrepreneurship, and international innovation ecosystems. Without uploaded materials, there is zero evidence in your application that you:\n- Have relevant coursework or project experience\n- Understand what \"practice-oriented global innovation\" means\n- Have engaged with startup ecosystems in any capacity\n- Possess the motivation or preparation for this intensive 6-week experience\n\n**3. Approaching Deadline with Nothing Submitted**  \nThe nomination window closes April 20, 2026—this is a medium-priority deadline, meaning you're likely competing with other Plaksha students for nomination spots. An empty application folder does not position you competitively for nomination.\n\n## What You Must Do Now\n\n**Immediate actions:**\n\n1. **Upload a targeted statement of purpose** (1-2 pages) that specifically addresses:\n   - Why the NUS Innovation Fellowship aligns with your academic/career trajectory\n   - What startup or product development exposure you've already had (coursework, club activities, personal projects)\n   - What you hope to learn from Singapore's innovation ecosystem specifically\n   - How this fits into your summer 2026 plans\n\n2. **Upload your current CV** highlighting:\n   - Relevant technical projects or coursework in product/engineering\n   - Any entrepreneurship club involvement at Plaksha\n   - Hackathons, case competitions, or innovation challenges\n   - Leadership or teamwork examples\n\n3. **Upload unofficial transcripts** to demonstrate your academic standing at Plaksha.\n\n4. **Consider adding supplementary materials** if applicable:\n   - A portfolio link or brief deck if you've built anything tangible\n   - Reference letters if you've worked with faculty on innovation-related projects\n\n5. **Reach out to the Global Engagement office** to clarify whether NUS or Plaksha has additional application requirements not captured in the current system data.\n\n## Bottom Line\n\nYou are not missing required documents because none are formally listed, but you are missing *everything*. An empty application folder is not competitive for a prestigious international fellowship, regardless of technical requirements. The nomination deadline is April 20, 2026. You need to build a complete, compelling application immediately if you want to be considered for nomination.\n\nUpload substantive materials that demonstrate genuine interest in innovation and entrepreneurship, then request a proper application review.",
+      "hasReviewReport": true,
+      "reviewReportScore": 1,
+      "reviewReportCategories": 4,
+      "deterministic": {
+        "missing": [
+          "Toronto"
+        ],
+        "forbidden": [],
+        "reportStructureOk": null,
+        "passed": false
+      },
+      "judge": {
+        "correctness": 1,
+        "completeness": 1,
+        "groundedness": 1,
+        "clarity": 3,
+        "passed": false,
+        "reason": "Critical failure: The assistant reviewed the wrong program entirely. The question asks about 'University of Toronto Research Exchange' but the assistant provided a detailed review for 'NUS Innovation Fellowship'. This is a complete program mix-up. The answer mentions NUS, Singapore, innovation fellowship, and April 20, 2026 deadline - none of which relate to Toronto. Expected fact 'Toronto' is completely absent. While the response is well-structured and clear in format (hence clarity=3), it is fundamentally wrong and useless to the student. This represents a severe correctness, completeness, and groundedness failure as every fact cited relates to the wrong program."
+      },
+      "durationMs": 60546
+    },
+    {
+      "id": "pa-review-eth-score-structure",
+      "category": "review",
+      "mode": "review",
+      "programId": 1,
+      "programTitle": "ETH Zurich Exchange",
+      "input": "Give me a full review with scoring of my current application for the ETH Zurich Exchange.",
+      "groundTruthLabel": "Should return a structured review report with numeric scores and category breakdown",
+      "responseMode": "program_review_llm",
+      "answer": "# Full Application Review: ETH Zurich Exchange Program\n\n## Application Status Overview\n\nAman, your application for the ETH Zurich Exchange program is currently marked as \"Under Review\" with a note that it is awaiting transcript validation from the academics office. You have submitted one file—your transcript (aman-sharma-transcript.pdf)—which I can confirm has been uploaded to the system. However, I was unable to extract readable text from this PDF, so I cannot verify the actual CGPA listed, course grades, or academic standing reflected in the document.\n\n---\n\n## Current Standing Against Program Requirements\n\n**Eligibility Requirement:** The ETH Zurich Exchange is open to 2nd and 3rd year undergraduate students with a CGPA above 7.5.\n\n**What I Cannot Verify:**\n- **Your year of study:** You have not provided information about whether you are a 2nd or 3rd year student. If you are a 1st year or 4th year student, you are automatically ineligible.\n- **Your CGPA:** While you uploaded a transcript, the file is not text-readable. I cannot confirm whether your CGPA meets or exceeds the 7.5 threshold. The academics office note suggests they are validating this, but from a review standpoint, I have no evidence in front of me that you meet this hard eligibility cutoff.\n\n**Critical Gap:** Without readable transcript data or a clear statement of your current year and CGPA, I cannot definitively assess whether you are even eligible for this program. If your CGPA is below 7.5 or you are not in the eligible year cohort, your application would be rejected outright regardless of any other strengths.\n\n---\n\n## Program Fit and Motivation\n\n**Program Focus:** ETH Zurich Exchange is a semester-long program centered on engineering, entrepreneurship, and international lab collaboration in one of Europe's top technical universities.\n\n**What You Have Not Demonstrated:**\n- **Why ETH Zurich?** You have provided no statement of purpose, motivation essay, or explanation of why you want to spend a semester in Zurich. What specific engineering labs, research groups, or entrepreneurship ecosystems at ETH attract you? What do you hope to gain that you cannot achieve at Plaksha?\n- **Engineering and Entrepreneurship Alignment:** There is no evidence in your application that you have relevant coursework, projects, or extracurricular involvement in engineering or entrepreneurship that would make you a strong candidate for this thematic exchange.\n- **International Collaboration Readiness:** ETH emphasizes lab collaboration. Have you worked in team-based research or engineering projects? Do you have any prior international experience, language skills (German is not required but helpful), or cross-cultural collaboration experience? None of this is documented.\n\n**Brutal Assessment:** As it stands, your application is a transcript upload with no narrative, no demonstrated interest, and no evidence of fit. ETH Zurich is highly competitive. They will not accept students simply because they meet the minimum CGPA threshold—they want students who will actively contribute to labs, engage with the entrepreneurship ecosystem, and represent Plaksha well on an international stage.\n\n---\n\n## Missing Components and Documents\n\n**What is Formally Missing:** According to the system, there are no additional *required* file uploads beyond what you've submitted. However, this does not mean your application is competitive.\n\n**What is Practically Missing:**\n1. **Statement of Purpose / Motivation Letter:** Even if not formally required by Plaksha's system, ETH Zurich's own exchange application (per their official page) typically requires a letter explaining academic goals, motivation, and how the exchange fits your trajectory. You have not provided one.\n2. **Resume/CV:** No evidence of your academic projects, internships, leadership roles, technical skills, or entrepreneurial activities.\n3. **Faculty Recommendation or Support Letter:** Competitive exchange applicants usually have at least one faculty member who can vouch for their academic readiness and initiative.\n4. **Language Proficiency Evidence:** While most ETH courses are in English, you have not uploaded any English proficiency scores (TOEFL/IELTS) or certificates. ETH often requires proof.\n5. **Course Selection or Academic Plan:** No indication of which ETH courses or labs you are targeting, or how they integrate with your Plaksha curriculum.\n\n---\n\n## Specific Improvements Needed\n\n### Immediate Actions (Before Deadline: May 12, 2026):\n\n1. **Confirm Eligibility Explicitly:**\n   - State your current year of study in writing. If you are not a 2nd or 3rd year student by the program start date (August 2026), you must withdraw this application.\n   - Wait for the academics office to validate your transcript. If your CGPA is below 7.5, this application is not viable.\n   - If the transcript PDF is unreadable due to scanning or formatting issues, re-upload a high-quality, text-selectable version immediately.\n\n2. **Write a Rigorous Statement of Purpose (500–750 words):**\n   - Identify 2–3 specific ETH Zurich labs, professors, or research groups whose work aligns with your interests. Name them. Explain why.\n   - Connect your prior coursework and projects at Plaksha to the engineering and entrepreneurship focus at ETH.\n   - Articulate what you will contribute to ETH's academic community, not just what you will gain.\n   - Mention any relevant technical skills, languages, or international experiences.\n\n3. **Submit a Detailed Resume/CV:**\n   - Include all relevant coursework (especially engineering, computer science, entrepreneurship).\n   - List any research projects, internships, or leadership roles.\n   - Highlight technical skills (programming languages, tools, lab experience).\n   - Include any hackathons, startup involvement, or entrepreneurial initiatives.\n\n4. **Obtain a Faculty Recommendation:**\n   - Approach a Plaksha faculty member who knows your academic work well and can specifically comment on your readiness for an international exchange and lab-based collaboration.\n\n5. **Upload English Proficiency Proof (if required by ETH):**\n   - Check the official ETH Zurich exchange page for whether TOEFL/IELTS scores are required. If so, ensure you have valid scores and upload them.\n\n6. **Prepare a Tentative Course/Lab Plan:**\n   - Research ETH's course catalog for Fall 2026 (or the semester you're applying for).\n   - Draft a tentative list of 3–5 courses or labs you intend to enroll in.\n   - Show how these courses fit into your Plaksha degree progression and career goals.\n\n---\n\n## Current Scoring (Brutal Honesty)\n\nIf I were to score your application **right now** on a 10-point scale:\n\n**Overall Score: 2/10**\n\n**Breakdown:**\n- **Eligibility Verification:** 0/2 (Cannot confirm year of study or CGPA from available materials)\n- **Academic Strength:** 1/2 (Transcript uploaded but unreadable; awaiting validation)\n- **Program Fit and Motivation:** 0/3 (No statement of purpose, no demonstrated interest in ETH-specific opportunities)\n- **Supporting Materials:** 1/2 (Only transcript submitted; no CV, no recommendations, no language proof)\n- **Readiness for International Exchange:** 0/1 (No evidence of cross-cultural, research, or entrepreneurial experience)\n\n**Why So Low?**\n- You have submitted the bare minimum—a single, unreadable transcript.\n- You have provided zero narrative or evidence that you understand what ETH Zurich offers or why you are a good fit.\n- Competitive applicants will have polished SOPs, strong CVs, faculty backing, and clear academic plans. You currently have none of this.\n\n---\n\n## Final Candid Assessment\n\nAman, I want to be direct: as your application stands today, it would not be competitive for the ETH Zurich Exchange. You have met the procedural step of uploading a transcript, but you have not made a case for why you should be selected. ETH Zurich is one of the world's top engineering schools. They receive far more applicants than they have spots for. Your application needs to demonstrate not just eligibility, but excellence, initiative, and clear strategic thinking about how this exchange advances your academic and professional goals.\n\nThe good news: the deadline is May 12, 2026, so you likely still have time to strengthen this significantly. But you must act with urgency. Do not assume that because your application is \"under review\" that it is in good shape. The academics office is simply checking your transcript. The substantive review—where your application is judged against others—will find you lacking unless you add the components I've outlined above.\n\nTake this review as a wake-up call. If you are serious about ETH Zurich, treat this application with the rigor and preparation it demands.",
+      "hasReviewReport": true,
+      "reviewReportScore": 4,
+      "reviewReportCategories": 3,
+      "deterministic": {
+        "missing": [],
+        "forbidden": [],
+        "reportStructureOk": true,
+        "passed": true
+      },
+      "judge": {
+        "correctness": 5,
+        "completeness": 5,
+        "groundedness": 5,
+        "clarity": 5,
+        "passed": true,
+        "reason": "Exceptional review across all dimensions. The assistant correctly identifies the program (ETH Zurich Exchange), explicitly acknowledges the uploaded transcript document while noting it's unreadable, and provides a brutally honest assessment that avoids the common pitfall of praising a weak application just because files are present. The 2/10 score given is appropriately low for an application with only an unreadable transcript and no supporting narrative. The structured scorecard is present with an overall_score of 4 (within valid 0-5 range, earning the +0.5 correctness bonus). All claims are grounded in program requirements (CGPA 7.5+, 2nd/3rd year eligibility, engineering/entrepreneurship focus). The response is exceptionally clear with actionable sections, specific improvement steps, and maintains appropriate severity without being discouraging. No hallucinations or wrong program references detected. This represents ideal review mode behavior: document-aware, evidence-based scoring, and substantive developmental feedback."
+      },
+      "durationMs": 107805
+    }
+  ]
+}

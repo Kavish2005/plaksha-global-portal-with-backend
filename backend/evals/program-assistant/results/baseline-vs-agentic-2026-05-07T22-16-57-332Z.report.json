@@ -1,0 +1,170 @@
+{
+  "generatedAt": "2026-05-07T22:16:57.341Z",
+  "question": "How strong is my current application for this program? What are my weaknesses and what should I do next?",
+  "results": [
+    {
+      "program": {
+        "id": 1,
+        "title": "ETH Zurich Exchange"
+      },
+      "question": "How strong is my current application for this program? What are my weaknesses and what should I do next?",
+      "baseline": {
+        "mode": "program_chat_llm",
+        "durationMs": 12460,
+        "answer": "# Application Strength Assessment for ETH Zurich Exchange\n\nHi Aman,\n\nBased on your current application status, here's an honest assessment:\n\n## Current Status\nYour application is **Under Review** with the note: \"Awaiting transcript validation from academics office.\"\n\n## What I Can Confirm\n\n**Submitted:**\n- ✓ Transcript (aman-sharma-transcript.pdf)\n- ✓ All required files are submitted (no missing documents)\n\n**Program Requirements:**\n- CGPA above 7.5\n- Must be a 2nd or 3rd year undergraduate student\n\n## What I Cannot Assess\n\nI don't have access to:\n- Your actual CGPA from the transcript (file is not readable in the system)\n- Your current year of study\n- Any motivation letter, recommendation letters, or other supporting materials\n- Academic office's validation outcome\n\n## Weaknesses/Gaps I Can Identify\n\n1. **Unknown CGPA**: The most critical eligibility criterion (CGPA > 7.5) cannot be verified from my end\n2. **Limited visible materials**: Only one document is in the system, which may indicate other materials weren't uploaded or aren't visible to me\n3. **Pending validation**: The academics office validation is still pending, which could delay your application\n\n## What You Should Do Next\n\n1. **Follow up with the academics office** on the transcript validation timeline\n2. **Verify your CGPA** meets the 7.5 threshold\n3. **Check if additional materials** (motivation letter, recommendations, etc.) are expected but not yet submitted\n4. **Contact the Global Engagement office** directly for a complete review of what's in your application package\n\nThe application deadline is **May 12, 2026** (High priority), so ensure all validations complete well before then.\n\nWould you like me to help with anything else regarding this program?",
+        "hasScorecard": false
+      },
+      "agentic": {
+        "mode": "program_review_llm",
+        "durationMs": 97195,
+        "answer": "## ETH Zurich Exchange Application Review for Aman Sharma\n\n### Current Application Standing\n\nYour application is currently **Under Review** with a note from the review team that they are \"Awaiting transcript validation from academics office.\" This means your application cannot progress to nomination until the academic verification process is complete. The administrative hold is external to your control but is a necessary checkpoint before any competitive assessment can meaningfully occur.\n\nYou have uploaded one file: **aman-sharma-transcript.pdf** under the Transcript requirement. However, I was unable to extract readable text from this PDF. This means I cannot verify the specific CGPA value, course grades, technical coursework depth, or academic trajectory that would demonstrate your eligibility and competitiveness for this program. The file is present in the system, but its contents remain opaque to me in this review.\n\n### Eligibility Assessment\n\nThe ETH Zurich Exchange has clear eligibility criteria: you must be a 2nd or 3rd year undergraduate student with a CGPA above 7.5. Without readable transcript data, I cannot confirm whether you meet the minimum CGPA threshold. This is not a trivial detail—ETH Zurich is highly selective, and the 7.5 cutoff is likely a firm requirement, not a suggestion. If your CGPA is below this threshold, your application will not be considered regardless of other strengths. If your CGPA is marginally above 7.5 (say, 7.6-7.8), you are technically eligible but may face steep competition from peers with stronger academic records. If your CGPA is substantially higher (8.5+), that becomes a genuine strength.\n\nThe application deadline is May 12, 2026, for a program starting August 20, 2026. You have submitted materials, which is positive, but the timing of transcript validation could be a bottleneck. If validation drags beyond late April or early May, you may have little time to address any issues that emerge.\n\n### What I Cannot Assess (Due to Unreadable Materials)\n\nBecause the transcript PDF is not text-extractable, I cannot evaluate:\n\n- **Academic preparation in engineering disciplines**: ETH Zurich is engineering-focused. Have you taken advanced mathematics, algorithms, systems courses, or lab-intensive technical electives that signal readiness for a rigorous European technical curriculum?\n- **Grade trends**: Is your CGPA rising or declining? A strong upward trajectory in technical courses would be compelling. A downward trend would raise flags.\n- **Coursework alignment**: Does your transcript show depth in areas like entrepreneurship, international collaboration, or research methods—themes highlighted in the program description?\n- **Academic consistency**: Are there failed courses, retakes, or anomalies that need explanation?\n\nThese are not abstract concerns. ETH Zurich will evaluate your academic preparation against their own standards, and the transcript is the primary evidence.\n\n### Observable Gaps and Weaknesses\n\n1. **No evidence of motivation or program fit**: You have uploaded a transcript, but there is no statement of purpose, letter of motivation, or essay explaining why ETH Zurich specifically, why this semester timing, or what you hope to achieve in Zurich. Programs like this want to see intentionality. What engineering focus do you want to pursue at ETH? What labs or faculty are you interested in? How does this fit your broader academic or career trajectory? Without this, your application is a bureaucratic checklist, not a persuasive case.\n\n2. **No demonstrated international experience or readiness**: The program emphasizes \"international lab collaboration.\" Do you have prior research experience, internships, or projects that show you can work in a cross-cultural, high-expectation environment? Have you collaborated with international teams, even virtually? There is no evidence of this in the current submission.\n\n3. **No recommendation letters visible**: Strong exchange applications typically include faculty recommendations that speak to academic ability, research potential, and readiness for independent work abroad. I see no mention of such letters. If they are required but not yet uploaded, this is a critical gap. If they are optional, submitting strong ones could differentiate you from peers with similar GPAs.\n\n4. **No resume or CV**: A CV would contextualize your technical skills, projects, leadership, extracurriculars, and any entrepreneurship-related activities (the program mentions entrepreneurship explicitly). Without it, there is no narrative of who you are beyond grades.\n\n5. **Generic submission**: The system shows no missing required files, which suggests you may have met the bare minimum procedural requirements. But competitive applications exceed minimums. You have not provided supplementary materials that would make you memorable or demonstrate genuine enthusiasm for ETH Zurich.\n\n### Concrete Next Steps (Program-Specific)\n\n1. **Clarify transcript validation timeline**: Contact the academics office immediately to understand when validation will complete. If there are errors or delays, escalate. You cannot control the review outcome, but you can control your follow-up diligence.\n\n2. **Write a compelling ETH-specific statement**: Research ETH Zurich's engineering departments, labs, and faculty. Identify 2-3 specific professors, research groups, or courses you want to engage with. Explain how this semester advances a specific academic or professional goal. Be concrete. \"I want to work in Professor X's lab on Y because...\" is far stronger than \"I want international exposure.\"\n\n3. **Secure strong faculty recommendations**: Approach professors who can speak to your technical ability, intellectual curiosity, and capacity for independent work. Give them context: explain ETH's rigor, the competitive nature of the exchange, and what you hope to accomplish. A generic letter will not help.\n\n4. **Prepare a technical CV**: Highlight engineering projects, coursework, hackathons, research, internships, or entrepreneurial initiatives. If you have nothing substantial to list, that itself is a red flag—consider whether you are genuinely ready for a program like this or whether you should build more experience first.\n\n5. **Address the \"why now\" question**: You are applying for Fall 2026. Why this semester? How does it fit your degree timeline? If you are a 2nd year student, will you be 3rd year by August 2026? If you are already 3rd year, will this impact your final year or graduation? Show that you have thought through the logistics and that this timing is strategic, not arbitrary.\n\n6. **Prepare for potential alternate scenarios**: If your CGPA is borderline or if transcript validation reveals issues, have a backup plan. Can you strengthen your application with additional coursework, a research project, or a faculty champion who can vouch for you? Do not assume approval is automatic.\n\n### Honest Current Standing\n\nYour application is **administratively incomplete** (pending validation) and **substantively weak** in its current form. You have met a procedural requirement by uploading a transcript, but you have not built a competitive case for why ETH Zurich should select you over other Plaksha students with similar or better academic records. The program is prestigious, the seat count is likely limited, and you are competing against peers who will submit polished, well-supported applications.\n\nIf your CGPA is comfortably above 7.5 and the transcript validates cleanly, you have a foundation to build on—but only if you immediately address the motivation, recommendation, and narrative gaps. If your CGPA is marginal or if validation uncovers issues, your chances are currently low unless you can provide compelling mitigating context.\n\nThis is not encouragement or discouragement—it is an evidence-based assessment. You have time before the May deadline, but you must act decisively to move from \"submitted\" to \"competitive.\"",
+        "hasScorecard": true,
+        "scorecard": {
+          "overallScore": 2.4,
+          "overallLabel": "Promising but incomplete",
+          "competitivenessVerdict": "Your application shows some promise, but it is still incomplete for ETH Zurich Exchange. Recommendation strength appears to be a major weakness. Your program-specific narrative still looks underdeveloped. Readable evi...",
+          "confidenceNote": "Generated from the review narrative with limited readable evidence from uploaded files.",
+          "rubricRationale": "This fallback report used categories tailored to a Exchange so the student still gets a structured review even when the machine-readable report fails.",
+          "categories": [
+            {
+              "name": "Program fit",
+              "score": 2.4,
+              "weightLabel": "High weight",
+              "rationale": "Estimated from how well the current materials appear to match the program's stated expectations."
+            },
+            {
+              "name": "Document completeness",
+              "score": 5,
+              "weightLabel": "Medium weight",
+              "rationale": "Based on how many currently required materials are present for this program review."
+            },
+            {
+              "name": "Application readiness",
+              "score": 3.7,
+              "weightLabel": "High weight",
+              "rationale": "Combines current competitiveness and completeness into a practical readiness signal."
+            }
+          ],
+          "strengths": [
+            "The review identified at least some relevant technical or project evidence in the uploaded materials."
+          ],
+          "gaps": [
+            "Recommendation support appears to be weak or missing for this program.",
+            "The application narrative or statement appears underdeveloped for this program."
+          ],
+          "priorityActions": [
+            {
+              "action": "Secure and submit a strong recommendation that directly supports this program application.",
+              "whyItMatters": "This review specifically suggests that recommendation strength is a meaningful weakness right now.",
+              "urgency": "High"
+            },
+            {
+              "action": "Draft a more program-specific statement that explains fit, motivation, and what you will contribute.",
+              "whyItMatters": "A weak or missing narrative makes even technically strong applications look less competitive.",
+              "urgency": "High"
+            }
+          ],
+          "bottomLine": "Overall, this application currently looks promising but incomplete for ETH Zurich Exchange. Highest priority: Secure and submit a strong recommendation that directly supports this program application.."
+        }
+      },
+      "judge": {
+        "baseline": {
+          "correctness": 4,
+          "completeness": 3,
+          "groundedness": 5,
+          "clarity": 5
+        },
+        "agentic": {
+          "correctness": 3,
+          "completeness": 4,
+          "groundedness": 2,
+          "clarity": 3
+        },
+        "verdict": "The baseline response is more useful because it stays strictly grounded in verifiable facts, clearly acknowledges its limitations, and provides actionable next steps without speculation. The agentic response, while more comprehensive in scope, makes numerous unsupported assumptions about missing materials (motivation letters, CVs, recommendation letters) that may not be required, characterizes the application as 'substantively weak' without evidence, and risks misleading the student with speculative criticism.",
+        "winner": "baseline"
+      }
+    },
+    {
+      "program": {
+        "id": 5,
+        "title": "University of Toronto Research Exchange"
+      },
+      "question": "How strong is my current application for this program? What are my weaknesses and what should I do next?",
+      "baseline": {
+        "mode": "program_chat_llm",
+        "durationMs": 9440,
+        "answer": "# Application Strength Assessment for NUS Innovation Fellowship\n\nHi Aman,\n\nBased on the available information, here's my assessment of your application status:\n\n## Current Status\n⚠️ **Your application has not been submitted yet.**\n\n## Assessment Limitations\nUnfortunately, I cannot provide a detailed strength assessment of your application at this time because:\n\n1. **No application materials have been uploaded** - I don't have access to your CV, statement of purpose, recommendation letters, or any other supporting documents\n2. **No reviewer feedback exists** - There are no notes from reviewers or nomination committee members yet\n3. **Program-specific requirements unclear** - The official program page couldn't be accessed, so I cannot compare your profile against specific selection criteria\n\n## What You Should Do Next\n\n### Immediate Actions:\n1. **Submit your application** - The nomination window closes on **April 20, 2026** (Medium priority deadline)\n2. **Prepare key materials** focusing on:\n   - Your interest/experience in **product development**\n   - Any **entrepreneurship** background or aspirations\n   - Why you're interested in **international innovation ecosystems**\n   - Relevant projects or coursework related to **startups/innovation**\n\n### To Get Better Feedback:\nOnce you upload your application materials (CV, essays, etc.), I'll be able to:\n- Review your materials against program fit\n- Identify specific strengths and gaps\n- Provide targeted recommendations for improvement\n\n**Would you like guidance on what to include in your application materials for this innovation fellowship?**",
+        "hasScorecard": false
+      },
+      "agentic": {
+        "mode": "program_review_llm",
+        "durationMs": 68605,
+        "answer": "## Honest Assessment of Your NUS Innovation Fellowship Application\n\nAman, I need to be direct with you: **I cannot meaningfully review your application strength because you have not uploaded any materials for me to evaluate.** You've asked how strong your current application is, but there are zero files in your submission for this program.\n\n### Current State of Your Application\n\nYour application status shows **\"not submitted yet\"** with no uploaded documents, no reviewer notes, and no nomination notes on record. This means I have no evidence of your qualifications, experiences, interests in innovation/entrepreneurship, academic standing, motivation, or any other competencies that would make you competitive for this fellowship.\n\n### What This Program Actually Requires\n\nThe NUS Innovation Fellowship is a **6-week practice-oriented global innovation experience** (June 18 - July 30, 2026) focused on startup ecosystem exposure. The eligibility criteria state it's for \"students interested in product, entrepreneurship, and international innovation ecosystems.\" The nomination deadline is **April 20, 2026**, which gives you time—but only if you act now.\n\n### What I Cannot Assess Without Materials\n\nWithout any uploaded documents, I cannot evaluate:\n\n- **Your demonstrated interest in entrepreneurship or innovation** (essays, statements of purpose, past startup involvement)\n- **Relevant experience** with product development, innovation projects, or ecosystem engagement\n- **Academic qualifications** that support your readiness for an international fellowship\n- **Letters of recommendation** that speak to your innovation mindset or entrepreneurial potential\n- **Your specific goals** for this fellowship and how they align with NUS's program structure\n- **Any previous startup, hackathon, or innovation competition participation**\n\n### Your Immediate Next Steps\n\n1. **Gather and upload your application materials immediately.** At minimum, I would expect to see:\n   - A statement of purpose explaining your interest in innovation and entrepreneurship\n   - Your CV/resume highlighting any relevant project work, startup involvement, or innovation experience\n   - Academic transcripts\n   - Any letters of recommendation you plan to submit\n\n2. **Be specific about your innovation interests.** This isn't a general internship—it's startup and ecosystem-focused. If you lack direct startup experience, you need to articulate transferable skills and genuine intellectual curiosity about innovation.\n\n3. **Research NUS's startup ecosystem** and be prepared to explain why Singapore and NUS specifically fit your learning goals.\n\n4. **Upload materials here for review** so I can give you actionable, evidence-based feedback on your actual competitiveness.\n\n### Bottom Line\n\nRight now, your application strength is **zero** because there is nothing to assess. You're not weak or strong—you're absent. The April 20 deadline is approaching, and you need documented evidence of your fit for this program. Upload your materials, and I'll give you the brutal, specific feedback you're asking for.",
+        "hasScorecard": true,
+        "scorecard": {
+          "overallScore": 2.4,
+          "overallLabel": "Promising but incomplete",
+          "competitivenessVerdict": "Your application shows some promise, but it is still incomplete for NUS Innovation Fellowship. Recommendation strength appears to be a major weakness. Your program-specific narrative still looks underdeveloped. Readab...",
+          "confidenceNote": "Generated from the review narrative with limited readable evidence from uploaded files.",
+          "rubricRationale": "This fallback report used categories tailored to a Internship so the student still gets a structured review even when the machine-readable report fails.",
+          "categories": [
+            {
+              "name": "Program fit",
+              "score": 2.4,
+              "weightLabel": "High weight",
+              "rationale": "Estimated from how well the current materials appear to match the program's stated expectations."
+            },
+            {
+              "name": "Document completeness",
+              "score": 3,
+              "weightLabel": "Medium weight",
+              "rationale": "Based on how many currently required materials are present for this program review."
+            },
+            {
+              "name": "Application readiness",
+              "score": 2.7,
+              "weightLabel": "High weight",
+              "rationale": "Combines current competitiveness and completeness into a practical readiness signal."
+            }
+          ],
+          "strengths": [
+            "The review identified at least some relevant technical or project evidence in the uploaded materials."
+          ],
+          "gaps": [
+            "Recommendation support appears to be weak or missing for this program.",
+            "The application narrative or statement appears underdeveloped for this program."
+          ],
+          "priorityActions": [
+            {
+              "action": "Secure and submit a strong recommendation that directly supports this program application.",
+              "whyItMatters": "This review specifically suggests that recommendation strength is a meaningful weakness right now.",
+              "urgency": "High"
+            },
+            {
+              "action": "Draft a more program-specific statement that explains fit, motivation, and what you will contribute.",
+              "whyItMatters": "A weak or missing narrative makes even technically strong applications look less competitive.",
+              "urgency": "High"
+            }
+          ],
+          "bottomLine": "Overall, this application currently looks promising but incomplete for NUS Innovation Fellowship. Highest priority: Secure and submit a strong recommendation that directly supports this program application.."
+        }
+      },
+      "judge": {
+        "baseline": {
+          "correctness": 1,
+          "completeness": 2,
+          "groundedness": 1,
+          "clarity": 4
+        },
+        "agentic": {
+          "correctness": 5,
+          "completeness": 5,
+          "groundedness": 5,
+          "clarity": 5
+        },
+        "verdict": "The agentic response is significantly more useful because it correctly identifies the program (NUS Innovation Fellowship vs. the incorrect 'University of Toronto Research Exchange'), provides accurate program details, and delivers appropriately direct feedback about the absence of materials. The baseline response fails on the most fundamental level by reviewing the wrong program entirely.",
+        "winner": "agentic"
+      }
+    }
+  ]
+}

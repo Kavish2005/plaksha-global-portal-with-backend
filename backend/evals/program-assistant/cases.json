@@ -1,0 +1,94 @@
+[
+  {
+    "id": "pa-qa-eth-eligibility",
+    "category": "qa",
+    "mode": "qa",
+    "programId": 1,
+    "programTitle": "ETH Zurich Exchange",
+    "input": "What are the eligibility requirements for this program?",
+    "expected_facts": ["ETH Zurich", "eligibility"],
+    "must_not_include": ["Stanford", "Tokyo", "I don't have access"],
+    "ground_truth_label": "Should return ETH Zurich specific eligibility, not another program's"
+  },
+  {
+    "id": "pa-qa-eth-deadlines",
+    "category": "qa",
+    "mode": "qa",
+    "programId": 1,
+    "programTitle": "ETH Zurich Exchange",
+    "input": "What documents do I need to submit and by when?",
+    "expected_facts": ["deadline", "document"],
+    "must_not_include": ["I don't know", "no deadlines", "cannot access"],
+    "ground_truth_label": "Should list required documents and deadline dates from the database"
+  },
+  {
+    "id": "pa-qa-stanford-duration",
+    "category": "qa",
+    "mode": "qa",
+    "programId": 2,
+    "programTitle": "Stanford Summer Research",
+    "input": "How long is this program and when does it start?",
+    "expected_facts": ["Stanford", "duration"],
+    "must_not_include": ["ETH Zurich", "Tokyo", "I cannot tell"],
+    "ground_truth_label": "Should return duration and start date for Stanford Summer Research only"
+  },
+  {
+    "id": "pa-qa-tokyo-type",
+    "category": "qa",
+    "mode": "qa",
+    "programId": 3,
+    "programTitle": "Tokyo AI Lab",
+    "input": "Is this a research program or an exchange? What country is it in?",
+    "expected_facts": ["Tokyo", "Japan"],
+    "must_not_include": ["Switzerland", "USA", "Singapore", "Canada"],
+    "ground_truth_label": "Should confirm Tokyo AI Lab is in Japan and state its type correctly"
+  },
+  {
+    "id": "pa-qa-toronto-external-link",
+    "category": "qa",
+    "mode": "qa",
+    "programId": 5,
+    "programTitle": "University of Toronto Research Exchange",
+    "input": "Is there an official website I can visit for more details?",
+    "expected_facts": ["Toronto"],
+    "must_not_include": ["I don't have access", "no link available", "ETH Zurich"],
+    "ground_truth_label": "Should mention the external link or say no external link is stored for Toronto"
+  },
+  {
+    "id": "pa-review-eth-readiness",
+    "category": "review",
+    "mode": "review",
+    "programId": 1,
+    "programTitle": "ETH Zurich Exchange",
+    "input": "Please honestly review my application and tell me how strong I am for ETH Zurich.",
+    "expected_facts": ["ETH Zurich", "application"],
+    "must_not_include": ["Stanford", "Toronto", "I cannot review", "no information available"],
+    "ground_truth_label": "Should provide ETH Zurich specific review covering student's actual application state",
+    "requires_review_report": true
+  },
+  {
+    "id": "pa-review-toronto-missing-docs",
+    "category": "review",
+    "mode": "review",
+    "programId": 5,
+    "programTitle": "University of Toronto Research Exchange",
+    "input": "What documents am I still missing for this application?",
+    "expected_facts": ["Toronto"],
+    "must_not_include": ["ETH Zurich", "Stanford", "all documents are submitted"],
+    "ground_truth_label": "Should identify missing required documents for University of Toronto",
+    "requires_review_report": true
+  },
+  {
+    "id": "pa-review-eth-score-structure",
+    "category": "review",
+    "mode": "review",
+    "programId": 1,
+    "programTitle": "ETH Zurich Exchange",
+    "input": "Give me a full review with scoring of my current application for the ETH Zurich Exchange.",
+    "expected_facts": ["ETH Zurich"],
+    "must_not_include": ["I cannot score", "no rubric available"],
+    "ground_truth_label": "Should return a structured review report with numeric scores and category breakdown",
+    "requires_review_report": true,
+    "check_report_structure": true
+  }
+]

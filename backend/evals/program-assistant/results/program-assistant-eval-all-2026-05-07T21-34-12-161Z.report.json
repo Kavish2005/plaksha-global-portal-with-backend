@@ -1,0 +1,103 @@
+{
+  "generatedAt": "2026-05-07T21:34:12.160Z",
+  "summary": {
+    "modeFilter": "all",
+    "actor": {
+      "role": "student",
+      "email": "aman@student.plaksha.edu.in"
+    },
+    "baseUrl": "http://localhost:5001/api",
+    "total": 8,
+    "qaCases": 5,
+    "reviewCases": 3,
+    "reviewsWithStructuredReport": 0,
+    "deterministicPassed": 0,
+    "deterministicPassRate": 0,
+    "averageJudgeCorrectness": null,
+    "averageJudgeCompleteness": null,
+    "averageJudgeGroundedness": null,
+    "averageJudgeClarity": null
+  },
+  "results": [
+    {
+      "id": "pa-qa-eth-eligibility",
+      "category": "qa",
+      "mode": "qa",
+      "programId": 1,
+      "programTitle": "ETH Zurich Exchange",
+      "input": "What are the eligibility requirements for this program?",
+      "error": "fetch failed",
+      "durationMs": 59
+    },
+    {
+      "id": "pa-qa-eth-deadlines",
+      "category": "qa",
+      "mode": "qa",
+      "programId": 1,
+      "programTitle": "ETH Zurich Exchange",
+      "input": "What documents do I need to submit and by when?",
+      "error": "fetch failed",
+      "durationMs": 1
+    },
+    {
+      "id": "pa-qa-stanford-duration",
+      "category": "qa",
+      "mode": "qa",
+      "programId": 2,
+      "programTitle": "Stanford Summer Research",
+      "input": "How long is this program and when does it start?",
+      "error": "fetch failed",
+      "durationMs": 1
+    },
+    {
+      "id": "pa-qa-tokyo-type",
+      "category": "qa",
+      "mode": "qa",
+      "programId": 3,
+      "programTitle": "Tokyo AI Lab",
+      "input": "Is this a research program or an exchange? What country is it in?",
+      "error": "fetch failed",
+      "durationMs": 1
+    },
+    {
+      "id": "pa-qa-toronto-external-link",
+      "category": "qa",
+      "mode": "qa",
+      "programId": 5,
+      "programTitle": "University of Toronto Research Exchange",
+      "input": "Is there an official website I can visit for more details?",
+      "error": "fetch failed",
+      "durationMs": 1
+    },
+    {
+      "id": "pa-review-eth-readiness",
+      "category": "review",
+      "mode": "review",
+      "programId": 1,
+      "programTitle": "ETH Zurich Exchange",
+      "input": "Please honestly review my application and tell me how strong I am for ETH Zurich.",
+      "error": "fetch failed",
+      "durationMs": 1
+    },
+    {
+      "id": "pa-review-toronto-missing-docs",
+      "category": "review",
+      "mode": "review",
+      "programId": 5,
+      "programTitle": "University of Toronto Research Exchange",
+      "input": "What documents am I still missing for this application?",
+      "error": "fetch failed",
+      "durationMs": 1
+    },
+    {
+      "id": "pa-review-eth-score-structure",
+      "category": "review",
+      "mode": "review",
+      "programId": 1,
+      "programTitle": "ETH Zurich Exchange",
+      "input": "Give me a full review with scoring of my current application for the ETH Zurich Exchange.",
+      "error": "fetch failed",
+      "durationMs": 1
+    }
+  ]
+}
