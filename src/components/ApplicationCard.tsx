@@ -8,7 +8,7 @@ type Props = {
 
 export default function ApplicationCard({ applications }: Props) {
   return (
-    <div className="rounded-3xl border border-black/5 bg-white/[0.04] p-6 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-lg font-semibold">My Applications</h2>
       <ul className="mt-4 space-y-4">
         {applications.map((application) => (
@@ -16,11 +16,11 @@ export default function ApplicationCard({ applications }: Props) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-medium text-[var(--portal-ink)]">{application.programTitle}</p>
-                <p className="mt-1 text-sm text-white/50">{application.programUniversity}</p>
+                <p className="mt-1 text-sm text-slate-500">{application.programUniversity}</p>
               </div>
               <StatusBadge label={application.status} />
             </div>
-            <div className="mt-3 flex flex-wrap gap-4 text-sm text-white/50">
+            <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-500">
               <span>Submitted: {formatIsoDate(application.createdAt)}</span>
               {application.deadline ? <span>Deadline: {formatIsoDate(application.deadline)}</span> : null}
             </div>

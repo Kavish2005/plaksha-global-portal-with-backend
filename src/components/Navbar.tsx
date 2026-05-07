@@ -2,202 +2,118 @@
 
 import Image from "next/image";
 import Link from "next/link";
-
 import { usePathname } from "next/navigation";
-
-import { motion } from "framer-motion";
-
 import toast from "react-hot-toast";
-
-import {
-  Sparkles,
-  PanelTop,
-  Globe2,
-  BrainCircuit,
-} from "lucide-react";
-
+import { Globe2, LayoutDashboard, Users, BookOpen, BrainCircuit, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { cx } from "@/lib/utils";
 
 const navItems = [
-  {
-    href: "/",
-    label: "Home",
-    icon: Globe2,
-  },
-  {
-    href: "/programs",
-    label: "Programs",
-    icon: Sparkles,
-  },
-  {
-    href: "/mentor",
-    label: "Mentors",
-    icon: BrainCircuit,
-  },
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: PanelTop,
-  },
+  { href: "/", label: "Home", icon: Globe2, exact: true },
+  { href: "/programs", label: "Programs", icon: BookOpen, exact: false },
+  { href: "/mentor", label: "Mentors", icon: Users, exact: false },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: false },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
-
   const { activeUser, loading, logout } = useAuth();
 
+  function isActive(href: string, exact: boolean) {
+    if (exact) return pathname === href;
+    return pathname === href || pathname.startsWith(href + "/") || (href !== "/" && pathname.startsWith(href));
+  }
+
   return (
-    <motion.nav
-      initial={{
-        opacity: 0,
-        y: -18,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
-      transition={{
-        duration: 0.45,
-      }}
-      className="sticky top-0 z-50 px-4 pt-4"
-    >
-      <div className="mx-auto max-w-7xl">
-        <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-black/30 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.25)]">
-          {/* Ambient glow */}
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(139,92,246,0.12),transparent_30%)]" />
+    <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-[0_1px_8px_rgba(15,23,42,0.06)]">
+      <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-6 px-6 py-3">
 
-          <div className="relative flex flex-col gap-5 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
-            {/* Logo */}
-            <Link
-              href="/"
-              className="group flex items-center gap-4"
-            >
-              <div className="relative">
-                <div className="absolute inset-0 rounded-2xl bg-blue-500/20 blur-xl transition-opacity duration-500 group-hover:opacity-100" />
+        {/* Logo */}
+        <Link href="/" className="flex shrink-0 items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <Image src="/plaksha-logo.png" alt="Plaksha" width={28} height={28} className="object-contain" />
+          </div>
+          <div className="hidden sm:block">
+            <div className="text-sm font-bold text-slate-900 leading-tight">Plaksha Global Portal</div>
+            <div className="text-xs text-teal-700 font-medium leading-tight">Global Engagement Office</div>
+          </div>
+        </Link>
 
-                <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]/5 backdrop-blur-xl">
-                  <Image
-                    src="/plaksha-logo.png"
-                    alt="Plaksha"
-                    width={36}
-                    height={36}
-                    className="object-contain"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="text-lg font-semibold tracking-tight text-white">
-                  Plaksha Global Portal
-                </div>
-
-                <div className="mt-1 text-xs uppercase tracking-[0.28em] text-blue-300/80">
-                  AI-Powered Global Opportunities
-                </div>
-              </div>
-            </Link>
-
-            {/* Navigation */}
-            <div className="flex flex-wrap items-center gap-2">
-              {navItems.map((item) => {
-                const active =
-                  pathname === item.href ||
-                  pathname.startsWith(item.href);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cx(
-                      "group relative overflow-hidden rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all duration-300",
-                      active
-                        ? "border-blue-400/30 bg-blue-500/15 text-white shadow-[0_0_25px_rgba(59,130,246,0.15)]"
-                        : "border-white/5 bg-white/[0.04]/3 text-white/60 hover:border-white/10 hover:bg-white/[0.04]/6 hover:text-white",
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </div>
-
-                    {active ? (
-                      <motion.div
-                        layoutId="navbar-active-pill"
-                        className="absolute inset-0 rounded-2xl border border-blue-400/20"
-                      />
-                    ) : null}
-                  </Link>
-                );
-              })}
-
-              {/* AI Assistant CTA */}
-              {activeUser?.role === "student" ? (
-                <Link
-                  href="/assistant"
-                  className={cx(
-                    "group relative overflow-hidden rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all duration-300",
-                    pathname.startsWith("/assistant")
-                      ? "border-violet-400/30 bg-violet-500/15 text-white"
-                      : "border-violet-400/10 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15",
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <BrainCircuit className="h-4 w-4" />
-                    AI Assistant
-                  </div>
-                </Link>
-              ) : null}
-            </div>
-
-            {/* User Actions */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* User capsule */}
-              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04]/4 px-4 py-2 backdrop-blur-xl">
-                <div className="h-9 w-9 rounded-full bg-linear-to-br from-blue-500 to-violet-500" />
-
-                <div className="leading-tight">
-                  <div className="text-sm font-medium text-white">
-                    {loading
-                      ? "Loading..."
-                      : activeUser?.name || "Guest"}
-                  </div>
-
-                  <div className="text-xs uppercase tracking-[0.18em] text-white/40">
-                    {activeUser?.role || "No Role"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Admin CTA */}
+        {/* Nav links */}
+        <div className="flex items-center gap-1">
+          {navItems.map((item) => {
+            const active = isActive(item.href, item.exact);
+            return (
               <Link
-                href="/admin"
+                key={item.href}
+                href={item.href}
                 className={cx(
-                  "rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all duration-300",
-                  pathname.startsWith("/admin")
-                    ? "border-amber-300/30 bg-amber-400/15 text-amber-100"
-                    : "border-white/10 bg-white/[0.04]/3 text-white/70 hover:bg-white/[0.04]/6",
+                  "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-teal-50 text-teal-700"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                 )}
               >
-                Admin
+                <item.icon className="h-4 w-4 shrink-0" />
+                <span className="hidden md:inline">{item.label}</span>
               </Link>
+            );
+          })}
 
-              {/* Logout */}
-              <button
-                onClick={() => {
-                  void logout();
+          {activeUser?.role === "student" && (
+            <Link
+              href="/assistant"
+              className={cx(
+                "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                pathname.startsWith("/assistant")
+                  ? "bg-violet-50 text-violet-700"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+              )}
+            >
+              <BrainCircuit className="h-4 w-4 shrink-0" />
+              <span className="hidden md:inline">AI Assistant</span>
+            </Link>
+          )}
+        </div>
 
-                  toast.success("Logged out successfully");
-                }}
-                className="rounded-2xl border border-white/10 bg-white/[0.04]/3 px-4 py-2.5 text-sm text-white/70 transition-all duration-300 hover:bg-red-500/15 hover:text-red-100"
-              >
-                Log Out
-              </button>
+        {/* Right side */}
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Admin link */}
+          <Link
+            href="/admin"
+            className={cx(
+              "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              pathname.startsWith("/admin")
+                ? "bg-amber-50 text-amber-700"
+                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+            )}
+          >
+            <ShieldCheck className="h-4 w-4 shrink-0" />
+            <span className="hidden lg:inline">Admin</span>
+          </Link>
+
+          {/* User capsule */}
+          {!loading && activeUser && (
+            <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5">
+              <div className="h-6 w-6 rounded-full bg-teal-600 flex items-center justify-center text-white text-xs font-bold">
+                {activeUser.name?.[0]?.toUpperCase() ?? "U"}
+              </div>
+              <div className="hidden lg:block leading-tight">
+                <div className="text-xs font-semibold text-slate-800">{activeUser.name}</div>
+                <div className="text-[10px] text-slate-500 capitalize">{activeUser.role}</div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Logout */}
+          <button
+            onClick={() => { void logout(); toast.success("Logged out"); }}
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </div>
-    </motion.nav>
+    </nav>
   );
 }
-

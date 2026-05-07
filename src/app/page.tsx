@@ -22,74 +22,69 @@ export default function Home() {
         setLoading(false);
       }
     }
-
     loadFeaturedPrograms();
   }, []);
 
   const partnerUniversities = useMemo(
-    () => [...new Set(featuredPrograms.map((program) => program.university))],
+    () => [...new Set(featuredPrograms.map((p) => p.university))],
     [featuredPrograms],
   );
 
   return (
     <div>
-      <section className="px-6 py-16">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-[2rem] bg-[linear-gradient(135deg,var(--portal-teal-dark),var(--portal-teal))] px-8 py-12 text-white shadow-xl">
-            <p className="inline-flex rounded-full bg-white/[0.04]/15 px-4 py-2 text-xs uppercase tracking-[0.2em]">
+      {/* Hero */}
+      <section className="px-6 py-12">
+        <div className="mx-auto grid max-w-screen-2xl gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+
+          {/* Left — hero */}
+          <div className="rounded-2xl bg-gradient-to-br from-teal-800 to-teal-600 px-8 py-10 text-white shadow-md">
+            <span className="inline-flex rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white/80">
               Plaksha Global Engagement
-            </p>
-            <h1 className="mt-6 max-w-3xl text-5xl font-bold leading-tight">
-              Explore global opportunities, connect with mentors, and plan your international journey at Plaksha.
+            </span>
+            <h1 className="mt-5 max-w-2xl text-4xl font-bold leading-tight">
+              Explore global opportunities, connect with mentors, and plan your international journey.
             </h1>
-            <p className="mt-6 max-w-2xl text-lg text-white/80">
-              Discover exchange, research, and summer opportunities, stay on top of deadlines, and reach the Global Engagement Office for guidance along the way.
+            <p className="mt-4 max-w-xl text-base text-white/75">
+              Discover exchange, research, and summer opportunities. Stay on top of deadlines and reach the Global Engagement Office for guidance.
             </p>
-            <div className="mt-10 flex flex-wrap gap-4">
-              <Link
-                href="/programs"
-                className="inline-flex items-center gap-2 rounded-full bg-[var(--portal-gold)] px-6 py-3 font-semibold text-[var(--portal-ink)]"
-              >
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/programs" className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 transition-colors">
                 Explore Programs
-                <ArrowRight size={16} />
+                <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link
-                href="/mentor"
-                className="inline-flex items-center gap-2 rounded-full border border-white/30 px-6 py-3 font-semibold text-white"
-              >
-                Book Mentor
+              <Link href="/mentor" className="inline-flex items-center gap-2 rounded-full border border-white/30 px-6 py-2.5 text-sm font-semibold text-white hover:bg-white/10 transition-colors">
+                Book a Mentor
               </Link>
             </div>
           </div>
 
+          {/* Right — info tiles */}
           <div className="grid gap-4">
-            <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-6 shadow-sm">
-              <Sparkles className="text-[var(--portal-teal)]" />
-              <h2 className="mt-4 text-xl font-semibold">From exploration to application support</h2>
-              <p className="mt-2 text-sm leading-6 text-white/60">
-                Browse opportunities, book guidance sessions, and follow your application progress through Plaksha&apos;s Global Engagement Office.
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <Sparkles className="h-5 w-5 text-teal-600" />
+              <h2 className="mt-3 text-base font-semibold text-slate-900">From exploration to application</h2>
+              <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">
+                Browse opportunities, book guidance sessions, and follow your application progress through OGE.
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-6 shadow-sm">
-                <CalendarDays className="text-[var(--portal-gold)]" />
-                <p className="mt-4 text-sm uppercase tracking-[0.2em] text-white/50">Stay Prepared</p>
-                <p className="mt-2 font-semibold">Deadlines, advising, and application updates</p>
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <CalendarDays className="h-5 w-5 text-amber-600" />
+                <p className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Stay Prepared</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">Deadlines, advising, and application updates</p>
               </div>
-              <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-6 shadow-sm">
-                <ShieldCheck className="text-[var(--portal-teal)]" />
-                <p className="mt-4 text-sm uppercase tracking-[0.2em] text-white/50">Office Support</p>
-                <p className="mt-2 font-semibold">Guidance from the Global Engagement team</p>
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <ShieldCheck className="h-5 w-5 text-teal-600" />
+                <p className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Office Support</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">Guidance from the Global Engagement team</p>
               </div>
             </div>
-            <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-6 shadow-sm">
-              <Globe2 className="text-[var(--portal-teal)]" />
-              <p className="mt-4 text-sm uppercase tracking-[0.2em] text-white/50">Partner Network</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {partnerUniversities.map((university) => (
-                  <span key={university} className="rounded-full bg-white/[0.05] px-3 py-2 text-sm text-white/60">
-                    {university}
-                  </span>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <Globe2 className="h-5 w-5 text-teal-600" />
+              <p className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Partner Network</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {partnerUniversities.map((u) => (
+                  <span key={u} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">{u}</span>
                 ))}
               </div>
             </div>
@@ -97,21 +92,22 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-white/[0.04] px-6 py-20">
-        <div className="mx-auto max-w-7xl">
-          <div className="flex items-end justify-between gap-6">
+      {/* Featured Programs */}
+      <section className="border-t border-slate-100 bg-slate-50 px-6 py-14">
+        <div className="w-full">
+          <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Featured Opportunities</p>
-              <h2 className="mt-2 text-3xl font-bold">Featured global opportunities for Plaksha students</h2>
+              <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">Featured Opportunities</p>
+              <h2 className="mt-1 text-2xl font-bold text-slate-900">Featured global opportunities for Plaksha students</h2>
             </div>
-            <Link href="/programs" className="text-sm font-semibold text-[var(--portal-teal)]">
-              Browse all programs
+            <Link href="/programs" className="shrink-0 text-sm font-semibold text-teal-700 hover:text-teal-800">
+              Browse all →
             </Link>
           </div>
           {loading ? (
-            <p className="mt-12 text-center text-gray-500">Loading featured programs...</p>
+            <p className="mt-10 text-center text-sm text-slate-400">Loading featured programs…</p>
           ) : (
-            <div className="mt-12 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {featuredPrograms.map((program) => (
                 <ProgramCard key={program.id} program={program} />
               ))}
@@ -120,22 +116,23 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-6 py-20">
-        <div className="mx-auto max-w-7xl rounded-[2rem] border border-black/5 bg-[var(--portal-panel)] p-10">
+      {/* About the platform */}
+      <section className="px-6 py-14">
+        <div className="w-full rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="grid gap-8 lg:grid-cols-3">
             <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">How Plaksha Supports You</p>
-              <h2 className="mt-2 text-3xl font-bold">Support for students and the Global Engagement Office</h2>
+              <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">How Plaksha Supports You</p>
+              <h2 className="mt-2 text-xl font-bold text-slate-900">Support for students and the Global Engagement Office</h2>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl/[0.04] p-6 shadow-sm">
-              <h3 className="font-semibold">Students</h3>
-              <p className="mt-2 text-sm leading-6 text-white/60">
-                Discover programs, apply with confidence, book mentors, track deadlines, and ask questions through the assistant.
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-5">
+              <h3 className="font-semibold text-slate-800">Students</h3>
+              <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+                Discover programs, apply with confidence, book mentors, track deadlines, and ask questions through the AI assistant.
               </p>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl/[0.04] p-6 shadow-sm">
-              <h3 className="font-semibold">Global Engagement Office</h3>
-              <p className="mt-2 text-sm leading-6 text-white/60">
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-5">
+              <h3 className="font-semibold text-slate-800">Global Engagement Office</h3>
+              <p className="mt-2 text-sm text-slate-500 leading-relaxed">
                 Coordinate programs, mentor support, deadlines, approvals, and nominations for the Plaksha student community.
               </p>
             </div>

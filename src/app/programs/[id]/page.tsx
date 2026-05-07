@@ -205,17 +205,17 @@ export default function ProgramDetailPage() {
   }
 
   if (authLoading || loading) {
-    return <div className="mx-auto max-w-6xl px-6 py-16 text-white/50">Loading program...</div>;
+    return <div className="mx-auto max-w-6xl px-6 py-8 text-slate-500">Loading program...</div>;
   }
 
   if (!program) {
-    return <div className="mx-auto max-w-6xl px-6 py-16 text-white/50">Program not found.</div>;
+    return <div className="mx-auto max-w-6xl px-6 py-8 text-slate-500">Program not found.</div>;
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-16">
+<div className="mx-auto max-w-screen-2xl px-6 py-8">
       <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
+        <section className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="flex flex-wrap gap-2">
@@ -223,12 +223,12 @@ export default function ProgramDetailPage() {
                 {program.featured ? <StatusBadge label="Featured" /> : null}
               </div>
               <h1 className="mt-4 text-4xl font-bold">{program.title}</h1>
-              <p className="mt-2 text-white/50">{program.university}</p>
+              <p className="mt-2 text-slate-500">{program.university}</p>
             </div>
             {activeUser?.role === "student" ? (
               <button
                 onClick={() => void toggleSaved()}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-medium"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium"
               >
                 {program.isSaved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
                 {program.isSaved ? "Saved" : "Save Program"}
@@ -246,7 +246,7 @@ export default function ProgramDetailPage() {
 
           {program.externalLink ? (
             <div className="mt-6 rounded-2xl border border-slate-100 bg-[var(--portal-panel)] p-4">
-              <p className="text-sm uppercase tracking-[0.16em] text-white/40">Official Program Page</p>
+              <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Official Program Page</p>
               <a
                 href={program.externalLink}
                 target="_blank"
@@ -261,14 +261,14 @@ export default function ProgramDetailPage() {
 
           <div className="mt-8">
             <h2 className="text-xl font-semibold">Program Overview</h2>
-            <p className="mt-3 whitespace-pre-wrap leading-7 text-white/60">{program.description}</p>
+            <p className="mt-3 whitespace-pre-wrap leading-7 text-slate-500">{program.description}</p>
           </div>
 
           <div className="mt-8">
             <h2 className="text-xl font-semibold">Tags</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               {program.tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-white/[0.05] px-3 py-1 text-sm text-white/60">
+                <span key={tag} className="rounded-full bg-slate-50 px-3 py-1 text-sm text-slate-500">
                   {tag}
                 </span>
               ))}
@@ -283,20 +283,20 @@ export default function ProgramDetailPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="font-medium">{deadline.title}</p>
-                      <p className="text-sm text-white/50">{formatIsoDate(deadline.date)}</p>
+                      <p className="text-sm text-slate-500">{formatIsoDate(deadline.date)}</p>
                     </div>
                     <StatusBadge label={deadline.priority} />
                   </div>
                   {deadline.requiredDocuments.length > 0 ? (
                     <div className="mt-4 flex flex-wrap gap-2">
                       {deadline.requiredDocuments.map((item) => (
-                        <span key={`${deadline.id}-${item}`} className="rounded-full bg-[var(--portal-panel)] px-3 py-1 text-sm text-white/60">
+                        <span key={`${deadline.id}-${item}`} className="rounded-full bg-[var(--portal-panel)] px-3 py-1 text-sm text-slate-500">
                           {item}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-3 text-sm text-white/50">No supporting upload is required for this milestone.</p>
+                    <p className="mt-3 text-sm text-slate-500">No supporting upload is required for this milestone.</p>
                   )}
                 </div>
               ))}
@@ -305,10 +305,10 @@ export default function ProgramDetailPage() {
         </section>
 
         <aside className="space-y-6">
-          <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-6 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Application</h2>
             {activeUser?.role !== "student" ? (
-              <p className="mt-3 text-sm leading-6 text-white/60">
+              <p className="mt-3 text-sm leading-6 text-slate-500">
                 Switch to a student user from the navbar to apply to this program and see synced dashboard updates.
               </p>
             ) : (
@@ -318,14 +318,14 @@ export default function ProgramDetailPage() {
                     <StatusBadge label={program.myApplication.status} />
                     {program.myApplication.reviewerNotes ? (
                       <div className="rounded-2xl border border-slate-100 p-4">
-                        <p className="text-sm font-medium text-white/50">Reviewer Notes</p>
-                        <p className="mt-2 text-sm leading-6 text-white/60">{program.myApplication.reviewerNotes}</p>
+                        <p className="text-sm font-medium text-slate-500">Reviewer Notes</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-500">{program.myApplication.reviewerNotes}</p>
                       </div>
                     ) : null}
                     {program.myApplication.nominationNotes ? (
                       <div className="rounded-2xl border border-slate-100 p-4">
-                        <p className="text-sm font-medium text-white/50">Nomination Notes</p>
-                        <p className="mt-2 text-sm leading-6 text-white/60">{program.myApplication.nominationNotes}</p>
+                        <p className="text-sm font-medium text-slate-500">Nomination Notes</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-500">{program.myApplication.nominationNotes}</p>
                       </div>
                     ) : null}
                   </>
@@ -336,13 +336,13 @@ export default function ProgramDetailPage() {
                     <FileUp size={18} className="text-[var(--portal-teal)]" />
                     <h3 className="font-semibold">Required uploads</h3>
                   </div>
-                  <p className="mt-2 text-sm text-white/50">
+                  <p className="mt-2 text-sm text-slate-500">
                     Upload the files requested by each deadline. The deadline stays visible next to every upload requirement.
                   </p>
 
                   <div className="mt-4 space-y-3">
                     {uploadRequirements.length === 0 ? (
-                      <p className="rounded-2xl bg-white/[0.03] px-4 py-4 text-sm text-white/50">
+                      <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
                         No file uploads are required for this program at the moment.
                       </p>
                     ) : (
@@ -354,7 +354,7 @@ export default function ProgramDetailPage() {
                               <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
                                   <p className="font-medium text-[var(--portal-ink)]">{requirement.requirementLabel}</p>
-                                  <p className="text-sm text-white/50">
+                                  <p className="text-sm text-slate-500">
                                     {requirement.deadlineTitle} · upload by {formatIsoDate(requirement.deadlineDate)}
                                   </p>
                                 </div>
@@ -362,7 +362,7 @@ export default function ProgramDetailPage() {
                               </div>
 
                               {requirement.existingFiles.length > 0 ? (
-                                <div className="space-y-2 text-sm text-white/50">
+                                <div className="space-y-2 text-sm text-slate-500">
                                   {requirement.existingFiles.map((file) => (
                                     <p key={file.id}>
                                       Uploaded: {file.fileName}
@@ -376,7 +376,7 @@ export default function ProgramDetailPage() {
                                 <div className="space-y-2">
                                   {pendingUpload.map((file, index) => (
                                     <div key={`${file.fileName}-${index}`} className="flex items-center justify-between rounded-2xl bg-[var(--portal-panel)] px-4 py-3 text-sm">
-                                      <span className="text-white/60">Ready to upload: {file.fileName}</span>
+                                      <span className="text-slate-500">Ready to upload: {file.fileName}</span>
                                       <button
                                         type="button"
                                         onClick={() => clearPendingUpload(requirement.key, index)}
@@ -389,17 +389,17 @@ export default function ProgramDetailPage() {
                                 </div>
                               ) : null}
 
-                              <label className="block cursor-pointer rounded-2xl border border-dashed border-white/10 bg-white/[0.04] px-4 py-4 transition hover:border-[var(--portal-teal)] hover:bg-[var(--portal-panel)]">
+                              <label className="block cursor-pointer rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 transition hover:border-[var(--portal-teal)] hover:bg-[var(--portal-panel)]">
                                 <div className="flex items-center justify-between gap-4">
                                   <div>
                                     <p className="text-sm font-semibold text-[var(--portal-ink)]">
                                       {requirement.existingFiles.length > 0 || pendingUpload.length > 0 ? "Add more files" : "Upload file(s)"}
                                     </p>
-                                    <p className="mt-1 text-xs text-white/50">
+                                    <p className="mt-1 text-xs text-slate-500">
                                       Click to choose one or more files for {requirement.requirementLabel}.
                                     </p>
                                   </div>
-                                  <span className="rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-slate-700">
+                                  <span className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">
                                     Choose files
                                   </span>
                                 </div>
@@ -424,7 +424,7 @@ export default function ProgramDetailPage() {
                     <button
                       onClick={() => void uploadApplicationDocuments()}
                       disabled={uploadingDocuments}
-                      className="mt-5 w-full rounded-full border border-white/10 px-6 py-3 font-semibold text-[var(--portal-ink)] disabled:opacity-70"
+                      className="mt-5 w-full rounded-full border border-slate-200 px-6 py-3 font-semibold text-[var(--portal-ink)] disabled:opacity-70"
                     >
                       {uploadingDocuments ? "Uploading..." : "Upload / Replace Documents"}
                     </button>
@@ -444,9 +444,9 @@ export default function ProgramDetailPage() {
             )}
           </div>
 
-          <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-6 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold">Need guidance first?</h2>
-            <p className="mt-3 text-sm leading-6 text-white/60">
+            <p className="mt-3 text-sm leading-6 text-slate-500">
               Book a mentor session to refine fit, application strategy, and documentation before you submit.
             </p>
             <Link href="/mentor" className="mt-4 inline-flex text-sm font-semibold text-[var(--portal-teal)]">
@@ -454,21 +454,21 @@ export default function ProgramDetailPage() {
             </Link>
           </div>
 
-          <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-6 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-2">
               <Sparkles size={18} className="text-[var(--portal-teal)]" />
               <h2 className="text-xl font-semibold">Program Assistant</h2>
             </div>
-            <p className="mt-3 text-sm leading-6 text-white/60">
+            <p className="mt-3 text-sm leading-6 text-slate-500">
               Open the dedicated assistant workspace for this program. You can switch between program assistants there, keep a full per-program conversation history, and run honest application reviews against the latest uploaded materials saved in the portal.
             </p>
             {activeUser?.role !== "student" ? (
-              <p className="mt-4 rounded-2xl bg-white/[0.03] px-4 py-4 text-sm text-white/50">
+              <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
                 Switch to a student account to open the program assistant workspace.
               </p>
             ) : (
-              <div className="mt-5 rounded-2xl border border-black/5 bg-[var(--portal-panel)] p-4">
-                <p className="text-sm leading-6 text-white/60">
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-[var(--portal-panel)] p-4">
+                <p className="text-sm leading-6 text-slate-500">
                   Use the workspace for two things:
                 </p>
                 <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
@@ -495,7 +495,7 @@ function InfoTile({ icon, label, value }: { icon: React.ReactNode; label: string
   return (
     <div className="rounded-2xl bg-[var(--portal-panel)] p-4">
       <div className="flex items-center gap-2 text-[var(--portal-teal)]">{icon}</div>
-      <p className="mt-3 text-sm uppercase tracking-[0.16em] text-white/40">{label}</p>
+      <p className="mt-3 text-sm uppercase tracking-[0.16em] text-slate-400">{label}</p>
       <p className="mt-2 text-sm leading-6 text-slate-700">{value}</p>
     </div>
   );

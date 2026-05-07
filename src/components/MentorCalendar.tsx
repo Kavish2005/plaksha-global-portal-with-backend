@@ -195,7 +195,7 @@ export default function MentorCalendar({
         opacity: 1,
         y: 0,
       }}
-      className="rounded-[36px] border border-white/10 bg-white/[0.04] p-8 backdrop-blur-2xl"
+      className="rounded-[36px] border border-slate-200 bg-white p-8 "
     >
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -208,7 +208,7 @@ export default function MentorCalendar({
             Book Mentor Meeting
           </h2>
 
-          <p className="mt-1 text-sm text-white/50">
+          <p className="mt-1 text-sm text-slate-500">
             Schedule personalized
             mentorship sessions
           </p>
@@ -217,7 +217,7 @@ export default function MentorCalendar({
 
       {/* Mentor Select */}
       <div className="mt-8">
-        <label className="mb-3 block text-sm font-medium text-white/70">
+        <label className="mb-3 block text-sm font-medium text-slate-600">
           Select mentor
         </label>
 
@@ -232,7 +232,7 @@ export default function MentorCalendar({
               ),
             )
           }
-          className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-white outline-none backdrop-blur-xl"
+          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-white outline-none "
         >
           {mentors.map((mentor) => (
             <option
@@ -249,7 +249,7 @@ export default function MentorCalendar({
 
       {/* Mentor Info */}
       {selectedMentor ? (
-        <div className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
           <div className="flex items-center justify-between gap-4">
             <div>
               <h3 className="text-lg font-semibold text-white">
@@ -258,7 +258,7 @@ export default function MentorCalendar({
                 }
               </h3>
 
-              <p className="mt-1 text-sm text-white/50">
+              <p className="mt-1 text-sm text-slate-500">
                 {
                   selectedMentor.expertise
                 }
@@ -272,14 +272,14 @@ export default function MentorCalendar({
             />
           </div>
 
-          <p className="mt-4 text-sm leading-7 text-white/60">
+          <p className="mt-4 text-sm leading-7 text-slate-500">
             {selectedMentor.bio}
           </p>
         </div>
       ) : null}
 
       {/* Calendar */}
-      <div className="mt-8 rounded-[32px] border border-white/10 bg-white/[0.03] p-6">
+      <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-6">
         <Calendar
           onChange={(value) =>
             setDate(value as Date)
@@ -300,11 +300,11 @@ export default function MentorCalendar({
         </div>
 
         {loadingSlots ? (
-        <p className="mt-4 text-sm text-white/40">
+        <p className="mt-4 text-sm text-slate-400">
          Loading availability...
           </p>
           ) : slots.length === 0 ? (
-          <div className="mt-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-sm text-white/40">
+          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-400">
           No available slots for this date.
           </div>
             ) : (
@@ -322,11 +322,11 @@ export default function MentorCalendar({
                 }
                 className={`rounded-2xl border px-4 py-3 text-sm transition-all duration-300 ${
                   !slot.available
-                    ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-white/20"
+                    ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
                     : selectedSlot ===
                         slot.time
-                      ? "border-blue-400/30 bg-gradient-to-r from-blue-500 to-violet-500 text-white"
-                      : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08]"
+                      ? "border-teal-300 bg-teal-600 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 {slot.time}
@@ -338,7 +338,7 @@ export default function MentorCalendar({
 
       {/* Topic */}
       <div className="mt-8">
-        <label className="mb-3 block text-sm font-medium text-white/70">
+        <label className="mb-3 block text-sm font-medium text-slate-600">
           Discussion topic
         </label>
 
@@ -350,7 +350,7 @@ export default function MentorCalendar({
             )
           }
           placeholder="Add a short agenda for the meeting..."
-          className="min-h-[120px] w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-white placeholder:text-white/30 outline-none backdrop-blur-xl"
+          className="min-h-[120px] w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-white placeholder:text-slate-400 outline-none "
         />
       </div>
 
@@ -371,7 +371,7 @@ export default function MentorCalendar({
 
       {/* Success */}
       {booking ? (
-        <div className="mt-8 rounded-[28px] border border-emerald-400/20 bg-emerald-500/10 p-5">
+        <div className="mt-8 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-5">
           <div className="text-sm uppercase tracking-[0.22em] text-emerald-300">
             Booking Confirmed
           </div>
@@ -380,7 +380,7 @@ export default function MentorCalendar({
             {booking.mentorName}
           </div>
 
-          <div className="mt-2 text-sm text-white/60">
+          <div className="mt-2 text-sm text-slate-500">
             {booking.date} ·{" "}
             {booking.time}
           </div>

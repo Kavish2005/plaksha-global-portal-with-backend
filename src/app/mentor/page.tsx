@@ -25,11 +25,11 @@ export default function MentorPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-16">
-      <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
+<div className="mx-auto max-w-screen-2xl px-6 py-8">
+      <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Mentor Support</p>
         <h1 className="mt-2 text-4xl font-bold">Mentor booking and advising</h1>
-        <p className="mt-3 max-w-3xl text-white/60">
+        <p className="mt-3 max-w-3xl text-slate-500">
           Meet the Global Engagement mentors, understand their support areas, and reserve guidance slots directly from the shared availability calendar.
         </p>
       </div>
@@ -40,7 +40,7 @@ export default function MentorPage() {
         <div className="mt-10 grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
           <MentorCalendar mentors={mentors} />
 
-          <div className="rounded-3xl border border-black/5 bg-white/[0.04] p-6 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold">Available Mentors</h2>
             <div className="mt-4 space-y-4">
               {mentors.map((mentor) => (
@@ -50,9 +50,9 @@ export default function MentorPage() {
                       <h3 className="font-semibold">{mentor.name}</h3>
                       <p className="text-sm text-gray-600">{mentor.expertise}</p>
                     </div>
-                    <span className="rounded-full bg-white/[0.05] px-3 py-1 text-xs text-white/60">{mentor.region}</span>
+                    <span className="rounded-full bg-slate-50 px-3 py-1 text-xs text-slate-500">{mentor.region}</span>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-white/50">{mentor.bio}</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-500">{mentor.bio}</p>
                 </div>
               ))}
             </div>

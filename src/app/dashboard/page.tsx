@@ -104,15 +104,15 @@ export default function Dashboard() {
   }
 
   if (authLoading) {
-    return <div className="mx-auto max-w-7xl px-6 py-16 text-white/50">Loading dashboard...</div>;
+    return <div className="w-full px-6 py-8 text-slate-500">Loading dashboard...</div>;
   }
 
   if (isOfficeUser) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-16">
-        <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
+      <div className="mx-auto max-w-5xl px-6 py-8">
+        <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
           <h1 className="text-3xl font-bold">Student dashboard is role-specific</h1>
-          <p className="mt-3 text-white/60">
+          <p className="mt-3 text-slate-500">
             You&apos;re currently browsing as an admin user. Switch to a student from the navbar or head to the admin panel to manage programs and approvals.
           </p>
         </div>
@@ -122,11 +122,11 @@ export default function Dashboard() {
 
   if (isMentorUser) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-16">
-        <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
+      <div className="mx-auto max-w-5xl px-6 py-8">
+        <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Mentor Workspace</p>
           <h1 className="mt-2 text-3xl font-bold">Your advising dashboard lives in the mentor workspace</h1>
-          <p className="mt-3 text-white/60">
+          <p className="mt-3 text-slate-500">
             Use the mentor section to manage your availability and review meetings booked with you by students.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
@@ -138,7 +138,7 @@ export default function Dashboard() {
             </a>
             <a
               href="/mentor"
-              className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-[var(--portal-ink)] transition hover:bg-white/[0.03]"
+              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-[var(--portal-ink)] transition hover:bg-slate-50"
             >
               View public mentor page
             </a>
@@ -153,7 +153,7 @@ export default function Dashboard() {
   }
 
   if (loading || !dashboard) {
-    return <div className="mx-auto max-w-7xl px-8 py-16 text-gray-500">Loading dashboard...</div>;
+    return <div className="w-full px-8 py-8 text-gray-500">Loading dashboard...</div>;
   }
 
   const { summary, applications, deadlines, meetings, savedPrograms, notifications } = dashboard;
@@ -165,11 +165,11 @@ export default function Dashboard() {
     notifications.find((notification) => notification.id === selectedNotificationId) ?? notifications[0] ?? null;
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-16">
-      <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
+<div className="mx-auto max-w-screen-2xl px-6 py-8">
+      <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Student Dashboard</p>
         <h1 className="mt-2 text-4xl font-bold">Your Global Engagement dashboard</h1>
-        <p className="mt-3 text-white/60">Track applications, deadlines, mentor meetings, saved programs, and recent updates from the office.</p>
+        <p className="mt-3 text-slate-500">Track applications, deadlines, mentor meetings, saved programs, and recent updates from the office.</p>
       </div>
 
       <div className="mt-10 grid gap-6 md:grid-cols-4">
@@ -259,11 +259,11 @@ export default function Dashboard() {
         </SearchPanel>
       </div>
 
-      <div className="mt-10 rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
+      <div className="mt-10 rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold">Upcoming mentor meetings</h2>
-            <p className="mt-2 text-sm text-white/60">Manage your confirmed sessions directly from the dashboard.</p>
+            <p className="mt-2 text-sm text-slate-500">Manage your confirmed sessions directly from the dashboard.</p>
           </div>
         </div>
 
@@ -275,11 +275,11 @@ export default function Dashboard() {
               <div key={meeting.id} className="flex flex-col gap-4 rounded-2xl border border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="font-semibold text-[var(--portal-ink)]">{meeting.mentorName}</p>
-                  <p className="text-sm text-white/50">{meeting.expertise}</p>
-                  <p className="mt-2 text-sm text-white/60">
+                  <p className="text-sm text-slate-500">{meeting.expertise}</p>
+                  <p className="mt-2 text-sm text-slate-500">
                     {formatIsoDate(meeting.date)} · {meeting.time}
                   </p>
-                  {meeting.topic ? <p className="mt-2 text-sm text-white/50">{meeting.topic}</p> : null}
+                  {meeting.topic ? <p className="mt-2 text-sm text-slate-500">{meeting.topic}</p> : null}
                 </div>
                 <div className="flex items-center gap-3">
                   <StatusBadge label={meeting.status} />
@@ -379,18 +379,18 @@ function ReviewerDashboardView({
   }, [previewDocument]);
 
   if (loading || !dashboard) {
-    return <div className="mx-auto max-w-7xl px-8 py-16 text-gray-500">Loading reviewer workspace...</div>;
+    return <div className="w-full px-8 py-8 text-gray-500">Loading reviewer workspace...</div>;
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-16">
+<div className="mx-auto max-w-screen-2xl px-6 py-8">
       {previewableDocument ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
-          <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] bg-white/[0.04] shadow-2xl">
+          <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
               <div>
                 <p className="text-lg font-semibold text-[var(--portal-ink)]">{previewableDocument.fileName}</p>
-                <p className="mt-1 text-sm text-white/50">
+                <p className="mt-1 text-sm text-slate-500">
                   {previewableDocument.requirementLabel}
                   {previewableDocument.deadlineTitle ? ` · ${previewableDocument.deadlineTitle}` : ""}
                 </p>
@@ -399,31 +399,31 @@ function ReviewerDashboardView({
                 <button
                   type="button"
                   onClick={() => void openApplicationDocument(previewableDocument.id, "download")}
-                  className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-700"
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
                 >
                   Download
                 </button>
                 <button
                   type="button"
                   onClick={() => setPreviewDocument(null)}
-                  className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-700"
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
                 >
                   Close
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 bg-white/[0.05] p-4">
+            <div className="flex-1 bg-slate-50 p-4">
               {previewableDocument.canInlinePreview ? (
                 <iframe
                   title={previewableDocument.fileName}
                   src={previewableDocument.fileData}
-                  className="h-full w-full rounded-2xl border border-slate-200 bg-white/[0.04]"
+                  className="h-full w-full rounded-2xl border border-slate-200 bg-white"
                 />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white/[0.04] px-6 text-center">
+                <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 text-center">
                   <p className="text-lg font-semibold text-[var(--portal-ink)]">Preview not supported for this file type</p>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-white/50">
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
                     This document can still be downloaded and opened locally. For the best experience, use the download action above.
                   </p>
                 </div>
@@ -433,10 +433,10 @@ function ReviewerDashboardView({
         </div>
       ) : null}
 
-      <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Reviewer Workspace</p>
         <h1 className="mt-2 text-4xl font-bold">Advisory review requests</h1>
-        <p className="mt-3 text-white/60">
+        <p className="mt-3 text-slate-500">
           OGE has asked for your input on these applications. Review the materials and send your recommendation back to the office. You cannot route applications — OGE controls all stage transitions.
         </p>
       </div>
@@ -448,7 +448,7 @@ function ReviewerDashboardView({
 
       <div className="mt-10 space-y-8">
         {dashboard.tasks.length === 0 ? (
-          <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 text-white/50 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-8 text-slate-500 shadow-sm">
             No review requests are assigned to you right now.
           </div>
         ) : (
@@ -457,20 +457,20 @@ function ReviewerDashboardView({
             const responseText = responseDrafts[reqId] || "";
 
             return (
-              <div key={reqId} className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
+              <div key={reqId} className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-sm uppercase tracking-[0.18em] text-[var(--portal-teal)]">{task.stage.stageLabel}</p>
                     <h2 className="mt-2 text-2xl font-semibold">{task.application.programTitle}</h2>
                     <p className="mt-2 text-sm font-medium text-[var(--portal-ink)]">{task.application.studentName}</p>
-                    <p className="text-sm text-white/50">{task.application.programUniversity}</p>
+                    <p className="text-sm text-slate-500">{task.application.programUniversity}</p>
                   </div>
                   <StatusBadge label={task.reviewRequest.status} />
                 </div>
 
                 {task.reviewRequest.instructions ? (
                   <div className="mt-5 rounded-2xl border border-slate-100 bg-[var(--portal-panel)] px-5 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/40">OGE instructions for you</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">OGE instructions for you</p>
                     <p className="mt-2 text-sm leading-6 text-slate-700">{task.reviewRequest.instructions}</p>
                   </div>
                 ) : null}
@@ -478,7 +478,7 @@ function ReviewerDashboardView({
                 <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
                   <div className="space-y-5">
                     {task.application.documents.length > 0 ? (
-                      <div className="rounded-3xl border border-slate-100 p-5">
+                      <div className="rounded-xl border border-slate-100 p-5">
                         <h3 className="text-lg font-semibold">Student uploads</h3>
                         <div className="mt-4 space-y-3">
                           {task.application.documents.map((document) => (
@@ -490,7 +490,7 @@ function ReviewerDashboardView({
                                 <p className="text-sm font-medium text-[var(--portal-ink)]">
                                   {document.requirementLabel}: {document.fileName}
                                 </p>
-                                <p className="text-xs text-white/50">
+                                <p className="text-xs text-slate-500">
                                   {document.deadlineTitle}
                                   {document.deadlineDate ? ` · due ${formatIsoDate(document.deadlineDate)}` : ""}
                                 </p>
@@ -500,7 +500,7 @@ function ReviewerDashboardView({
                                   type="button"
                                   onClick={() => void openApplicationDocument(document.id, "preview")}
                                   disabled={documentActionLoadingId === document.id}
-                                  className="rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
+                                  className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
                                 >
                                   {documentActionLoadingId === document.id ? "Loading..." : "Preview"}
                                 </button>
@@ -508,7 +508,7 @@ function ReviewerDashboardView({
                                   type="button"
                                   onClick={() => void openApplicationDocument(document.id, "download")}
                                   disabled={documentActionLoadingId === document.id}
-                                  className="rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
+                                  className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
                                 >
                                   Download
                                 </button>
@@ -518,23 +518,23 @@ function ReviewerDashboardView({
                         </div>
                       </div>
                     ) : (
-                      <div className="rounded-3xl border border-slate-100 p-5">
+                      <div className="rounded-xl border border-slate-100 p-5">
                         <h3 className="text-lg font-semibold">Student uploads</h3>
                         <EmptyState text="No documents uploaded for this application yet." />
                       </div>
                     )}
 
                     {task.application.statement ? (
-                      <div className="rounded-3xl border border-slate-100 p-5">
+                      <div className="rounded-xl border border-slate-100 p-5">
                         <h3 className="text-lg font-semibold">Personal statement</h3>
-                        <p className="mt-3 text-sm leading-7 text-white/60">{task.application.statement}</p>
+                        <p className="mt-3 text-sm leading-7 text-slate-500">{task.application.statement}</p>
                       </div>
                     ) : null}
                   </div>
 
-                  <div className="rounded-3xl border border-slate-100 p-5">
+                  <div className="rounded-xl border border-slate-100 p-5">
                     <h3 className="text-lg font-semibold">Your response to OGE</h3>
-                    <p className="mt-2 text-sm text-white/60">
+                    <p className="mt-2 text-sm text-slate-500">
                       Write your recommendation, questions, or concerns below. Your response goes directly back to the Global Engagement Office — you cannot route this application further.
                     </p>
                     <textarea
@@ -542,7 +542,7 @@ function ReviewerDashboardView({
                       onChange={(e) =>
                         setResponseDrafts((current) => ({ ...current, [reqId]: e.target.value }))
                       }
-                      className="mt-4 min-h-32 w-full rounded-2xl border border-white/10 px-4 py-3"
+                      className="mt-4 min-h-32 w-full rounded-2xl border border-slate-200 px-4 py-3"
                       placeholder="Write your recommendation or input here..."
                     />
                     <div className="mt-4 flex flex-col gap-3">
@@ -594,7 +594,7 @@ function MetricCard({
   accent?: boolean;
 }) {
   return (
-    <div className={accent ? "rounded-3xl bg-[var(--portal-teal)] p-6 text-white shadow" : "rounded-3xl border border-black/5 bg-white/[0.04] p-6 shadow-sm"}>
+    <div className={accent ? "rounded-xl bg-[var(--portal-teal)] p-6 text-white shadow" : "rounded-xl border border-slate-200 bg-white p-6 shadow-sm"}>
       {icon}
       <h3 className={accent ? "text-sm opacity-90" : "text-sm text-gray-500"}>{label}</h3>
       <p className="text-3xl font-bold">{value}</p>
@@ -604,7 +604,7 @@ function MetricCard({
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-3xl border border-black/5 bg-white/[0.04] p-6 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-lg font-semibold">{title}</h2>
       <div className="mt-4 space-y-3">{children}</div>
     </div>
@@ -643,7 +643,7 @@ function SearchPanel({
             placeholder={`Select ${title.toLowerCase()}`}
             searchPlaceholder={searchPlaceholder}
           />
-          <p className="text-sm text-white/50">{count} available.</p>
+          <p className="text-sm text-slate-500">{count} available.</p>
           {children}
         </>
       )}
@@ -652,7 +652,7 @@ function SearchPanel({
 }
 
 function EmptyState({ text }: { text: string }) {
-  return <p className="rounded-2xl bg-white/[0.03] px-4 py-6 text-sm text-white/50">{text}</p>;
+  return <p className="rounded-2xl bg-slate-50 px-4 py-6 text-sm text-slate-500">{text}</p>;
 }
 
 function ApplicationDetail({ application }: { application: Application }) {
@@ -666,29 +666,29 @@ function ApplicationDetail({ application }: { application: Application }) {
           <Link href={`/programs/${application.programId}`} className="font-medium text-[var(--portal-teal)] underline-offset-4 hover:underline">
             {application.programTitle}
           </Link>
-          <p className="mt-1 text-sm text-white/50">{application.programUniversity}</p>
+          <p className="mt-1 text-sm text-slate-500">{application.programUniversity}</p>
         </div>
         <StatusBadge label={application.status} />
       </div>
-      <div className="mt-4 space-y-2 text-sm text-white/60">
+      <div className="mt-4 space-y-2 text-sm text-slate-500">
         <p>Submitted: {formatIsoDate(application.createdAt)}</p>
         {application.deadline ? <p>Deadline: {formatIsoDate(application.deadline)}</p> : null}
         {application.reviewerNotes ? <p>Office notes: {application.reviewerNotes}</p> : null}
       </div>
       {currentStage ? (
-        <div className="mt-4 rounded-2xl bg-white/[0.03] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">Current stage</p>
+        <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Current stage</p>
           <p className="mt-2 font-medium text-[var(--portal-ink)]">{currentStage.stageLabel}</p>
           {currentStage.studentVisibleUpdate ? (
-            <p className="mt-2 text-sm leading-6 text-white/60">{currentStage.studentVisibleUpdate}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{currentStage.studentVisibleUpdate}</p>
           ) : (
-            <p className="mt-2 text-sm leading-6 text-white/60">Your application is currently under review by the Global Engagement Office.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Your application is currently under review by the Global Engagement Office.</p>
           )}
         </div>
       ) : null}
       {application.workflowStages.length > 0 ? (
         <div className="mt-4 rounded-2xl border border-slate-100 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">Review progress</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Review progress</p>
           <div className="mt-3 space-y-3">
             {application.workflowStages.map((stage) => {
               const isActive = currentStage?.id === stage.id;
@@ -719,9 +719,9 @@ function ApplicationDetail({ application }: { application: Application }) {
                       <StatusBadge label={formatWorkflowStageStatusLabel(stage.status)} />
                     </div>
                     {stage.studentVisibleUpdate ? (
-                      <p className="mt-2 text-sm leading-6 text-white/60">{stage.studentVisibleUpdate}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-500">{stage.studentVisibleUpdate}</p>
                     ) : null}
-                    <p className="mt-1 text-xs text-white/40">
+                    <p className="mt-1 text-xs text-slate-400">
                       {stage.completedAt ? `Updated ${formatDateTime(stage.completedAt)}` : `Opened ${formatDateTime(stage.createdAt)}`}
                     </p>
                   </div>
@@ -734,7 +734,7 @@ function ApplicationDetail({ application }: { application: Application }) {
       <div className="mt-4">
         <Link
           href={`/programs/${application.programId}`}
-          className="inline-flex rounded-full border border-white/10 px-4 py-2 text-sm font-medium text-[var(--portal-ink)] hover:bg-white/[0.03]"
+          className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-[var(--portal-ink)] hover:bg-slate-50"
         >
           {applicationDeadlinePassed ? "View program" : "Open program and update application"}
         </Link>
@@ -772,15 +772,15 @@ function DeadlineDetail({ deadline }: { deadline: StudentDashboard["deadlines"][
           <Link href={`/programs/${deadline.programId}`} className="font-medium text-[var(--portal-teal)] underline-offset-4 hover:underline">
             {deadline.programTitle}
           </Link>
-          <p className="mt-1 text-sm text-white/50">
+          <p className="mt-1 text-sm text-slate-500">
             {deadline.requirementLabel ? `${deadline.requirementLabel} · ` : ""}
             {deadline.title}
           </p>
-          {deadline.programUniversity ? <p className="mt-1 text-xs text-white/40">{deadline.programUniversity}</p> : null}
+          {deadline.programUniversity ? <p className="mt-1 text-xs text-slate-400">{deadline.programUniversity}</p> : null}
         </div>
         <StatusBadge label={deadline.priority} />
       </div>
-      <p className="mt-4 text-sm text-white/60">{formatIsoDate(deadline.date)}</p>
+      <p className="mt-4 text-sm text-slate-500">{formatIsoDate(deadline.date)}</p>
     </div>
   );
 }
@@ -791,11 +791,11 @@ function MeetingPreview({ meeting }: { meeting: Booking }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium text-[var(--portal-ink)]">{meeting.mentorName}</p>
-          <p className="mt-1 text-sm text-white/50">{meeting.expertise}</p>
+          <p className="mt-1 text-sm text-slate-500">{meeting.expertise}</p>
         </div>
         <StatusBadge label={meeting.status} />
       </div>
-      <p className="mt-4 text-sm text-white/60">
+      <p className="mt-4 text-sm text-slate-500">
         {formatIsoDate(meeting.date)} · {meeting.time}
       </p>
     </div>
@@ -806,8 +806,8 @@ function SavedProgramDetail({ program }: { program: Program }) {
   return (
     <div className="rounded-2xl border border-slate-100 p-4">
       <p className="font-medium text-[var(--portal-ink)]">{program.title}</p>
-      <p className="mt-1 text-sm text-white/50">{program.university}</p>
-      <div className="mt-3 flex items-center justify-between text-sm text-white/50">
+      <p className="mt-1 text-sm text-slate-500">{program.university}</p>
+      <div className="mt-3 flex items-center justify-between text-sm text-slate-500">
         <span>{program.country}</span>
         {program.deadline ? <span>{formatIsoDate(program.deadline)}</span> : null}
       </div>
@@ -823,8 +823,8 @@ function NotificationDetail({ item }: { item: NotificationItem }) {
   return (
     <div className="rounded-2xl border border-slate-100 p-4">
       <p className="font-medium text-[var(--portal-ink)]">{item.title}</p>
-      <p className="mt-2 text-sm leading-6 text-white/60">{item.message}</p>
-      <p className="mt-2 text-xs text-white/40">{formatDateTime(item.createdAt)}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{item.message}</p>
+      <p className="mt-2 text-xs text-slate-400">{formatDateTime(item.createdAt)}</p>
     </div>
   );
 }
@@ -887,30 +887,30 @@ function SearchableSelect({
             return nextOpen;
           });
         }}
-        className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left"
+        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left"
       >
         <div className="min-w-0">
-          <p className={selectedOption ? "truncate text-[var(--portal-ink)]" : "truncate text-white/40"}>
+          <p className={selectedOption ? "truncate text-[var(--portal-ink)]" : "truncate text-slate-400"}>
             {selectedOption?.label || placeholder}
           </p>
-          {selectedOption?.helperText ? <p className="truncate text-xs text-white/50">{selectedOption.helperText}</p> : null}
+          {selectedOption?.helperText ? <p className="truncate text-xs text-slate-500">{selectedOption.helperText}</p> : null}
         </div>
-        <span className="ml-3 text-white/50">{open ? "▴" : "▾"}</span>
+        <span className="ml-3 text-slate-500">{open ? "▴" : "▾"}</span>
       </button>
 
       {open ? (
-        <div className="absolute left-0 right-0 z-20 mt-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3 shadow-xl">
+        <div className="absolute left-0 right-0 z-20 mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 px-4 py-3"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3"
             placeholder={searchPlaceholder}
             autoFocus
           />
 
           <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
             {filteredOptions.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-white/10 px-4 py-3 text-sm text-white/50">
+              <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
                 No matches found.
               </div>
             ) : (
@@ -928,7 +928,7 @@ function SearchableSelect({
                   }`}
                 >
                   <p className="font-medium text-[var(--portal-ink)]">{option.label}</p>
-                  {option.helperText ? <p className="text-xs text-white/50">{option.helperText}</p> : null}
+                  {option.helperText ? <p className="text-xs text-slate-500">{option.helperText}</p> : null}
                 </button>
               ))
             )}
