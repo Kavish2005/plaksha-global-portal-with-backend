@@ -201,13 +201,13 @@ export default function Dashboard() {
           title="Upcoming Deadlines"
           count={deadlines.length}
           options={deadlines.map((deadline) => ({
-            value: String(deadline.id),
+            value: `${deadline.id}:${deadline.requirementLabel || ""}`,
             label: deadline.programTitle,
             helperText: `${deadline.requirementLabel ? `${deadline.requirementLabel} · ` : ""}${deadline.title} · ${formatIsoDate(deadline.date)}`,
             keywords: [deadline.priority, deadline.requirementLabel || ""],
           }))}
-          selectedValue={selectedDeadline ? String(selectedDeadline.id) : ""}
-          onSelect={(value) => setSelectedDeadlineId(value ? Number(value) : null)}
+          selectedValue={selectedDeadline ? `${selectedDeadline.id}:${selectedDeadline.requirementLabel || ""}` : ""}
+          onSelect={(value) => setSelectedDeadlineId(value ? Number(value.split(":")[0]) : null)}
           searchPlaceholder="Search deadlines"
           emptyText="No upcoming deadlines."
         >

@@ -1880,6 +1880,9 @@ function ApplicationsSection({
 
   // Whether the move-to-next-stage form is expanded for a given application
   const [expandedMoveForm, setExpandedMoveForm] = useState<Record<number, boolean>>({});
+
+  // Active tab per application card: notes | request | decision
+  const [activeActionTabs, setActiveActionTabs] = useState<Record<number, "notes" | "request" | "decision">>({});
   const studentOptions = useMemo(
     () => Array.from(new Set(applications.map((application) => application.studentName))).sort(),
     [applications],
@@ -2246,543 +2249,412 @@ function ApplicationsSection({
                 const moveNextDraft = moveNextDrafts[application.id];
                 const seedDraft = workflowSeedDrafts[application.id];
                 const isMoving = expandedMoveForm[application.id] ?? false;
-
+                const tab = activeActionTabs[application.id] ?? "notes";
+                const setTab = (t: "notes" | "request" | "decision") =>
+                  setActiveActionTabs((c) => ({ ...c, [application.id]: t }));
                 return (
-                  <>
-              {/* ── Application header ── */}
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <p className="text-lg font-semibold">{application.programTitle}</p>
-                    <StatusBadge label={application.status} />
-                    {activeStage ? <StatusBadge label={activeStage.stageLabel} /> : null}
+                <>
+                {/* ── Header ── */}
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-base font-semibold text-[var(--portal-ink)]">{application.programTitle}</p>
+                      <StatusBadge label={application.status} />
+                      {activeStage ? <StatusBadge label={activeStage.stageLabel} /> : <StatusBadge label="No stage" />}
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">{application.studentName} · {application.studentEmail}</p>
                   </div>
-                  <p className="mt-2 text-sm font-medium text-[var(--portal-ink)]">Student: {application.studentName}</p>
-                  <p className="text-sm text-slate-500">{application.studentEmail}</p>
-                  {/* Current stage status (OGE-internal) */}
                   {activeStage ? (
-                    <div className="mt-3 rounded-2xl border border-slate-100 bg-[var(--portal-panel)] px-4 py-3 text-sm text-slate-600">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-[var(--portal-ink)]">Active stage</p>
-                        <StatusBadge label={activeStage.status.replaceAll("_", " ")} />
-                      </div>
-                      <p className="mt-1 font-semibold text-[var(--portal-ink)]">{activeStage.stageLabel}</p>
-                      <p className="text-xs text-slate-500">{activeStage.reviewerEmail}</p>
-                      {activeStage.studentVisibleUpdate ? (
-                        <p className="mt-2 text-xs leading-6 text-slate-500">Student-facing update: {activeStage.studentVisibleUpdate}</p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-[var(--portal-panel)] px-4 py-3 text-sm text-slate-600">
-                      <p className="font-medium text-[var(--portal-ink)]">No active workflow stage</p>
-                      <p className="mt-1 leading-6">Use the panels below to open the first stage and begin the review process.</p>
-                    </div>
-                  )}
-                  {application.documents.length > 0 ? (
-                    <div className="mt-4 space-y-3">
-                      <p className="text-sm font-medium text-slate-700">Student uploads</p>
-                      <div className="space-y-2">
-                      {application.documents.map((document) => (
-                        <div
-                          key={document.id}
-                          className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-[var(--portal-panel)] p-3 lg:flex-row lg:items-center lg:justify-between"
-                        >
-                          <div>
-                            <p className="text-sm font-medium text-[var(--portal-ink)]">
-                              {document.requirementLabel}: {document.fileName}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {document.deadlineTitle}
-                              {document.deadlineDate ? ` · due ${formatIsoDate(document.deadlineDate)}` : ""}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
+                    <span className="text-xs text-slate-400">{activeStage.status.replaceAll("_", " ")}</span>
+                  ) : null}
+                </div>
+
+                {/* ── Main body: left content + right timeline ── */}
+                <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
+                  <div className="flex-1 min-w-0">
+
+                    {/* Documents — compact chips */}
+                    {application.documents.length > 0 ? (
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {application.documents.map((document) => (
+                          <div key={document.id} className="flex items-center gap-2 rounded-full border border-slate-200 bg-[var(--portal-panel)] pl-3 pr-1 py-1 text-xs">
+                            <span className="font-medium text-[var(--portal-ink)] max-w-[14rem] truncate">{document.requirementLabel}: {document.fileName}</span>
                             <button
                               type="button"
                               onClick={() => void openApplicationDocument(document.id, "preview")}
                               disabled={documentActionLoadingId === document.id}
-                              className="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
+                              className="rounded-full bg-white border border-black/10 px-2 py-0.5 text-xs font-medium text-slate-600 disabled:opacity-60"
                             >
-                              {documentActionLoadingId === document.id ? "Loading..." : "Preview"}
+                              Preview
                             </button>
                             <button
                               type="button"
                               onClick={() => void openApplicationDocument(document.id, "download")}
                               disabled={documentActionLoadingId === document.id}
-                              className="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
+                              className="rounded-full bg-white border border-black/10 px-2 py-0.5 text-xs font-medium text-slate-600 disabled:opacity-60"
                             >
-                              Download
+                              ↓
                             </button>
                           </div>
-                        </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {/* Tab bar */}
+                    <div className="flex gap-1 rounded-2xl bg-[var(--portal-panel)] p-1">
+                      {(["notes", "request", "decision"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setTab(t)}
+                          className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                            tab === t
+                              ? "bg-white text-[var(--portal-ink)] shadow-sm"
+                              : "text-slate-500 hover:text-[var(--portal-ink)]"
+                          }`}
+                        >
+                          {t === "notes" ? "Notes & Update" : t === "request" ? "Send Request" : "Decisions"}
+                        </button>
                       ))}
-                      </div>
                     </div>
-                  ) : null}
-                </div>
-                <div className="w-full max-w-[20rem] rounded-2xl border border-slate-100 bg-[var(--portal-panel)] px-4 py-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Timeline</p>
-                  <div className="mt-3 space-y-3">
-                    {application.workflowStages.length > 0 ? (
-                      application.workflowStages.map((stage) => (
-                        <div key={stage.id} className="rounded-2xl border border-white/80 bg-white px-4 py-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                              Stage {stage.order}
-                            </span>
-                            <StatusBadge label={stage.stageLabel} />
-                            <StatusBadge label={stage.status.replaceAll("_", " ")} />
-                          </div>
-                          {stage.studentVisibleUpdate ? (
-                            <p className="mt-2 text-xs leading-6 text-slate-500">Student update: {stage.studentVisibleUpdate}</p>
-                          ) : null}
-                          {stage.reviewRequests && stage.reviewRequests.length > 0 ? (
-                            <p className="mt-1 text-xs text-slate-400">{stage.reviewRequests.length} advisory request{stage.reviewRequests.length > 1 ? "s" : ""}</p>
-                          ) : null}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-2xl border border-dashed border-white/80 bg-white px-4 py-4 text-sm leading-6 text-slate-500">
-                        No workflow stages yet.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
 
-              {/* ── Bottom action panels ── */}
-              <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_0.95fr]">
-                {/* Panel A: Office notes */}
-                <div className="rounded-3xl bg-[var(--portal-panel)] p-5">
-                  <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Office review notes</h4>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Private notes stay internal. The student-facing update appears in the student&apos;s dashboard.
-                  </p>
-                  {activeStage ? (
-                    <>
-                      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                        <textarea
-                          value={stageDraft?.internalNotes || ""}
-                          onChange={(e) =>
-                            setStageDrafts((current) => ({
-                              ...current,
-                              [activeStage.id]: {
-                                ...(current[activeStage.id] || { internalNotes: "", studentVisibleUpdate: "" }),
-                                internalNotes: e.target.value,
-                              },
-                            }))
-                          }
-                          className="min-h-28 rounded-2xl border border-black/10 px-4 py-3"
-                          placeholder="Internal office notes (not visible to student)"
-                        />
-                        <textarea
-                          value={stageDraft?.studentVisibleUpdate || ""}
-                          onChange={(e) =>
-                            setStageDrafts((current) => ({
-                              ...current,
-                              [activeStage.id]: {
-                                ...(current[activeStage.id] || { internalNotes: "", studentVisibleUpdate: "" }),
-                                studentVisibleUpdate: e.target.value,
-                              },
-                            }))
-                          }
-                          className="min-h-28 rounded-2xl border border-black/10 px-4 py-3"
-                          placeholder="Short student-facing update shown in their dashboard"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void saveStageNotes(activeStage)}
-                        disabled={submittingActionKey === `${activeStage.id}:save`}
-                        className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
-                      >
-                        {submittingActionKey === `${activeStage.id}:save` ? "Saving..." : "Save notes"}
-                      </button>
-                    </>
-                  ) : (
-                    <div className="mt-4 rounded-2xl border border-slate-100 bg-white px-4 py-4 text-sm text-slate-500">
-                      <p className="font-medium text-[var(--portal-ink)]">No active stage</p>
-                      <p className="mt-1 leading-6">Start a workflow stage below before adding notes.</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Panel B: Send advisory review request */}
-                <div className="rounded-3xl bg-[var(--portal-panel)] p-5">
-                  <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Send advisory review request</h4>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Ask a stakeholder for their input. This does not move the application — only OGE controls stage transitions.
-                  </p>
-                  {activeStage ? (
-                    <>
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <input
-                          value={sendReviewDraft?.toEmail || ""}
-                          onChange={(e) =>
-                            setSendReviewDrafts((current) => ({
-                              ...current,
-                              [activeStage.id]: {
-                                ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
-                                toEmail: e.target.value,
-                              },
-                            }))
-                          }
-                          className="rounded-2xl border border-black/10 px-4 py-3 md:col-span-2"
-                          placeholder="Stakeholder email"
-                          type="email"
-                        />
-                        <input
-                          value={sendReviewDraft?.toName || ""}
-                          onChange={(e) =>
-                            setSendReviewDrafts((current) => ({
-                              ...current,
-                              [activeStage.id]: {
-                                ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
-                                toName: e.target.value,
-                              },
-                            }))
-                          }
-                          className="rounded-2xl border border-black/10 px-4 py-3"
-                          placeholder="Stakeholder name"
-                        />
-                        <input
-                          value={sendReviewDraft?.toRoleLabel || ""}
-                          onChange={(e) =>
-                            setSendReviewDrafts((current) => ({
-                              ...current,
-                              [activeStage.id]: {
-                                ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
-                                toRoleLabel: e.target.value,
-                              },
-                            }))
-                          }
-                          className="rounded-2xl border border-black/10 px-4 py-3"
-                          placeholder="Role / office label"
-                        />
-                      </div>
-                      <textarea
-                        value={sendReviewDraft?.instructions || ""}
-                        onChange={(e) =>
-                          setSendReviewDrafts((current) => ({
-                            ...current,
-                            [activeStage.id]: {
-                              ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
-                              instructions: e.target.value,
-                            },
-                          }))
-                        }
-                        className="mt-3 min-h-24 w-full rounded-2xl border border-black/10 px-4 py-3"
-                        placeholder="What should this stakeholder review or provide input on?"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void sendReviewRequestToStakeholder(application)}
-                        disabled={submittingActionKey === `app:${application.id}:sendReview`}
-                        className="mt-4 rounded-full bg-[var(--portal-gold)] px-5 py-3 text-sm font-semibold text-[var(--portal-ink)] disabled:opacity-60"
-                      >
-                        {submittingActionKey === `app:${application.id}:sendReview` ? "Sending..." : "Send review request"}
-                      </button>
-                    </>
-                  ) : (
-                    <div className="mt-4 rounded-2xl border border-slate-100 bg-white px-4 py-4 text-sm text-slate-500">
-                      <p className="font-medium text-[var(--portal-ink)]">No active stage</p>
-                      <p className="mt-1 leading-6">Start a workflow stage before sending advisory requests.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ── OGE decisions panel ── */}
-              <div className="mt-5 rounded-3xl bg-[var(--portal-panel)] p-5">
-                <h4 className="text-lg font-semibold text-[var(--portal-ink)]">OGE stage decisions</h4>
-                <p className="mt-1 text-sm text-slate-600">
-                  Only GEO can control stage transitions, request student changes, or record the final nomination decision.
-                </p>
-
-                {activeStage ? (
-                  <div className="mt-5 space-y-5">
-                    {/* Move to next stage */}
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedMoveForm((current) => ({
-                            ...current,
-                            [application.id]: !current[application.id],
-                          }))
-                        }
-                        className="rounded-full border border-[var(--portal-teal)] px-4 py-2 text-sm font-semibold text-[var(--portal-teal)]"
-                      >
-                        {isMoving ? "Cancel move" : "Move to next stage →"}
-                      </button>
-                      {isMoving ? (
-                        <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-4">
-                          <p className="text-sm font-medium text-[var(--portal-ink)]">Next stage details</p>
-                          <div className="mt-3 grid gap-3 md:grid-cols-2">
-                            <input
-                              value={moveNextDraft?.nextStageLabel || ""}
+                    {/* Tab content */}
+                    <div className="mt-3">
+                      {tab === "notes" ? (
+                        activeStage ? (
+                          <div className="space-y-3">
+                            <textarea
+                              value={stageDraft?.internalNotes || ""}
                               onChange={(e) =>
-                                setMoveNextDrafts((current) => ({
+                                setStageDrafts((current) => ({
                                   ...current,
-                                  [application.id]: {
-                                    ...(current[application.id] || { nextStageLabel: "", studentVisibleUpdate: "" }),
-                                    nextStageLabel: e.target.value,
+                                  [activeStage.id]: {
+                                    ...(current[activeStage.id] || { internalNotes: "", studentVisibleUpdate: "" }),
+                                    internalNotes: e.target.value,
                                   },
                                 }))
                               }
-                              className="rounded-2xl border border-black/10 px-4 py-3 md:col-span-2"
-                              placeholder="Label for the next stage (e.g. 'Faculty Review')"
+                              className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                              rows={3}
+                              placeholder="Internal office notes (not visible to student)"
                             />
                             <textarea
-                              value={moveNextDraft?.studentVisibleUpdate || ""}
+                              value={stageDraft?.studentVisibleUpdate || ""}
                               onChange={(e) =>
-                                setMoveNextDrafts((current) => ({
+                                setStageDrafts((current) => ({
                                   ...current,
-                                  [application.id]: {
-                                    ...(current[application.id] || { nextStageLabel: "", studentVisibleUpdate: "" }),
+                                  [activeStage.id]: {
+                                    ...(current[activeStage.id] || { internalNotes: "", studentVisibleUpdate: "" }),
                                     studentVisibleUpdate: e.target.value,
                                   },
                                 }))
                               }
-                              className="min-h-20 rounded-2xl border border-black/10 px-4 py-3 md:col-span-2"
-                              placeholder="Student-facing update for this transition"
+                              className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                              rows={2}
+                              placeholder="Student-facing update (shown on their dashboard)"
                             />
+                            <button
+                              type="button"
+                              onClick={() => void saveStageNotes(activeStage)}
+                              disabled={submittingActionKey === `${activeStage.id}:save`}
+                              className="rounded-full bg-[var(--portal-teal)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                            >
+                              {submittingActionKey === `${activeStage.id}:save` ? "Saving..." : "Save notes"}
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => void moveToNextStage(application)}
-                            disabled={submittingActionKey === `app:${application.id}:move`}
-                            className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
-                          >
-                            {submittingActionKey === `app:${application.id}:move` ? "Moving..." : "Confirm move to next stage"}
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* Other decisions */}
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={() => void ogeStageDecision(activeStage, "CHANGES_REQUESTED")}
-                        disabled={submittingActionKey === `${activeStage.id}:CHANGES_REQUESTED`}
-                        className="rounded-full border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-700 disabled:opacity-60"
-                      >
-                        {submittingActionKey === `${activeStage.id}:CHANGES_REQUESTED` ? "Saving..." : "Request changes from student"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void ogeStageDecision(activeStage, "REJECTED")}
-                        disabled={submittingActionKey === `${activeStage.id}:REJECTED`}
-                        className="rounded-full border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 disabled:opacity-60"
-                      >
-                        {submittingActionKey === `${activeStage.id}:REJECTED` ? "Saving..." : "Reject application"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void nominateApplication(application)}
-                        disabled={submittingActionKey === `app:${application.id}:nominate`}
-                        className="rounded-full border border-[var(--portal-gold)] px-4 py-2 text-sm font-semibold text-[var(--portal-ink)] disabled:opacity-60"
-                      >
-                        {submittingActionKey === `app:${application.id}:nominate` ? "Recording..." : "Record nominated decision"}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="mt-4 text-sm text-slate-500">Start the first workflow stage to enable decisions.</p>
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      <input
-                        value={seedDraft?.stageLabel || ""}
-                        onChange={(e) =>
-                          setWorkflowSeedDrafts((current) => ({
-                            ...current,
-                            [application.id]: {
-                              ...(current[application.id] || {
-                                stageLabel: "",
-                                reviewerEmail: "",
-                                reviewerName: "",
-                                reviewerRoleLabel: "",
-                                instructions: "",
-                                studentVisibleUpdate: "",
-                              }),
-                              stageLabel: e.target.value,
-                            },
-                          }))
-                        }
-                        className="rounded-2xl border border-black/10 px-4 py-3"
-                        placeholder="Stage label (e.g. 'Initial Review')"
-                      />
-                      <input
-                        value={seedDraft?.reviewerRoleLabel || ""}
-                        onChange={(e) =>
-                          setWorkflowSeedDrafts((current) => ({
-                            ...current,
-                            [application.id]: {
-                              ...(current[application.id] || {
-                                stageLabel: "",
-                                reviewerEmail: "",
-                                reviewerName: "",
-                                reviewerRoleLabel: "",
-                                instructions: "",
-                                studentVisibleUpdate: "",
-                              }),
-                              reviewerRoleLabel: e.target.value,
-                            },
-                          }))
-                        }
-                        className="rounded-2xl border border-black/10 px-4 py-3"
-                        placeholder="Role / office label"
-                      />
-                      <input
-                        value={seedDraft?.reviewerEmail || ""}
-                        onChange={(e) =>
-                          setWorkflowSeedDrafts((current) => ({
-                            ...current,
-                            [application.id]: {
-                              ...(current[application.id] || {
-                                stageLabel: "",
-                                reviewerEmail: "",
-                                reviewerName: "",
-                                reviewerRoleLabel: "",
-                                instructions: "",
-                                studentVisibleUpdate: "",
-                              }),
-                              reviewerEmail: e.target.value,
-                            },
-                          }))
-                        }
-                        className="rounded-2xl border border-black/10 px-4 py-3 md:col-span-2"
-                        placeholder="OGE email to record as responsible party"
-                      />
-                      <input
-                        value={seedDraft?.reviewerName || ""}
-                        onChange={(e) =>
-                          setWorkflowSeedDrafts((current) => ({
-                            ...current,
-                            [application.id]: {
-                              ...(current[application.id] || {
-                                stageLabel: "",
-                                reviewerEmail: "",
-                                reviewerName: "",
-                                reviewerRoleLabel: "",
-                                instructions: "",
-                                studentVisibleUpdate: "",
-                              }),
-                              reviewerName: e.target.value,
-                            },
-                          }))
-                        }
-                        className="rounded-2xl border border-black/10 px-4 py-3 md:col-span-2"
-                        placeholder="OGE officer name (optional)"
-                      />
-                    </div>
-                    <textarea
-                      value={seedDraft?.instructions || ""}
-                      onChange={(e) =>
-                        setWorkflowSeedDrafts((current) => ({
-                          ...current,
-                          [application.id]: {
-                            ...(current[application.id] || {
-                              stageLabel: "",
-                              reviewerEmail: "",
-                              reviewerName: "",
-                              reviewerRoleLabel: "",
-                              instructions: "",
-                              studentVisibleUpdate: "",
-                            }),
-                            instructions: e.target.value,
-                          },
-                        }))
-                      }
-                      className="mt-3 min-h-24 w-full rounded-2xl border border-black/10 px-4 py-3"
-                      placeholder="Internal stage instructions"
-                    />
-                    <textarea
-                      value={seedDraft?.studentVisibleUpdate || ""}
-                      onChange={(e) =>
-                        setWorkflowSeedDrafts((current) => ({
-                          ...current,
-                          [application.id]: {
-                            ...(current[application.id] || {
-                              stageLabel: "",
-                              reviewerEmail: "",
-                              reviewerName: "",
-                              reviewerRoleLabel: "",
-                              instructions: "",
-                              studentVisibleUpdate: "",
-                            }),
-                            studentVisibleUpdate: e.target.value,
-                          },
-                        }))
-                      }
-                      className="mt-3 min-h-20 w-full rounded-2xl border border-black/10 px-4 py-3"
-                      placeholder="Student-facing update for opening this stage"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void startStage(application)}
-                      disabled={submittingActionKey === `app:${application.id}:start`}
-                      className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
-                    >
-                      {submittingActionKey === `app:${application.id}:start` ? "Opening..." : "Open first workflow stage"}
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* ── Advisory review requests trail ── */}
-              {activeStage && activeStage.reviewRequests && activeStage.reviewRequests.length > 0 ? (
-                <div className="mt-5 rounded-3xl border border-slate-100 p-5">
-                  <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Advisory review requests</h4>
-                  <p className="mt-1 text-sm text-slate-600">Requests sent to stakeholders for this stage and their responses back to OGE.</p>
-                  <div className="mt-4 space-y-3">
-                    {activeStage.reviewRequests.map((req) => (
-                      <div key={req.id} className="rounded-2xl bg-[var(--portal-panel)] px-4 py-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <StatusBadge label={req.status} />
-                          {req.toRoleLabel ? <StatusBadge label={req.toRoleLabel} /> : null}
-                        </div>
-                        <p className="mt-2 text-sm font-medium text-[var(--portal-ink)]">
-                          {req.toName || req.toEmail}
-                        </p>
-                        <p className="text-xs text-slate-500">{req.toEmail}</p>
-                        {req.instructions ? (
-                          <p className="mt-2 text-sm leading-6 text-slate-600">Instructions: {req.instructions}</p>
-                        ) : null}
-                        {req.reviewerNotes ? (
-                          <div className="mt-3 rounded-xl border border-slate-100 bg-white px-3 py-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Response</p>
-                            <p className="mt-1 text-sm leading-6 text-slate-700">{req.reviewerNotes}</p>
-                            {req.respondedAt ? (
-                              <p className="mt-1 text-xs text-slate-400">{formatIsoDate(req.respondedAt)}</p>
+                        ) : (
+                          <p className="text-sm text-slate-400">Start a workflow stage first.</p>
+                        )
+                      ) : tab === "request" ? (
+                        activeStage ? (
+                          <div className="space-y-3">
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <input
+                                value={sendReviewDraft?.toEmail || ""}
+                                onChange={(e) =>
+                                  setSendReviewDrafts((current) => ({
+                                    ...current,
+                                    [activeStage.id]: {
+                                      ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
+                                      toEmail: e.target.value,
+                                    },
+                                  }))
+                                }
+                                className="rounded-2xl border border-black/10 px-4 py-3 text-sm md:col-span-2"
+                                placeholder="Stakeholder email"
+                                type="email"
+                              />
+                              <input
+                                value={sendReviewDraft?.toName || ""}
+                                onChange={(e) =>
+                                  setSendReviewDrafts((current) => ({
+                                    ...current,
+                                    [activeStage.id]: {
+                                      ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
+                                      toName: e.target.value,
+                                    },
+                                  }))
+                                }
+                                className="rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                                placeholder="Name"
+                              />
+                              <input
+                                value={sendReviewDraft?.toRoleLabel || ""}
+                                onChange={(e) =>
+                                  setSendReviewDrafts((current) => ({
+                                    ...current,
+                                    [activeStage.id]: {
+                                      ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
+                                      toRoleLabel: e.target.value,
+                                    },
+                                  }))
+                                }
+                                className="rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                                placeholder="Role / office"
+                              />
+                            </div>
+                            <textarea
+                              value={sendReviewDraft?.instructions || ""}
+                              onChange={(e) =>
+                                setSendReviewDrafts((current) => ({
+                                  ...current,
+                                  [activeStage.id]: {
+                                    ...(current[activeStage.id] || { toEmail: "", toName: "", toRoleLabel: "", instructions: "" }),
+                                    instructions: e.target.value,
+                                  },
+                                }))
+                              }
+                              className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                              rows={3}
+                              placeholder="What should this stakeholder review or provide input on?"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void sendReviewRequestToStakeholder(application)}
+                              disabled={submittingActionKey === `app:${application.id}:sendReview`}
+                              className="rounded-full bg-[var(--portal-gold)] px-4 py-2 text-sm font-semibold text-[var(--portal-ink)] disabled:opacity-60"
+                            >
+                              {submittingActionKey === `app:${application.id}:sendReview` ? "Sending..." : "Send review request"}
+                            </button>
+                            {/* Advisory requests history */}
+                            {activeStage.reviewRequests && activeStage.reviewRequests.length > 0 ? (
+                              <div className="mt-2 space-y-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Previous requests</p>
+                                {activeStage.reviewRequests.map((req) => (
+                                  <div key={req.id} className="rounded-2xl border border-slate-100 px-3 py-3 text-sm">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="font-medium text-[var(--portal-ink)]">{req.toName || req.toEmail}</span>
+                                      <StatusBadge label={req.status} />
+                                    </div>
+                                    {req.reviewerNotes ? (
+                                      <p className="mt-1 text-slate-600 text-xs leading-5">Response: {req.reviewerNotes}</p>
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </div>
                             ) : null}
                           </div>
-                        ) : null}
-                      </div>
-                    ))}
+                        ) : (
+                          <p className="text-sm text-slate-400">Start a workflow stage first.</p>
+                        )
+                      ) : /* decisions tab */ activeStage ? (
+                        <div className="space-y-4">
+                          {/* Move to next stage */}
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedMoveForm((current) => ({
+                                  ...current,
+                                  [application.id]: !current[application.id],
+                                }))
+                              }
+                              className="rounded-full border border-[var(--portal-teal)] px-4 py-2 text-sm font-semibold text-[var(--portal-teal)]"
+                            >
+                              {isMoving ? "Cancel" : "Move to next stage →"}
+                            </button>
+                            {isMoving ? (
+                              <div className="mt-3 space-y-3 rounded-2xl border border-slate-100 bg-white p-4">
+                                <input
+                                  value={moveNextDraft?.nextStageLabel || ""}
+                                  onChange={(e) =>
+                                    setMoveNextDrafts((current) => ({
+                                      ...current,
+                                      [application.id]: {
+                                        ...(current[application.id] || { nextStageLabel: "", studentVisibleUpdate: "" }),
+                                        nextStageLabel: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                                  placeholder="Next stage label (e.g. 'Faculty Review')"
+                                />
+                                <textarea
+                                  value={moveNextDraft?.studentVisibleUpdate || ""}
+                                  onChange={(e) =>
+                                    setMoveNextDrafts((current) => ({
+                                      ...current,
+                                      [application.id]: {
+                                        ...(current[application.id] || { nextStageLabel: "", studentVisibleUpdate: "" }),
+                                        studentVisibleUpdate: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                                  rows={2}
+                                  placeholder="Student-facing update for this transition (optional)"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => void moveToNextStage(application)}
+                                  disabled={submittingActionKey === `app:${application.id}:move`}
+                                  className="rounded-full bg-[var(--portal-teal)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                                >
+                                  {submittingActionKey === `app:${application.id}:move` ? "Moving..." : "Confirm move"}
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void ogeStageDecision(activeStage, "CHANGES_REQUESTED")}
+                              disabled={submittingActionKey === `${activeStage.id}:CHANGES_REQUESTED`}
+                              className="rounded-full border border-amber-200 px-3 py-2 text-sm font-semibold text-amber-700 disabled:opacity-60"
+                            >
+                              {submittingActionKey === `${activeStage.id}:CHANGES_REQUESTED` ? "Saving..." : "Request changes"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void ogeStageDecision(activeStage, "REJECTED")}
+                              disabled={submittingActionKey === `${activeStage.id}:REJECTED`}
+                              className="rounded-full border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-600 disabled:opacity-60"
+                            >
+                              {submittingActionKey === `${activeStage.id}:REJECTED` ? "Saving..." : "Reject"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void nominateApplication(application)}
+                              disabled={submittingActionKey === `app:${application.id}:nominate`}
+                              className="rounded-full border border-[var(--portal-gold)] px-3 py-2 text-sm font-semibold text-[var(--portal-ink)] disabled:opacity-60"
+                            >
+                              {submittingActionKey === `app:${application.id}:nominate` ? "Recording..." : "Nominate"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* No active stage — seed form */
+                        <div className="space-y-3">
+                          <p className="text-xs text-slate-400">No active stage. Open the first review stage to begin.</p>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <input
+                              value={seedDraft?.stageLabel || ""}
+                              onChange={(e) =>
+                                setWorkflowSeedDrafts((current) => ({
+                                  ...current,
+                                  [application.id]: {
+                                    ...(current[application.id] || { stageLabel: "", reviewerEmail: "", reviewerName: "", reviewerRoleLabel: "", instructions: "", studentVisibleUpdate: "" }),
+                                    stageLabel: e.target.value,
+                                  },
+                                }))
+                              }
+                              className="rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                              placeholder="Stage label"
+                            />
+                            <input
+                              value={seedDraft?.reviewerRoleLabel || ""}
+                              onChange={(e) =>
+                                setWorkflowSeedDrafts((current) => ({
+                                  ...current,
+                                  [application.id]: {
+                                    ...(current[application.id] || { stageLabel: "", reviewerEmail: "", reviewerName: "", reviewerRoleLabel: "", instructions: "", studentVisibleUpdate: "" }),
+                                    reviewerRoleLabel: e.target.value,
+                                  },
+                                }))
+                              }
+                              className="rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                              placeholder="Role / office"
+                            />
+                            <input
+                              value={seedDraft?.reviewerEmail || ""}
+                              onChange={(e) =>
+                                setWorkflowSeedDrafts((current) => ({
+                                  ...current,
+                                  [application.id]: {
+                                    ...(current[application.id] || { stageLabel: "", reviewerEmail: "", reviewerName: "", reviewerRoleLabel: "", instructions: "", studentVisibleUpdate: "" }),
+                                    reviewerEmail: e.target.value,
+                                  },
+                                }))
+                              }
+                              className="rounded-2xl border border-black/10 px-4 py-3 text-sm md:col-span-2"
+                              placeholder="OGE responsible email"
+                            />
+                          </div>
+                          <textarea
+                            value={seedDraft?.studentVisibleUpdate || ""}
+                            onChange={(e) =>
+                              setWorkflowSeedDrafts((current) => ({
+                                ...current,
+                                [application.id]: {
+                                  ...(current[application.id] || { stageLabel: "", reviewerEmail: "", reviewerName: "", reviewerRoleLabel: "", instructions: "", studentVisibleUpdate: "" }),
+                                  studentVisibleUpdate: e.target.value,
+                                },
+                              }))
+                            }
+                            className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                            rows={2}
+                            placeholder="Student-facing update for opening this stage (optional)"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void startStage(application)}
+                            disabled={submittingActionKey === `app:${application.id}:start`}
+                            className="rounded-full bg-[var(--portal-teal)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                          >
+                            {submittingActionKey === `app:${application.id}:start` ? "Opening..." : "Open first stage"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ) : null}
 
-              {/* Nominations only — no email trail */}
-              {application.nominations.length > 0 ? (
-                <div className="mt-5 rounded-3xl border border-slate-100 p-5">
-                  <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Nomination log</h4>
-                  <div className="mt-4 space-y-3">
-                    {application.nominations.map((nomination) => (
-                      <div key={nomination.id} className="rounded-2xl bg-[var(--portal-panel)] px-4 py-4">
-                        <p className="text-sm font-medium text-[var(--portal-ink)]">Nomination recorded</p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {nomination.adminName} · {formatIsoDate(nomination.createdAt)}
-                        </p>
-                        <p className="mt-3 text-sm leading-6 text-slate-600">{nomination.notes}</p>
+                  {/* Timeline — right column */}
+                  <div className="w-full lg:w-52 shrink-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Timeline</p>
+                    <div className="mt-2 space-y-2">
+                      {application.workflowStages.length > 0 ? (
+                        application.workflowStages.map((stage) => (
+                          <div key={stage.id} className="rounded-xl border border-slate-100 bg-[var(--portal-panel)] px-3 py-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-xs font-semibold text-slate-400">S{stage.order}</span>
+                              <span className="text-xs font-medium text-[var(--portal-ink)]">{stage.stageLabel}</span>
+                            </div>
+                            <StatusBadge label={stage.status.replaceAll("_", " ")} />
+                            {stage.reviewRequests && stage.reviewRequests.length > 0 ? (
+                              <p className="mt-1 text-xs text-slate-400">{stage.reviewRequests.length} request{stage.reviewRequests.length > 1 ? "s" : ""}</p>
+                            ) : null}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-400">No stages yet.</p>
+                      )}
+                    </div>
+                    {/* Nominations */}
+                    {application.nominations.length > 0 ? (
+                      <div className="mt-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Nominated</p>
+                        {application.nominations.map((nomination) => (
+                          <div key={nomination.id} className="mt-2 rounded-xl border border-slate-100 bg-[var(--portal-panel)] px-3 py-2 text-xs text-slate-600">
+                            <p className="font-medium text-[var(--portal-ink)]">{nomination.adminName}</p>
+                            <p className="text-slate-400">{formatIsoDate(nomination.createdAt)}</p>
+                            {nomination.notes ? <p className="mt-1">{nomination.notes}</p> : null}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    ) : null}
                   </div>
                 </div>
-              ) : null}
-                  </>
+                </>
                 );
               })()}
             </div>
