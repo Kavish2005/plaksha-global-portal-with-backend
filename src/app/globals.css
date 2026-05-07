@@ -2,28 +2,420 @@
 @import "@fontsource/inter";
 
 :root {
-  --portal-teal: #0f766e;
-  --portal-teal-dark: #134e4a;
-  --portal-gold: #d9b15f;
-  --portal-ink: #18212f;
-  --portal-cream: #f6f3eb;
-  --portal-panel: #fffdf8;
+  /* Core palette */
+  --background: #050816;
+  --background-secondary: #0a1020;
+  --background-tertiary: #111827;
+
+  --foreground: #f8fafc;
+  --foreground-muted: #94a3b8;
+
+  /* Brand colors */
+  --portal-blue: #3b82f6;
+  --portal-violet: #8b5cf6;
+  --portal-cyan: #22d3ee;
+
+  /* Accent gradients */
+  --gradient-primary:
+    linear-gradient(
+      135deg,
+      rgba(59, 130, 246, 0.9),
+      rgba(139, 92, 246, 0.9)
+    );
+
+  /* Surface system */
+  --surface-glass: rgba(255, 255, 255, 0.05);
+  --surface-glass-hover: rgba(255, 255, 255, 0.08);
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+
+  /* Shadows */
+  --shadow-glow-blue:
+    0 0 60px rgba(59, 130, 246, 0.18);
+
+  --shadow-glow-violet:
+    0 0 60px rgba(139, 92, 246, 0.18);
+
+  /* Radius */
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-3xl: 2.5rem;
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border-subtle);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
+  margin: 0;
+  min-height: 100vh;
+
   font-family: "Inter", system-ui, sans-serif;
+
   background:
-    radial-gradient(circle at top, rgba(217, 177, 95, 0.15), transparent 30%),
-    linear-gradient(180deg, #fcfbf7 0%, #f5f1e8 100%);
+    radial-gradient(
+      circle at top left,
+      rgba(59, 130, 246, 0.12),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      rgba(139, 92, 246, 0.12),
+      transparent 30%
+    ),
+    linear-gradient(
+      180deg,
+      #050816 0%,
+      #070b18 40%,
+      #050816 100%
+    );
+
+  color: var(--foreground);
+
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+
+  overflow-x: hidden;
 }
+
+/* Typography */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 0;
+}
+
+p {
+  line-height: 1.7;
+}
+
+/* Selection */
+
+::selection {
+  background: rgba(59, 130, 246, 0.35);
+  color: white;
+}
+
+/* Scrollbar */
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #050816;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Inputs */
 
 button,
 input,
 select,
 textarea {
-  transition: all 160ms ease;
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    opacity 180ms ease,
+    box-shadow 180ms ease;
+
+  font: inherit;
 }
 
-::selection {
-  background: rgba(15, 118, 110, 0.2);
+/* Better focus states */
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(59, 130, 246, 0.5),
+    0 0 30px rgba(59, 130, 246, 0.3);
+}
+
+/* Links */
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Utility surfaces */
+
+.glass {
+  background: var(--surface-glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+
+  border: 1px solid var(--border-subtle);
+}
+
+.glass-hover:hover {
+  background: var(--surface-glass-hover);
+}
+
+/* Gradient text */
+
+.gradient-text {
+  background:
+    linear-gradient(
+      135deg,
+      #60a5fa,
+      #ffffff,
+      #a78bfa
+    );
+
+    background-clip: text;
+    -webkit-background-clip: text;
+    
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Glow utilities */
+
+.glow-blue {
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.glow-violet {
+  box-shadow: var(--shadow-glow-violet);
+}
+
+/* Floating animation */
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Fade-up animation */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.7s ease forwards;
+}
+
+/* Noise texture overlay helper */
+
+.noise-overlay::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  opacity: 0.03;
+  mix-blend-mode: soft-light;
+
+  background-image:
+    url("https://grainy-gradients.vercel.app/noise.svg");
+}
+
+/* Premium card */
+
+.premium-card {
+  position: relative;
+
+  overflow: hidden;
+
+  border-radius: 2rem;
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.03)
+    );
+
+  backdrop-filter: blur(24px);
+
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease;
+}
+
+.premium-card:hover {
+  transform: translateY(-4px);
+
+  border-color: rgba(255, 255, 255, 0.14);
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.04)
+    );
+}
+/* =========================
+   PORTAL DESIGN SYSTEM
+========================= */
+
+.portal-card {
+  @apply rounded-[32px]
+  border border-white/10
+  bg-white/[0.04]
+  backdrop-blur-2xl
+  shadow-[0_0_0_1px_rgba(255,255,255,0.02)];
+}
+
+.portal-card-hover {
+  @apply transition-all duration-300 hover:bg-white/[0.04];
+}
+
+.portal-input {
+  @apply w-full rounded-2xl border border-white/10 bg-white/[0.04]
+  px-5 py-4 text-white placeholder:text-white/30
+  outline-none backdrop-blur-xl;
+}
+
+.portal-title {
+  @apply text-white;
+}
+
+.portal-text {
+  @apply text-white/60;
+}
+
+.portal-muted {
+  @apply text-white/40;
+}
+
+.portal-panel {
+  @apply rounded-[40px]
+  border border-white/10
+  bg-white/[0.04]
+  backdrop-blur-2xl;
+}
+
+.portal-button {
+  @apply rounded-2xl bg-gradient-to-r
+  from-blue-500 to-violet-500
+  px-5 py-3 text-white
+  transition-all duration-300
+  hover:scale-[1.02];
+}
+/* Calendar Theme */
+
+.react-calendar {
+  width: 100% !important;
+  background: transparent !important;
+  border: none !important;
+  color: white !important;
+}
+
+.react-calendar button {
+  color: white !important;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+}
+
+.react-calendar button:hover {
+  background: rgba(255,255,255,0.08) !important;
+}
+
+.react-calendar__tile--active {
+  background: linear-gradient(
+    to right,
+    #3b82f6,
+    #8b5cf6
+  ) !important;
+
+  color: white !important;
+}
+
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: rgba(255,255,255,0.2) !important;
+}
+
+.react-calendar__navigation button {
+  font-weight: 600;
+}
+
+.react-calendar__navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+}
+
+.react-calendar__navigation button {
+  background: transparent !important;
+  border: none !important;
+  color: white !important;
+  font-size: 1.1rem;
+  font-weight: 600;
+  min-width: 44px;
+}
+
+.react-calendar__navigation__label {
+  flex-grow: 0 !important;
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+}
+.react-calendar__month-view__weekdays {
+  margin-bottom: 1rem;
+  text-align: center;
+  text-transform: none;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+}
+
+.react-calendar__month-view__days {
+  gap: 0.5rem;
+}
+
+.react-calendar__tile {
+  padding: 0.9rem 0 !important;
+  font-size: 1.05rem;
 }

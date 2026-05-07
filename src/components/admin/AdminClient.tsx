@@ -592,9 +592,9 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
   if (activeUser?.role !== "admin" && activeUser?.role !== "mentor") {
     return (
       <div className="mx-auto max-w-5xl px-6 py-16">
-        <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
+        <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
           <h1 className="text-3xl font-bold">Office access only</h1>
-          <p className="mt-3 text-slate-600">
+          <p className="mt-3 text-white/60">
             Sign in with an approved Global Engagement Office or mentor account to access the internal workspace.
           </p>
         </div>
@@ -608,9 +608,9 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
 
   if (isMentorUser && section !== "mentors" && section !== "assistant") {
     return (
-      <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
+      <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
         <h1 className="text-3xl font-bold">Mentor access</h1>
-        <p className="mt-3 text-slate-600">
+        <p className="mt-3 text-white/60">
           Mentor accounts can manage their own availability, upload assistant documents, and review meetings booked by students from the mentor workspace.
         </p>
       </div>
@@ -756,7 +756,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
 }
 
 function LoadingState({ label }: { label: string }) {
-  return <div className="mx-auto max-w-7xl px-6 py-16 text-slate-500">{label}</div>;
+  return <div className="mx-auto max-w-7xl px-6 py-16 text-white/50">{label}</div>;
 }
 
 function AdminSection({
@@ -771,10 +771,10 @@ function AdminSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
+    <section className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
       <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">{eyebrow}</p>
       <h2 className="mt-2 text-3xl font-semibold">{title}</h2>
-      <p className="mt-2 max-w-3xl text-slate-600">{description}</p>
+      <p className="mt-2 max-w-3xl text-white/60">{description}</p>
       <div className="mt-8">{children}</div>
     </section>
   );
@@ -813,10 +813,10 @@ function OverviewSection({
               <div key={deadline.id} className="flex items-center justify-between rounded-2xl border border-slate-100 p-4">
                 <div>
                   <p className="font-semibold">{deadline.programTitle}</p>
-                  <p className="text-sm text-slate-500">{deadline.title}</p>
+                  <p className="text-sm text-white/50">{deadline.title}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-slate-500">{formatIsoDate(deadline.date)}</p>
+                  <p className="text-sm text-white/50">{formatIsoDate(deadline.date)}</p>
                   <div className="mt-2">
                     <StatusBadge label={deadline.priority} />
                   </div>
@@ -825,7 +825,7 @@ function OverviewSection({
             ))}
           </div>
           {dashboard.upcomingDeadlines.length > recentDeadlines.length ? (
-            <p className="mt-4 text-sm text-slate-500">
+            <p className="mt-4 text-sm text-white/50">
               Showing the next {recentDeadlines.length} deadlines in overview. Manage the full set from Programs.
             </p>
           ) : null}
@@ -856,16 +856,16 @@ function OverviewSection({
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="font-semibold">{nomination.application?.programTitle}</p>
-                  <p className="text-sm text-slate-500">{nomination.application?.studentName}</p>
+                  <p className="text-sm text-white/50">{nomination.application?.studentName}</p>
                 </div>
-                <p className="text-sm text-slate-500">{formatIsoDate(nomination.createdAt)}</p>
+                <p className="text-sm text-white/50">{formatIsoDate(nomination.createdAt)}</p>
               </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{nomination.notes}</p>
+              <p className="mt-3 text-sm leading-6 text-white/60">{nomination.notes}</p>
             </div>
           ))}
         </div>
         {nominations.length > recentNominations.length ? (
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-white/50">
             Showing the latest {recentNominations.length} nominations in overview.
           </p>
         ) : null}
@@ -942,9 +942,9 @@ function ProgramsSection({
         <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
           <h3 className="text-xl font-semibold">{editingProgramId ? "Edit program" : "Create program"}</h3>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <input value={programForm.title} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, title: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Title" />
-            <input value={programForm.university} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, university: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="University" />
-            <input value={programForm.country} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, country: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Country" />
+            <input value={programForm.title} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, title: e.target.value }))} className="rounded-2xl border border-white/10 px-4 py-3" placeholder="Title" />
+            <input value={programForm.university} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, university: e.target.value }))} className="rounded-2xl border border-white/10 px-4 py-3" placeholder="University" />
+            <input value={programForm.country} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, country: e.target.value }))} className="rounded-2xl border border-white/10 px-4 py-3" placeholder="Country" />
             <SearchableSelect
               value={programForm.type}
               onChange={(value) => onProgramFormChange((prev) => ({ ...prev, type: value || "Exchange" }))}
@@ -958,22 +958,22 @@ function ProgramsSection({
               searchPlaceholder="Search program type"
             />
           </div>
-          <textarea value={programForm.description} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, description: e.target.value }))} className="mt-3 min-h-28 w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Description" />
-          <textarea value={programForm.eligibility} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, eligibility: e.target.value }))} className="mt-3 min-h-20 w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Eligibility" />
+          <textarea value={programForm.description} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, description: e.target.value }))} className="mt-3 min-h-[120px] w-full rounded-2xl border border-white/10 px-4 py-3" placeholder="Description" />
+          <textarea value={programForm.eligibility} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, eligibility: e.target.value }))} className="mt-3 min-h-20 w-full rounded-2xl border border-white/10 px-4 py-3" placeholder="Eligibility" />
           <div className="mt-3 grid gap-3 md:grid-cols-3">
-            <input value={programForm.duration} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, duration: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Duration" />
+            <input value={programForm.duration} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, duration: e.target.value }))} className="rounded-2xl border border-white/10 px-4 py-3" placeholder="Duration" />
             <input
               type="date"
               value={programForm.startDate}
               onChange={(e) => onProgramFormChange((prev) => ({ ...prev, startDate: e.target.value }))}
-              className="rounded-2xl border border-black/10 px-4 py-3"
+              className="rounded-2xl border border-white/10 px-4 py-3"
               placeholder="Program start date"
             />
             <input
               type="date"
               value={programForm.endDate}
               onChange={(e) => onProgramFormChange((prev) => ({ ...prev, endDate: e.target.value }))}
-              className="rounded-2xl border border-black/10 px-4 py-3"
+              className="rounded-2xl border border-white/10 px-4 py-3"
               placeholder="Program end date"
             />
           </div>
@@ -981,12 +981,12 @@ function ProgramsSection({
             <input
               value={programForm.externalLink}
               onChange={(e) => onProgramFormChange((prev) => ({ ...prev, externalLink: e.target.value }))}
-              className="w-full rounded-2xl border border-black/10 px-4 py-3"
+              className="w-full rounded-2xl border border-white/10 px-4 py-3"
               placeholder="Official program link (https://...)"
             />
-            <input value={programForm.tags} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, tags: e.target.value }))} className="w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Tags, comma separated" />
+            <input value={programForm.tags} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, tags: e.target.value }))} className="w-full rounded-2xl border border-white/10 px-4 py-3" placeholder="Tags, comma separated" />
           </div>
-          <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
+          <label className="mt-4 flex items-center gap-2 text-sm text-white/60">
             <input type="checkbox" checked={programForm.featured} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, featured: e.target.checked }))} />
             Featured on homepage
           </label>
@@ -995,7 +995,7 @@ function ProgramsSection({
               {editingProgramId ? "Update Program" : "Create Program"}
             </button>
             {editingProgramId ? (
-              <button onClick={onReset} className="rounded-full border border-black/10 px-5 py-3 text-sm font-semibold">
+              <button onClick={onReset} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold">
                 Cancel Edit
               </button>
             ) : null}
@@ -1011,7 +1011,7 @@ function ProgramsSection({
               placeholder="Select a program"
               searchPlaceholder="Search by title, university, country, or tag"
             />
-            <p className="mt-3 text-sm text-slate-500">
+            <p className="mt-3 text-sm text-white/50">
               Search once, then focus on a single selected program for editing, deletion, and deadlines.
             </p>
           </div>
@@ -1025,16 +1025,16 @@ function ProgramsSection({
                     <StatusBadge label={selectedProgram.type} />
                     {selectedProgram.featured ? <StatusBadge label="Featured" /> : null}
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-white/50">
                     {selectedProgram.university} · {selectedProgram.country}
                   </p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{selectedProgram.description}</p>
-                  <p className="mt-3 text-sm text-slate-500">
+                  <p className="mt-3 text-sm leading-6 text-white/60">{selectedProgram.description}</p>
+                  <p className="mt-3 text-sm text-white/50">
                     Eligibility: {selectedProgram.eligibility}
                   </p>
-                  <p className="mt-1 text-sm text-slate-500">Duration: {selectedProgram.duration}</p>
-                  {selectedProgram.startDate ? <p className="mt-1 text-sm text-slate-500">Program starts on: {formatIsoDate(selectedProgram.startDate)}</p> : null}
-                  {selectedProgram.endDate ? <p className="mt-1 text-sm text-slate-500">Program runs until: {formatIsoDate(selectedProgram.endDate)}</p> : null}
+                  <p className="mt-1 text-sm text-white/50">Duration: {selectedProgram.duration}</p>
+                  {selectedProgram.startDate ? <p className="mt-1 text-sm text-white/50">Program starts on: {formatIsoDate(selectedProgram.startDate)}</p> : null}
+                  {selectedProgram.endDate ? <p className="mt-1 text-sm text-white/50">Program runs until: {formatIsoDate(selectedProgram.endDate)}</p> : null}
                   {selectedProgram.externalLink ? (
                     <a
                       href={selectedProgram.externalLink}
@@ -1047,7 +1047,7 @@ function ProgramsSection({
                   ) : null}
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  <button onClick={() => onEdit(selectedProgram)} className="rounded-full border border-black/10 px-4 py-2 text-sm">
+                  <button onClick={() => onEdit(selectedProgram)} className="rounded-full border border-white/10 px-4 py-2 text-sm">
                     Edit
                   </button>
                   <button
@@ -1066,10 +1066,10 @@ function ProgramsSection({
                     <input
                       value={deadlineTitle}
                       onChange={(e) => onDeadlineTitleChange(e.target.value)}
-                      className="rounded-2xl border border-black/10 px-4 py-3"
+                      className="rounded-2xl border border-white/10 px-4 py-3"
                       placeholder="Deadline title"
                     />
-                    <div className="space-y-3 rounded-2xl border border-black/5 bg-white/70 p-4">
+                    <div className="space-y-3 rounded-2xl border border-black/5 bg-white/[0.04]/70 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium text-slate-700">Required files</p>
                         <button
@@ -1077,7 +1077,7 @@ function ProgramsSection({
                           onClick={() =>
                             onDeadlineRequiredDocumentsChange((prev) => [...prev, ""])
                           }
-                          className="rounded-full border border-black/10 px-3 py-1 text-xs font-semibold text-slate-600"
+                          className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-white/60"
                         >
                           Add another file
                         </button>
@@ -1092,7 +1092,7 @@ function ProgramsSection({
                                   prev.map((item, itemIndex) => (itemIndex === index ? e.target.value : item)),
                                 )
                               }
-                              className="w-full rounded-2xl border border-black/10 px-4 py-3"
+                              className="w-full rounded-2xl border border-white/10 px-4 py-3"
                               placeholder={`Required file ${index + 1} (e.g. Transcript, Resume, LOR)`}
                             />
                             {deadlineRequiredDocuments.length > 1 ? (
@@ -1117,7 +1117,7 @@ function ProgramsSection({
                       type="date"
                       value={deadlineDate}
                       onChange={(e) => onDeadlineDateChange(e.target.value)}
-                      className="rounded-2xl border border-black/10 px-4 py-3"
+                      className="rounded-2xl border border-white/10 px-4 py-3"
                     />
                     <SearchableSelect
                       value={deadlinePriority}
@@ -1146,7 +1146,7 @@ function ProgramsSection({
                         onDeadlinePriorityChange("High");
                         onDeadlineRequiredDocumentsChange([""]);
                       }}
-                      className="mt-3 rounded-full border border-black/10 px-5 py-3 text-sm font-semibold"
+                      className="mt-3 rounded-full border border-white/10 px-5 py-3 text-sm font-semibold"
                     >
                       Cancel Deadline Edit
                     </button>
@@ -1156,10 +1156,10 @@ function ProgramsSection({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-lg font-semibold">Deadlines for {selectedProgram.title}</h4>
-                    <span className="text-sm text-slate-500">{selectedProgram.deadlines.length}</span>
+                    <span className="text-sm text-white/50">{selectedProgram.deadlines.length}</span>
                   </div>
                   {selectedProgram.deadlines.length === 0 ? (
-                    <p className="rounded-2xl border border-slate-100 p-4 text-sm text-slate-500">
+                    <p className="rounded-2xl border border-slate-100 p-4 text-sm text-white/50">
                       No deadlines added for this program yet.
                     </p>
                   ) : (
@@ -1167,9 +1167,9 @@ function ProgramsSection({
                       <div key={deadline.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                           <p className="font-semibold">{deadline.title}</p>
-                          <p className="text-sm text-slate-500">{formatIsoDate(deadline.date)}</p>
+                          <p className="text-sm text-white/50">{formatIsoDate(deadline.date)}</p>
                           {deadline.requiredDocuments.length > 0 ? (
-                            <p className="mt-2 text-sm text-slate-500">
+                            <p className="mt-2 text-sm text-white/50">
                               Required uploads: {deadline.requiredDocuments.join(", ")}
                             </p>
                           ) : null}
@@ -1186,7 +1186,7 @@ function ProgramsSection({
                                 deadline.requiredDocuments.length > 0 ? deadline.requiredDocuments : [""],
                               );
                             }}
-                            className="rounded-full border border-black/10 px-4 py-2 text-sm"
+                            className="rounded-full border border-white/10 px-4 py-2 text-sm"
                           >
                             Edit
                           </button>
@@ -1204,7 +1204,7 @@ function ProgramsSection({
               </div>
             </div>
           ) : (
-            <p className="rounded-3xl border border-slate-100 p-6 text-sm text-slate-500">
+            <p className="rounded-3xl border border-slate-100 p-6 text-sm text-white/50">
               No programs match the current search.
             </p>
           )}
@@ -1303,7 +1303,7 @@ function DiscoverySection({
       <div className="grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
         <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
           <h3 className="text-xl font-semibold">What would you like to find?</h3>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+          <p className="mt-3 text-sm leading-6 text-white/60">
             You can either type a request in your own words or use the filters below. For example: “Find summer school options in robotics” or “Show research opportunities in AI for undergraduates in Europe.”
           </p>
 
@@ -1343,7 +1343,7 @@ function DiscoverySection({
           </div>
 
           {builtFilterRequest ? (
-            <div className="mt-4 rounded-2xl border border-black/5 bg-white/70 p-4 text-sm text-slate-600">
+            <div className="mt-4 rounded-2xl border border-black/5 bg-white/[0.04]/70 p-4 text-sm text-white/60">
               <p className="font-medium text-[var(--portal-ink)]">Suggested search from filters</p>
               <p className="mt-2">{builtFilterRequest}</p>
             </div>
@@ -1352,7 +1352,7 @@ function DiscoverySection({
           <textarea
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="mt-5 min-h-40 w-full rounded-2xl border border-black/10 px-4 py-3"
+            className="mt-5 min-h-40 w-full rounded-2xl border border-white/10 px-4 py-3"
             placeholder="Optional: type a more specific request here if you want to guide the search in your own words..."
           />
 
@@ -1373,7 +1373,7 @@ function DiscoverySection({
                 setStudentLevelFilter("");
                 setDiscovery(null);
               }}
-              className="rounded-full border border-black/10 px-5 py-3 text-sm font-semibold"
+              className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold"
             >
               Reset
             </button>
@@ -1394,7 +1394,7 @@ function DiscoverySection({
               ))}
             </div>
           ) : discovery ? (
-            <div className="rounded-3xl border border-dashed border-black/10 p-6 text-sm text-slate-500">
+            <div className="rounded-3xl border border-dashed border-white/10 p-6 text-sm text-white/50">
               <p>{discovery.overview || "We couldn’t find strong matches from the current request. Try narrowing the search by topic, region, opportunity type, or student level."}</p>
             </div>
           ) : null}
@@ -1421,11 +1421,11 @@ function OpportunityResultCard({
         : "bg-amber-50 text-amber-700";
 
   return (
-    <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+    <div className="rounded-3xl border border-slate-100 bg-white/[0.04] p-6 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+            <span className="rounded-full bg-white/[0.05] px-3 py-1 text-xs font-semibold text-white/60">
               #{index + 1}
             </span>
             <p className="text-xl font-semibold">{result.title}</p>
@@ -1437,7 +1437,7 @@ function OpportunityResultCard({
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-slate-500">{result.institution}</p>
+          <p className="mt-1 text-sm text-white/50">{result.institution}</p>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -1445,7 +1445,7 @@ function OpportunityResultCard({
             href={result.url}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold"
+            className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold"
           >
             Open source
           </a>
@@ -1458,31 +1458,31 @@ function OpportunityResultCard({
         </div>
       </div>
 
-      <p className="mt-4 text-sm leading-6 text-slate-600">{result.summary}</p>
+      <p className="mt-4 text-sm leading-6 text-white/60">{result.summary}</p>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <div className="rounded-2xl bg-[var(--portal-panel)] p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Why it fits</p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{result.fitReason}</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-white/40">Why it fits</p>
+          <p className="mt-2 text-sm leading-6 text-white/60">{result.fitReason}</p>
         </div>
         <div className="rounded-2xl bg-[var(--portal-panel)] p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Eligibility</p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{result.eligibility}</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-white/40">Eligibility</p>
+          <p className="mt-2 text-sm leading-6 text-white/60">{result.eligibility}</p>
         </div>
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-slate-100 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Timing</p>
-          <p className="mt-2 text-sm text-slate-600">{result.timing}</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-white/40">Timing</p>
+          <p className="mt-2 text-sm text-white/60">{result.timing}</p>
         </div>
         <div className="rounded-2xl border border-slate-100 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Deadline</p>
-          <p className="mt-2 text-sm text-slate-600">{result.deadline}</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-white/40">Deadline</p>
+          <p className="mt-2 text-sm text-white/60">{result.deadline}</p>
         </div>
         <div className="rounded-2xl border border-slate-100 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Source</p>
-          <p className="mt-2 text-sm text-slate-600">{result.sourceLabel}</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-white/40">Source</p>
+          <p className="mt-2 text-sm text-white/60">{result.sourceLabel}</p>
         </div>
       </div>
 
@@ -1594,18 +1594,18 @@ function MentorsSection({
             <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
               <h3 className="text-xl font-semibold">{editingMentorId ? "Edit mentor" : "Create mentor"}</h3>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <input value={mentorForm.name} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, name: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Mentor name" />
-                <input value={mentorForm.email} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, email: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Mentor email" />
-                <input value={mentorForm.expertise} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, expertise: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Expertise" />
-                <input value={mentorForm.region} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, region: e.target.value }))} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="Support domain / region" />
+                <input value={mentorForm.name} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, name: e.target.value }))} className="rounded-2xl border border-white/10 px-4 py-3" placeholder="Mentor name" />
+                <input value={mentorForm.email} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, email: e.target.value }))} className="rounded-2xl border border-white/10 px-4 py-3" placeholder="Mentor email" />
+                <input value={mentorForm.expertise} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, expertise: e.target.value }))} className="rounded-2xl border border-white/10 px-4 py-3" placeholder="Expertise" />
+                <input value={mentorForm.region} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, region: e.target.value }))} className="rounded-2xl border border-white/10 px-4 py-3" placeholder="Support domain / region" />
               </div>
-              <textarea value={mentorForm.bio} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, bio: e.target.value }))} className="mt-3 min-h-24 w-full rounded-2xl border border-black/10 px-4 py-3" placeholder="Bio" />
+              <textarea value={mentorForm.bio} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, bio: e.target.value }))} className="mt-3 min-h-24 w-full rounded-2xl border border-white/10 px-4 py-3" placeholder="Bio" />
               <div className="mt-5 flex gap-3">
                 <button onClick={() => void onSubmit()} className="rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white">
                   {editingMentorId ? "Update Mentor" : "Create Mentor"}
                 </button>
                 {editingMentorId ? (
-                  <button onClick={onReset} className="rounded-full border border-black/10 px-5 py-3 text-sm font-semibold">
+                  <button onClick={onReset} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold">
                     Cancel Edit
                   </button>
                 ) : null}
@@ -1629,18 +1629,18 @@ function MentorsSection({
                 searchPlaceholder="Search mentor"
                 disabled={isMentorUser}
               />
-              <input type="date" value={availabilityDate} onChange={(e) => onAvailabilityDateChange(e.target.value)} className="rounded-2xl border border-black/10 px-4 py-3" />
-              <input value={availabilitySlot} onChange={(e) => onAvailabilitySlotChange(e.target.value)} className="rounded-2xl border border-black/10 px-4 py-3" placeholder="10:00 AM" />
+              <input type="date" value={availabilityDate} onChange={(e) => onAvailabilityDateChange(e.target.value)} className="rounded-2xl border border-white/10 px-4 py-3" />
+              <input value={availabilitySlot} onChange={(e) => onAvailabilitySlotChange(e.target.value)} className="rounded-2xl border border-white/10 px-4 py-3" placeholder="10:00 AM" />
             </div>
             <button onClick={() => void onCreateAvailability()} className="mt-4 rounded-full bg-[var(--portal-gold)] px-5 py-3 text-sm font-semibold text-[var(--portal-ink)]">
               Add Slot
             </button>
 
-            <div className="mt-6 rounded-3xl border border-white/70 bg-white/80 p-5">
+            <div className="mt-6 rounded-3xl border border-white/70 bg-white/[0.04]/80 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Batch create slots</h4>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-white/50">
                     Generate a full block of availability in one go. A 30-minute interval is the best default for standard mentor sessions.
                   </p>
                 </div>
@@ -1651,13 +1651,13 @@ function MentorsSection({
                   type="time"
                   value={availabilityBatchStartTime}
                   onChange={(e) => onAvailabilityBatchStartTimeChange(e.target.value)}
-                  className="rounded-2xl border border-black/10 px-4 py-3"
+                  className="rounded-2xl border border-white/10 px-4 py-3"
                 />
                 <input
                   type="time"
                   value={availabilityBatchEndTime}
                   onChange={(e) => onAvailabilityBatchEndTimeChange(e.target.value)}
-                  className="rounded-2xl border border-black/10 px-4 py-3"
+                  className="rounded-2xl border border-white/10 px-4 py-3"
                 />
                 <SearchableSelect
                   value={availabilityBatchInterval}
@@ -1681,14 +1681,14 @@ function MentorsSection({
             </div>
 
             <div className="mt-5 space-y-2">
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-600">
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-100 bg-white/[0.04] px-4 py-3 text-sm text-white/60">
                 <span className="font-medium text-[var(--portal-ink)]">{sortedAvailabilitySlots.length} total slots</span>
                 <StatusBadge label={`${availableSlotCount} Available`} />
                 {bookedSlotCount > 0 ? <StatusBadge label={`${bookedSlotCount} Booked`} /> : null}
               </div>
 
               {previewAvailabilitySlots.map((slot) => (
-                <div key={slot.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-3">
+                <div key={slot.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white/[0.04] p-3">
                   <div className="flex items-center gap-3">
                     <span className="font-medium">{slot.time}</span>
                     <StatusBadge label={slot.available ? "Available" : "Booked"} />
@@ -1705,7 +1705,7 @@ function MentorsSection({
                 <button
                   type="button"
                   onClick={() => setShowAllAvailabilitySlots((current) => !current)}
-                  className="w-full rounded-2xl border border-dashed border-black/10 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-white"
+                  className="w-full rounded-2xl border border-dashed border-white/10 px-4 py-3 text-sm font-medium text-white/60 transition hover:bg-white/[0.04]"
                 >
                   {showAllAvailabilitySlots
                     ? "Show fewer slots"
@@ -1720,21 +1720,21 @@ function MentorsSection({
               <h3 className="text-xl font-semibold">Scheduled meetings</h3>
               <div className="mt-5 space-y-3">
                 {mentorMeetings.length === 0 ? (
-                  <p className="rounded-2xl bg-white p-4 text-sm text-slate-500">No student meetings scheduled yet.</p>
+                  <p className="rounded-2xl bg-white/[0.04] p-4 text-sm text-white/50">No student meetings scheduled yet.</p>
                 ) : (
                   mentorMeetings.map((meeting) => (
-                    <div key={meeting.id} className="rounded-2xl bg-white p-4">
+                    <div key={meeting.id} className="rounded-2xl bg-white/[0.04] p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-semibold">{meeting.studentName}</p>
-                          <p className="text-sm text-slate-500">{meeting.studentEmail}</p>
+                          <p className="text-sm text-white/50">{meeting.studentEmail}</p>
                         </div>
                         <StatusBadge label={meeting.status} />
                       </div>
-                      <p className="mt-3 text-sm text-slate-600">
+                      <p className="mt-3 text-sm text-white/60">
                         {formatIsoDate(meeting.date)} · {meeting.time}
                       </p>
-                      {meeting.topic ? <p className="mt-2 text-sm text-slate-500">{meeting.topic}</p> : null}
+                      {meeting.topic ? <p className="mt-2 text-sm text-white/50">{meeting.topic}</p> : null}
                     </div>
                   ))
                 )}
@@ -1756,7 +1756,7 @@ function MentorsSection({
               placeholder="Select a mentor"
               searchPlaceholder="Search by mentor name, email, region, or expertise"
             />
-            <p className="mt-3 text-sm text-slate-500">
+            <p className="mt-3 text-sm text-white/50">
               Search once, then focus on one mentor profile at a time for quick edits.
             </p>
           </div>
@@ -1769,13 +1769,13 @@ function MentorsSection({
                     <p className="text-lg font-semibold">{selectedMentor.name}</p>
                     <StatusBadge label={selectedMentor.region} />
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">{selectedMentor.email}</p>
-                  <p className="mt-1 text-sm text-slate-500">{selectedMentor.expertise}</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{selectedMentor.bio}</p>
+                  <p className="mt-1 text-sm text-white/50">{selectedMentor.email}</p>
+                  <p className="mt-1 text-sm text-white/50">{selectedMentor.expertise}</p>
+                  <p className="mt-3 text-sm leading-6 text-white/60">{selectedMentor.bio}</p>
                 </div>
                 {!isMentorUser ? (
                   <div className="flex flex-wrap gap-3">
-                    <button onClick={() => onEdit(selectedMentor)} className="rounded-full border border-black/10 px-4 py-2 text-sm">
+                    <button onClick={() => onEdit(selectedMentor)} className="rounded-full border border-white/10 px-4 py-2 text-sm">
                       Edit
                     </button>
                     <button onClick={() => void onDelete(selectedMentor.id)} className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600">
@@ -1786,7 +1786,7 @@ function MentorsSection({
               </div>
             </div>
           ) : (
-            <p className="rounded-3xl border border-slate-100 p-6 text-sm text-slate-500">
+            <p className="rounded-3xl border border-slate-100 p-6 text-sm text-white/50">
               No mentors match the current search.
             </p>
           )}
@@ -1803,7 +1803,7 @@ function ProgramsRedirectSection() {
       title="Deadline management has moved"
       description="Deadlines are now managed inside the Programs workspace so each program and its milestones stay together in one compact flow."
     >
-      <p className="rounded-3xl bg-[var(--portal-panel)] px-5 py-5 text-sm text-slate-600">
+      <p className="rounded-3xl bg-[var(--portal-panel)] px-5 py-5 text-sm text-white/60">
         Open the Programs tab, search for a program, and manage that program&apos;s deadlines directly from its detail panel.
       </p>
     </AdminSection>
@@ -2144,11 +2144,11 @@ function ApplicationsSection({
     <>
       {previewableDocument ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
-          <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+          <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] bg-white/[0.04] shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
               <div>
                 <p className="text-lg font-semibold text-[var(--portal-ink)]">{previewableDocument.fileName}</p>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-white/50">
                   {previewableDocument.requirementLabel}
                   {previewableDocument.deadlineTitle ? ` · ${previewableDocument.deadlineTitle}` : ""}
                 </p>
@@ -2157,31 +2157,31 @@ function ApplicationsSection({
                 <button
                   type="button"
                   onClick={() => void openApplicationDocument(previewableDocument.id, "download")}
-                  className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700"
+                  className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-700"
                 >
                   Download
                 </button>
                 <button
                   type="button"
                   onClick={() => setPreviewDocument(null)}
-                  className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700"
+                  className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-700"
                 >
                   Close
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 bg-slate-100 p-4">
+            <div className="flex-1 bg-white/[0.05] p-4">
               {previewableDocument.canInlinePreview ? (
                 <iframe
                   title={previewableDocument.fileName}
                   src={previewableDocument.fileData}
-                  className="h-full w-full rounded-2xl border border-slate-200 bg-white"
+                  className="h-full w-full rounded-2xl border border-slate-200 bg-white/[0.04]"
                 />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 text-center">
+                <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white/[0.04] px-6 text-center">
                   <p className="text-lg font-semibold text-[var(--portal-ink)]">Preview not supported for this file type</p>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-white/50">
                     This document can still be downloaded and opened locally. For the best experience, use the download action above.
                   </p>
                 </div>
@@ -2235,7 +2235,7 @@ function ApplicationsSection({
             allowClear
           />
         </div>
-        <p className="mt-4 text-sm text-slate-500">
+        <p className="mt-4 text-sm text-white/50">
           Showing {filteredApplications.length} matching application{filteredApplications.length === 1 ? "" : "s"}.
         </p>
 
@@ -2262,10 +2262,10 @@ function ApplicationsSection({
                       <StatusBadge label={application.status} />
                       {activeStage ? <StatusBadge label={activeStage.stageLabel} /> : <StatusBadge label="No stage" />}
                     </div>
-                    <p className="mt-1 text-sm text-slate-500">{application.studentName} · {application.studentEmail}</p>
+                    <p className="mt-1 text-sm text-white/50">{application.studentName} · {application.studentEmail}</p>
                   </div>
                   {activeStage ? (
-                    <span className="text-xs text-slate-400">{activeStage.status.replaceAll("_", " ")}</span>
+                    <span className="text-xs text-white/40">{activeStage.status.replaceAll("_", " ")}</span>
                   ) : null}
                 </div>
 
@@ -2283,7 +2283,7 @@ function ApplicationsSection({
                               type="button"
                               onClick={() => void openApplicationDocument(document.id, "preview")}
                               disabled={documentActionLoadingId === document.id}
-                              className="rounded-full bg-white border border-black/10 px-2 py-0.5 text-xs font-medium text-slate-600 disabled:opacity-60"
+                              className="rounded-full bg-white/[0.04] border border-white/10 px-2 py-0.5 text-xs font-medium text-white/60 disabled:opacity-60"
                             >
                               Preview
                             </button>
@@ -2291,7 +2291,7 @@ function ApplicationsSection({
                               type="button"
                               onClick={() => void openApplicationDocument(document.id, "download")}
                               disabled={documentActionLoadingId === document.id}
-                              className="rounded-full bg-white border border-black/10 px-2 py-0.5 text-xs font-medium text-slate-600 disabled:opacity-60"
+                              className="rounded-full bg-white/[0.04] border border-white/10 px-2 py-0.5 text-xs font-medium text-white/60 disabled:opacity-60"
                             >
                               ↓
                             </button>
@@ -2309,8 +2309,8 @@ function ApplicationsSection({
                           onClick={() => setTab(t)}
                           className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition ${
                             tab === t
-                              ? "bg-white text-[var(--portal-ink)] shadow-sm"
-                              : "text-slate-500 hover:text-[var(--portal-ink)]"
+                              ? "bg-white/[0.04] text-[var(--portal-ink)] shadow-sm"
+                              : "text-white/50 hover:text-[var(--portal-ink)]"
                           }`}
                         >
                           {t === "notes" ? "Notes & Update" : t === "request" ? "Send Request" : "Decisions"}
@@ -2334,7 +2334,7 @@ function ApplicationsSection({
                                   },
                                 }))
                               }
-                              className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                              className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm"
                               rows={3}
                               placeholder="Internal office notes (not visible to student)"
                             />
@@ -2349,7 +2349,7 @@ function ApplicationsSection({
                                   },
                                 }))
                               }
-                              className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                              className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm"
                               rows={2}
                               placeholder="Student-facing update (shown on their dashboard)"
                             />
@@ -2363,7 +2363,7 @@ function ApplicationsSection({
                             </button>
                           </div>
                         ) : (
-                          <p className="text-sm text-slate-400">Start a workflow stage first.</p>
+                          <p className="text-sm text-white/40">Start a workflow stage first.</p>
                         )
                       ) : tab === "request" ? (
                         activeStage ? (
@@ -2380,7 +2380,7 @@ function ApplicationsSection({
                                     },
                                   }))
                                 }
-                                className="rounded-2xl border border-black/10 px-4 py-3 text-sm md:col-span-2"
+                                className="rounded-2xl border border-white/10 px-4 py-3 text-sm md:col-span-2"
                                 placeholder="Stakeholder email"
                                 type="email"
                               />
@@ -2395,7 +2395,7 @@ function ApplicationsSection({
                                     },
                                   }))
                                 }
-                                className="rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                                className="rounded-2xl border border-white/10 px-4 py-3 text-sm"
                                 placeholder="Name"
                               />
                               <input
@@ -2409,7 +2409,7 @@ function ApplicationsSection({
                                     },
                                   }))
                                 }
-                                className="rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                                className="rounded-2xl border border-white/10 px-4 py-3 text-sm"
                                 placeholder="Role / office"
                               />
                             </div>
@@ -2424,7 +2424,7 @@ function ApplicationsSection({
                                   },
                                 }))
                               }
-                              className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                              className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm"
                               rows={3}
                               placeholder="What should this stakeholder review or provide input on?"
                             />
@@ -2439,7 +2439,7 @@ function ApplicationsSection({
                             {/* Advisory requests history */}
                             {activeStage.reviewRequests && activeStage.reviewRequests.length > 0 ? (
                               <div className="mt-2 space-y-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Previous requests</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Previous requests</p>
                                 {activeStage.reviewRequests.map((req) => (
                                   <div key={req.id} className="rounded-2xl border border-slate-100 px-3 py-3 text-sm">
                                     <div className="flex flex-wrap items-center gap-2">
@@ -2447,7 +2447,7 @@ function ApplicationsSection({
                                       <StatusBadge label={req.status} />
                                     </div>
                                     {req.reviewerNotes ? (
-                                      <p className="mt-1 text-slate-600 text-xs leading-5">Response: {req.reviewerNotes}</p>
+                                      <p className="mt-1 text-white/60 text-xs leading-5">Response: {req.reviewerNotes}</p>
                                     ) : null}
                                   </div>
                                 ))}
@@ -2455,7 +2455,7 @@ function ApplicationsSection({
                             ) : null}
                           </div>
                         ) : (
-                          <p className="text-sm text-slate-400">Start a workflow stage first.</p>
+                          <p className="text-sm text-white/40">Start a workflow stage first.</p>
                         )
                       ) : /* decisions tab */ activeStage ? (
                         <div className="space-y-4">
@@ -2474,7 +2474,7 @@ function ApplicationsSection({
                               {isMoving ? "Cancel" : "Move to next stage →"}
                             </button>
                             {isMoving ? (
-                              <div className="mt-3 space-y-3 rounded-2xl border border-slate-100 bg-white p-4">
+                              <div className="mt-3 space-y-3 rounded-2xl border border-slate-100 bg-white/[0.04] p-4">
                                 <input
                                   value={moveNextDraft?.nextStageLabel || ""}
                                   onChange={(e) =>
@@ -2486,7 +2486,7 @@ function ApplicationsSection({
                                       },
                                     }))
                                   }
-                                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                                  className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm"
                                   placeholder="Next stage label (e.g. 'Faculty Review')"
                                 />
                                 <textarea
@@ -2500,7 +2500,7 @@ function ApplicationsSection({
                                       },
                                     }))
                                   }
-                                  className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                                  className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm"
                                   rows={2}
                                   placeholder="Student-facing update for this transition (optional)"
                                 />
@@ -2545,7 +2545,7 @@ function ApplicationsSection({
                       ) : (
                         /* No active stage — seed form */
                         <div className="space-y-3">
-                          <p className="text-xs text-slate-400">No active stage. Open the first review stage to begin.</p>
+                          <p className="text-xs text-white/40">No active stage. Open the first review stage to begin.</p>
                           <div className="grid gap-3 md:grid-cols-2">
                             <input
                               value={seedDraft?.stageLabel || ""}
@@ -2558,7 +2558,7 @@ function ApplicationsSection({
                                   },
                                 }))
                               }
-                              className="rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                              className="rounded-2xl border border-white/10 px-4 py-3 text-sm"
                               placeholder="Stage label"
                             />
                             <input
@@ -2572,7 +2572,7 @@ function ApplicationsSection({
                                   },
                                 }))
                               }
-                              className="rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                              className="rounded-2xl border border-white/10 px-4 py-3 text-sm"
                               placeholder="Role / office"
                             />
                             <input
@@ -2586,7 +2586,7 @@ function ApplicationsSection({
                                   },
                                 }))
                               }
-                              className="rounded-2xl border border-black/10 px-4 py-3 text-sm md:col-span-2"
+                              className="rounded-2xl border border-white/10 px-4 py-3 text-sm md:col-span-2"
                               placeholder="OGE responsible email"
                             />
                           </div>
@@ -2601,7 +2601,7 @@ function ApplicationsSection({
                                 },
                               }))
                             }
-                            className="w-full rounded-2xl border border-black/10 px-4 py-3 text-sm"
+                            className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm"
                             rows={2}
                             placeholder="Student-facing update for opening this stage (optional)"
                           />
@@ -2620,33 +2620,33 @@ function ApplicationsSection({
 
                   {/* Timeline — right column */}
                   <div className="w-full lg:w-52 shrink-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Timeline</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">Timeline</p>
                     <div className="mt-2 space-y-2">
                       {application.workflowStages.length > 0 ? (
                         application.workflowStages.map((stage) => (
                           <div key={stage.id} className="rounded-xl border border-slate-100 bg-[var(--portal-panel)] px-3 py-2">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-xs font-semibold text-slate-400">S{stage.order}</span>
+                              <span className="text-xs font-semibold text-white/40">S{stage.order}</span>
                               <span className="text-xs font-medium text-[var(--portal-ink)]">{stage.stageLabel}</span>
                             </div>
                             <StatusBadge label={stage.status.replaceAll("_", " ")} />
                             {stage.reviewRequests && stage.reviewRequests.length > 0 ? (
-                              <p className="mt-1 text-xs text-slate-400">{stage.reviewRequests.length} request{stage.reviewRequests.length > 1 ? "s" : ""}</p>
+                              <p className="mt-1 text-xs text-white/40">{stage.reviewRequests.length} request{stage.reviewRequests.length > 1 ? "s" : ""}</p>
                             ) : null}
                           </div>
                         ))
                       ) : (
-                        <p className="text-xs text-slate-400">No stages yet.</p>
+                        <p className="text-xs text-white/40">No stages yet.</p>
                       )}
                     </div>
                     {/* Nominations */}
                     {application.nominations.length > 0 ? (
                       <div className="mt-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Nominated</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">Nominated</p>
                         {application.nominations.map((nomination) => (
-                          <div key={nomination.id} className="mt-2 rounded-xl border border-slate-100 bg-[var(--portal-panel)] px-3 py-2 text-xs text-slate-600">
+                          <div key={nomination.id} className="mt-2 rounded-xl border border-slate-100 bg-[var(--portal-panel)] px-3 py-2 text-xs text-white/60">
                             <p className="font-medium text-[var(--portal-ink)]">{nomination.adminName}</p>
-                            <p className="text-slate-400">{formatIsoDate(nomination.createdAt)}</p>
+                            <p className="text-white/40">{formatIsoDate(nomination.createdAt)}</p>
                             {nomination.notes ? <p className="mt-1">{nomination.notes}</p> : null}
                           </div>
                         ))}
@@ -2660,7 +2660,7 @@ function ApplicationsSection({
             </div>
           ))}
           {filteredApplications.length === 0 ? (
-            <p className="rounded-3xl border border-slate-100 p-6 text-sm text-slate-500">
+            <p className="rounded-3xl border border-slate-100 p-6 text-sm text-white/50">
               No applications match the current student, program, and status filters.
             </p>
           ) : null}
@@ -2678,11 +2678,11 @@ function ApplicationsSection({
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="font-semibold">{nomination.application?.programTitle}</p>
-                  <p className="text-sm text-slate-500">{nomination.application?.studentName}</p>
+                  <p className="text-sm text-white/50">{nomination.application?.studentName}</p>
                 </div>
-                <p className="text-sm text-slate-500">{formatIsoDate(nomination.createdAt)}</p>
+                <p className="text-sm text-white/50">{formatIsoDate(nomination.createdAt)}</p>
               </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{nomination.notes}</p>
+              <p className="mt-3 text-sm leading-6 text-white/60">{nomination.notes}</p>
             </div>
           ))}
         </div>
@@ -2723,7 +2723,7 @@ function AssistantSection({
       <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-3xl bg-[var(--portal-panel)] p-6">
           <h3 className="text-xl font-semibold">Upload reference document</h3>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-white/60">
             Plain text, markdown, CSV, or JSON files work best. The assistant will search these documents alongside programs, mentors, deadlines, and workflow data already in the database.
           </p>
 
@@ -2731,7 +2731,7 @@ function AssistantSection({
             <input
               value={form.title}
               onChange={(e) => onFormChange((prev) => ({ ...prev, title: e.target.value }))}
-              className="rounded-2xl border border-black/10 px-4 py-3"
+              className="rounded-2xl border border-white/10 px-4 py-3"
               placeholder="Document title"
             />
             <SearchableSelect
@@ -2748,7 +2748,7 @@ function AssistantSection({
               placeholder="Document type"
               searchPlaceholder="Search document type"
             />
-            <label className="rounded-2xl border border-dashed border-black/10 bg-white px-4 py-4 text-sm text-slate-600">
+            <label className="rounded-2xl border border-dashed border-white/10 bg-white/[0.04] px-4 py-4 text-sm text-white/60">
               <span className="block font-medium text-[var(--portal-ink)]">Upload file</span>
               <span className="mt-1 block">Choose a text-based file to autofill the content area.</span>
               <input
@@ -2761,11 +2761,11 @@ function AssistantSection({
                 }}
               />
             </label>
-            {fileName ? <p className="text-xs text-slate-500">Loaded file: {fileName}</p> : null}
+            {fileName ? <p className="text-xs text-white/50">Loaded file: {fileName}</p> : null}
             <textarea
               value={form.content}
               onChange={(e) => onFormChange((prev) => ({ ...prev, content: e.target.value }))}
-              className="min-h-52 rounded-2xl border border-black/10 px-4 py-3"
+              className="min-h-52 rounded-2xl border border-white/10 px-4 py-3"
               placeholder="Paste office policy notes, partner guidance, FAQs, or mentor reference material here."
             />
           </div>
@@ -2780,7 +2780,7 @@ function AssistantSection({
 
         <div className="space-y-3">
           {documents.length === 0 ? (
-            <div className="rounded-3xl border border-slate-100 p-6 text-sm text-slate-500">
+            <div className="rounded-3xl border border-slate-100 p-6 text-sm text-white/50">
               No reference documents uploaded yet. Add office guides or mentor notes to improve chatbot answers.
             </div>
           ) : (
@@ -2792,11 +2792,11 @@ function AssistantSection({
                       <p className="text-lg font-semibold">{document.title}</p>
                       <StatusBadge label={document.sourceType} />
                     </div>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-white/50">
                       Uploaded by {document.uploadedByName} · {document.uploadedByRole}
                     </p>
-                    <p className="mt-1 text-sm text-slate-500">Updated {formatIsoDate(document.updatedAt)}</p>
-                    <p className="mt-3 text-sm leading-6 text-slate-600">{document.excerpt}</p>
+                    <p className="mt-1 text-sm text-white/50">Updated {formatIsoDate(document.updatedAt)}</p>
+                    <p className="mt-3 text-sm leading-6 text-white/60">{document.excerpt}</p>
                   </div>
                   {document.canManage ? (
                     <button
@@ -2818,8 +2818,8 @@ function AssistantSection({
 
 function MetricCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
-      <p className="text-sm text-slate-500">{label}</p>
+    <div className="rounded-3xl border border-black/5 bg-white/[0.04] p-6 shadow-sm">
+      <p className="text-sm text-white/50">{label}</p>
       <p className="mt-3 text-3xl font-bold text-[var(--portal-ink)]">{value}</p>
     </div>
   );
@@ -2832,19 +2832,19 @@ function QueueSummary({ title, items }: { title: string; items: Application[] })
     <div className="rounded-3xl bg-[var(--portal-panel)] p-5">
       <div className="flex items-center justify-between">
         <p className="font-semibold">{title}</p>
-        <span className="text-sm text-slate-500">{items.length}</span>
+        <span className="text-sm text-white/50">{items.length}</span>
       </div>
       <div className="mt-4 space-y-2">
         {previewItems.map((item) => (
-          <div key={item.id} className="rounded-2xl bg-white p-3">
-            <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Program</p>
+          <div key={item.id} className="rounded-2xl bg-white/[0.04] p-3">
+            <p className="text-xs uppercase tracking-[0.14em] text-white/40">Program</p>
             <p className="font-medium">{item.programTitle}</p>
-            <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-400">Student</p>
-            <p className="text-sm text-slate-500">{item.studentName}</p>
+            <p className="mt-2 text-xs uppercase tracking-[0.14em] text-white/40">Student</p>
+            <p className="text-sm text-white/50">{item.studentName}</p>
           </div>
         ))}
         {items.length > previewItems.length ? (
-          <p className="text-xs text-slate-500">Showing latest {previewItems.length} item in this lane.</p>
+          <p className="text-xs text-white/50">Showing latest {previewItems.length} item in this lane.</p>
         ) : null}
       </div>
     </div>
@@ -2917,24 +2917,24 @@ function SearchableSelect({
             return nextOpen;
           });
         }}
-        className="flex w-full items-center justify-between rounded-2xl border border-black/10 bg-white px-4 py-3 text-left disabled:cursor-not-allowed disabled:bg-slate-100"
+        className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left disabled:cursor-not-allowed disabled:bg-white/[0.05]"
         disabled={disabled}
       >
         <div className="min-w-0">
-          <p className={selectedOption ? "truncate text-[var(--portal-ink)]" : "truncate text-slate-400"}>
+          <p className={selectedOption ? "truncate text-[var(--portal-ink)]" : "truncate text-white/40"}>
             {selectedOption?.label || placeholder}
           </p>
-          {selectedOption?.helperText ? <p className="truncate text-xs text-slate-500">{selectedOption.helperText}</p> : null}
+          {selectedOption?.helperText ? <p className="truncate text-xs text-white/50">{selectedOption.helperText}</p> : null}
         </div>
-        <span className="ml-3 text-slate-500">{open ? "▴" : "▾"}</span>
+        <span className="ml-3 text-white/50">{open ? "▴" : "▾"}</span>
       </button>
 
       {open ? (
-        <div className="absolute left-0 right-0 z-20 mt-2 rounded-2xl border border-black/10 bg-white p-3 shadow-xl">
+        <div className="absolute left-0 right-0 z-20 mt-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3 shadow-xl">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="w-full rounded-2xl border border-black/10 px-4 py-3"
+            className="w-full rounded-2xl border border-white/10 px-4 py-3"
             placeholder={searchPlaceholder}
             autoFocus
           />
@@ -2948,14 +2948,14 @@ function SearchableSelect({
                   setOpen(false);
                   setQuery("");
                 }}
-                className="w-full rounded-2xl border border-dashed border-black/10 px-4 py-3 text-left text-sm text-slate-500"
+                className="w-full rounded-2xl border border-dashed border-white/10 px-4 py-3 text-left text-sm text-white/50"
               >
                 Clear selection
               </button>
             ) : null}
 
             {filteredOptions.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-black/10 px-4 py-3 text-sm text-slate-500">
+              <div className="rounded-2xl border border-dashed border-white/10 px-4 py-3 text-sm text-white/50">
                 No matches found.
               </div>
             ) : (
@@ -2973,7 +2973,7 @@ function SearchableSelect({
                   }`}
                 >
                   <p className="font-medium text-[var(--portal-ink)]">{option.label}</p>
-                  {option.helperText ? <p className="text-xs text-slate-500">{option.helperText}</p> : null}
+                  {option.helperText ? <p className="text-xs text-white/50">{option.helperText}</p> : null}
                 </button>
               ))
             )}
@@ -3014,17 +3014,17 @@ function ApprovalColumn({
     <div className="rounded-3xl border border-slate-100 p-5">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold">{title}</h3>
-        <span className="text-sm text-slate-500">{items.length}</span>
+        <span className="text-sm text-white/50">{items.length}</span>
       </div>
       <div className="mt-4 space-y-3">
         {previewItems.map((item) => (
           <div key={item.id} className="rounded-2xl bg-[var(--portal-panel)] p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Program</p>
+            <p className="text-xs uppercase tracking-[0.14em] text-white/40">Program</p>
             <p className="font-medium">{item.programTitle}</p>
-            <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-400">Student</p>
-            <p className="text-sm text-slate-500">{item.studentName}</p>
+            <p className="mt-2 text-xs uppercase tracking-[0.14em] text-white/40">Student</p>
+            <p className="text-sm text-white/50">{item.studentName}</p>
             {item.currentWorkflowStage ? (
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-white/50">
                 Current stage: {item.currentWorkflowStage.stageLabel} ·{" "}
                 {item.currentWorkflowStage.reviewerRoleLabel || item.currentWorkflowStage.reviewerEmail}
               </p>
@@ -3032,7 +3032,7 @@ function ApprovalColumn({
           </div>
         ))}
         {items.length > previewItems.length ? (
-          <p className="text-xs text-slate-500">Showing the latest application in this status lane.</p>
+          <p className="text-xs text-white/50">Showing the latest application in this status lane.</p>
         ) : null}
       </div>
     </div>

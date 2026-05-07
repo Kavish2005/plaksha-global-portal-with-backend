@@ -31,16 +31,16 @@ export default function Contact() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-16">
-      <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
+      <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
         <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Support</p>
         <h1 className="mt-2 text-4xl font-bold">Contact the Global Engagement Office</h1>
-        <p className="mt-3 max-w-3xl text-slate-600">
+        <p className="mt-3 max-w-3xl text-white/60">
           Send program, approval, or nomination questions directly into the shared support inbox stored in the database.
         </p>
       </div>
 
       <div className="mt-10 grid gap-10 md:grid-cols-2">
-        <div className="space-y-6 rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
+        <div className="space-y-6 rounded-3xl border border-black/5 bg-white/[0.04] p-6 shadow-sm">
           <div className="flex items-center gap-3">
             <Mail className="text-[var(--portal-teal)]" />
             <span>global@plaksha.edu.in</span>
@@ -57,31 +57,31 @@ export default function Contact() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-black/5 bg-white/[0.04] p-6 shadow-sm">
           <input
             placeholder="Your Name"
-            className="w-full rounded-2xl border border-black/10 px-4 py-3"
+            className="w-full rounded-2xl border border-white/10 px-4 py-3"
             value={form.name}
             onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
           />
 
           <input
             placeholder="Email Address"
-            className="w-full rounded-2xl border border-black/10 px-4 py-3"
+            className="w-full rounded-2xl border border-white/10 px-4 py-3"
             value={form.email}
             onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
           />
 
           <input
             placeholder="Subject"
-            className="w-full rounded-2xl border border-black/10 px-4 py-3"
+            className="w-full rounded-2xl border border-white/10 px-4 py-3"
             value={form.subject}
             onChange={(e) => setForm((prev) => ({ ...prev, subject: e.target.value }))}
           />
 
           <textarea
             placeholder="Your Message"
-            className="h-32 w-full rounded-2xl border border-black/10 px-4 py-3"
+            className="h-32 w-full rounded-2xl border border-white/10 px-4 py-3"
             value={form.message}
             onChange={(e) => setForm((prev) => ({ ...prev, message: e.target.value }))}
           />

@@ -63,7 +63,7 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12">
-      <div className="rounded-[2rem] border border-black/5 bg-white p-8 shadow-sm">
+      <div className="rounded-[2rem] border border-black/5 bg-white/[0.04] p-8 shadow-sm">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">
@@ -71,7 +71,7 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
               {isMentor ? "Mentor Portal" : "Global Engagement Office"}
             </div>
             <h1 className="mt-3 text-4xl font-bold text-[var(--portal-ink)]">{isMentor ? "Mentor workspace" : "Office management"}</h1>
-            <p className="mt-3 max-w-3xl text-slate-600">
+            <p className="mt-3 max-w-3xl text-white/60">
               {isMentor
                 ? "Manage your advising slots, review booked meetings, and upload reference documents that improve the assistant for students."
                 : "Manage programs, mentors, application reviews, and the assistant knowledge base for the Plaksha Global Engagement Office."}
@@ -79,24 +79,24 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
           </div>
 
           <div className="rounded-2xl bg-[var(--portal-panel)] px-5 py-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Signed in as</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-white/40">Signed in as</p>
             <p className="mt-2 font-semibold text-[var(--portal-ink)]">{activeUser?.name || "Admin user"}</p>
-            <p className="text-sm text-slate-500">{activeUser?.email || "Office access"}</p>
+            <p className="text-sm text-white/50">{activeUser?.email || "Office access"}</p>
           </div>
         </div>
 
         <div className="mt-8 rounded-3xl border border-black/5 bg-[var(--portal-panel)] p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Breadcrumb</p>
-          <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/40">Breadcrumb</p>
+          <div className="mt-2 flex items-center gap-2 text-sm text-white/50">
             <span>{isMentor ? "Mentor" : "Office"}</span>
             <span>/</span>
             <span className="font-medium text-[var(--portal-ink)]">{currentSection.shortLabel}</span>
           </div>
-          <p className="mt-3 text-sm text-slate-600">{currentSection.description}</p>
+          <p className="mt-3 text-sm text-white/60">{currentSection.description}</p>
         </div>
       </div>
 
-      <div className="mt-8 rounded-[2rem] border border-black/5 bg-white p-4 shadow-sm">
+      <div className="mt-8 rounded-[2rem] border border-black/5 bg-white/[0.04] p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           {visibleSections.map((item) => {
             const Icon = item.icon;
@@ -109,14 +109,14 @@ export default function AdminWorkspaceLayout({ children }: { children: React.Rea
                   "rounded-2xl border px-4 py-4 transition",
                   active
                     ? "border-[var(--portal-teal)] bg-[var(--portal-teal)] text-white"
-                    : "border-transparent bg-[var(--portal-panel)] text-[var(--portal-ink)] hover:border-black/5 hover:bg-white",
+                    : "border-transparent bg-[var(--portal-panel)] text-[var(--portal-ink)] hover:border-black/5 hover:bg-white/[0.04]",
                 )}
               >
                 <div className="flex items-center gap-3">
                   <Icon size={18} />
                   <div>
                     <p className="font-semibold">{item.label}</p>
-                    <p className={cx("text-xs", active ? "text-white/75" : "text-slate-500")}>{item.description}</p>
+                    <p className={cx("text-xs", active ? "text-white/75" : "text-white/50")}>{item.description}</p>
                   </div>
                 </div>
               </Link>
