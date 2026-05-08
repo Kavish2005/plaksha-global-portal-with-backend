@@ -216,6 +216,7 @@ function formatDeadline(deadline) {
     programUniversity: deadline.program?.university || "",
     title: deadline.title,
     date: normalizeDateString(deadline.date),
+    officialDeadline: deadline.officialDeadline ? normalizeDateString(deadline.officialDeadline) : null,
     priority: deadline.priority,
     requiredDocuments: parseJsonArray(deadline.requiredDocumentsJson),
     requirementLabel: null,

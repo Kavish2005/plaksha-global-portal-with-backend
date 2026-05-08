@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, BriefcaseBusiness, ClipboardCheck, Compass, LayoutGrid, ShieldCheck, Users } from "lucide-react";
+import { Bot, BriefcaseBusiness, CalendarDays, ClipboardCheck, Compass, LayoutGrid, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { cx } from "@/lib/utils";
 
@@ -15,14 +15,18 @@ const sections = [
   { href: "/admin/assistant", label: "Assistant", shortLabel: "Assistant", description: "Manage chatbot knowledge documents", icon: Bot },
 ];
 
+const mentorSections = [
+  { href: "/admin", label: "Dashboard", shortLabel: "Dashboard", description: "Your schedule and meetings", icon: CalendarDays },
+  { href: "/admin/mentors", label: "Availability", shortLabel: "Availability", description: "Manage advisors and availability", icon: Users },
+  { href: "/admin/assistant", label: "Assistant", shortLabel: "Assistant", description: "Manage chatbot knowledge documents", icon: Bot },
+];
+
 export default function AdminWorkspaceLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { activeUser } = useAuth();
   const isMentor = activeUser?.role === "mentor";
 
-  const visibleSections = isMentor
-    ? sections.filter((s) => s.href === "/admin/mentors" || s.href === "/admin/assistant")
-    : sections;
+  const visibleSections = isMentor ? mentorSections : sections;
 
   const currentSection =
     visibleSections.find((s) => pathname === s.href || pathname.startsWith(`${s.href}/`)) || visibleSections[0];

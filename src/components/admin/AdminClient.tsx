@@ -132,6 +132,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
   const [editingDeadlineId, setEditingDeadlineId] = useState<number | null>(null);
   const [deadlineTitle, setDeadlineTitle] = useState("Application deadline");
   const [deadlineDate, setDeadlineDate] = useState(toIsoDate(new Date()));
+  const [deadlineOfficialDate, setDeadlineOfficialDate] = useState("");
   const [deadlinePriority, setDeadlinePriority] = useState("High");
   const [deadlineRequiredDocuments, setDeadlineRequiredDocuments] = useState<string[]>([""]);
 
@@ -429,6 +430,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
         programId: deadlineProgramId,
         title: deadlineTitle,
         date: deadlineDate,
+        officialDeadline: deadlineOfficialDate || undefined,
         priority: deadlinePriority,
         requiredDocuments: deadlineRequiredDocuments.map((item) => item.trim()).filter(Boolean),
       };
@@ -444,6 +446,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       setEditingDeadlineId(null);
       setDeadlineTitle("Application deadline");
       setDeadlineDate(toIsoDate(new Date()));
+      setDeadlineOfficialDate("");
       setDeadlinePriority("High");
       setDeadlineRequiredDocuments([""]);
       await loadAllData();
@@ -621,94 +624,26 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
   return (
     <section className="space-y-8">
       {!isMentorUser && section === "overview" ? (
-        <OverviewSection dashboard={dashboard!} approvalQueue={approvalQueue!} />
+        <OverviewSection dashboard={dashboard!} applications={applications} />
+      ) : null}
+
+      {isMentorUser && section === "overview" ? (
+        <MentorOverviewSection
+          meetings={mentorMeetings}
+          mentors={mentors}
+          currentUserEmail={activeUser?.email || null}
+        />
       ) : null}
 
       {!isMentorUser && section === "programs" ? (
-        <ProgramsSection
-          programs={programs}
-          selectedProgram={selectedProgram}
-          programForm={programForm}
-          editingProgramId={editingProgramId}
-          editingDeadlineId={editingDeadlineId}
-          deadlineTitle={deadlineTitle}
-          deadlineDate={deadlineDate}
-          deadlinePriority={deadlinePriority}
-          deadlineRequiredDocuments={deadlineRequiredDocuments}
-          onProgramFormChange={setProgramForm}
-          onSelectedProgramIdChange={setSelectedProgramId}
-          onEditingDeadlineIdChange={setEditingDeadlineId}
-          onDeadlineTitleChange={setDeadlineTitle}
-          onDeadlineDateChange={setDeadlineDate}
-          onDeadlinePriorityChange={setDeadlinePriority}
-          onDeadlineRequiredDocumentsChange={setDeadlineRequiredDocuments}
-          onSubmit={submitProgram}
-          onCreateDeadline={createDeadline}
-          onDeleteDeadline={deleteDeadline}
-          onReset={resetProgramForm}
-          onEdit={(program) => {
-            setEditingProgramId(program.id);
-            setSelectedProgramId(program.id);
-            setProgramForm({
-              title: program.title,
-              university: program.university,
-              country: program.country,
-              type: program.type,
-              description: program.description,
-              eligibility: program.eligibility,
-              duration: program.duration,
-              startDate: program.startDate || "",
-              endDate: program.endDate || "",
-              externalLink: program.externalLink || "",
-              featured: program.featured,
-              tags: program.tags.join(", "),
-            });
-          }}
-          onDelete={deleteProgram}
-        />
+        <ProgramsSection programs={programs} />
       ) : null}
 
       {section === "mentors" ? (
         <MentorsSection
           mentors={mentors}
-          currentUserEmail={activeUser?.email || null}
           isMentorUser={isMentorUser}
-          selectedMentor={selectedMentor}
-          mentorMeetings={mentorMeetings}
-          mentorForm={mentorForm}
-          editingMentorId={editingMentorId}
-          availabilityMentorId={availabilityMentorId}
-          availabilityDate={availabilityDate}
-          availabilitySlot={availabilitySlot}
-          availabilityBatchStartTime={availabilityBatchStartTime}
-          availabilityBatchEndTime={availabilityBatchEndTime}
-          availabilityBatchInterval={availabilityBatchInterval}
-          availabilitySlots={availabilitySlots}
-          onMentorFormChange={setMentorForm}
-          onSubmit={submitMentor}
-          onReset={resetMentorForm}
-          onEdit={(mentor) => {
-            setEditingMentorId(mentor.id);
-            setSelectedMentorId(mentor.id);
-            setMentorForm({
-              name: mentor.name,
-              email: mentor.email,
-              expertise: mentor.expertise,
-              bio: mentor.bio,
-              region: mentor.region,
-            });
-          }}
-          onDelete={deleteMentor}
-          onSelectedMentorIdChange={setSelectedMentorId}
-          onAvailabilityMentorIdChange={setAvailabilityMentorId}
-          onAvailabilityDateChange={setAvailabilityDate}
-          onAvailabilitySlotChange={setAvailabilitySlot}
-          onAvailabilityBatchStartTimeChange={setAvailabilityBatchStartTime}
-          onAvailabilityBatchEndTimeChange={setAvailabilityBatchEndTime}
-          onAvailabilityBatchIntervalChange={setAvailabilityBatchInterval}
-          onCreateAvailability={createAvailability}
-          onCreateAvailabilityBatch={createAvailabilityBatch}
-          onDeleteAvailability={deleteAvailability}
+          currentUserEmail={activeUser?.email || null}
         />
       ) : null}
 
@@ -776,12 +711,18 @@ function AdminSection({
 
 function OverviewSection({
   dashboard,
-  approvalQueue,
+  applications,
 }: {
   dashboard: AdminDashboard;
-  approvalQueue: ApprovalQueue;
+  applications: Application[];
 }) {
-  const recentDeadlines = dashboard.upcomingDeadlines.slice(0, 3);
+  const unprocessed = useMemo(
+    () =>
+      applications
+        .filter((a) => a.workflowStages.length === 0)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [applications],
+  );
 
   return (
     <>
@@ -795,386 +736,128 @@ function OverviewSection({
 
       <div className="grid gap-8 xl:grid-cols-2">
         <AdminSection
-          eyebrow="Overview"
-          title="Upcoming deadlines"
-          description="A compact snapshot of the nearest milestone dates so the overview stays readable even when the portal grows."
+          eyebrow="Action needed"
+          title="Awaiting review"
+          description="Applications submitted by students that haven't been assigned to a workflow stage yet."
         >
-          <div className="space-y-3">
-            {recentDeadlines.map((deadline) => (
-              <div key={deadline.id} className="flex items-center justify-between rounded-2xl border border-slate-100 p-4">
-                <div>
-                  <p className="font-semibold">{deadline.programTitle}</p>
-                  <p className="text-sm text-slate-500">{deadline.title}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-slate-500">{formatIsoDate(deadline.date)}</p>
-                  <div className="mt-2">
-                    <StatusBadge label={deadline.priority} />
+          {unprocessed.length === 0 ? (
+            <div className="rounded-2xl border border-teal-100 bg-teal-50 px-5 py-4">
+              <p className="text-sm font-medium text-teal-800">All caught up — no applications waiting to be processed.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {unprocessed.map((application) => (
+                <Link
+                  key={application.id}
+                  href={`/admin/applications/${application.id}`}
+                  className="group flex items-center justify-between gap-4 rounded-2xl border border-amber-100 bg-amber-50 p-4 transition hover:border-amber-200 hover:bg-amber-100"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-900">{application.programTitle}</p>
+                    <p className="mt-0.5 truncate text-sm text-slate-500">{application.studentName} · {application.studentEmail}</p>
+                    <p className="mt-1 text-xs text-slate-400">Submitted {formatIsoDate(application.createdAt)}</p>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          {dashboard.upcomingDeadlines.length > recentDeadlines.length ? (
-            <p className="mt-4 text-sm text-slate-500">
-              Showing the next {recentDeadlines.length} deadlines in overview. Manage the full set from Programs.
-            </p>
-          ) : null}
+                  <span className="shrink-0 text-xs font-semibold text-amber-700 group-hover:underline">Review →</span>
+                </Link>
+              ))}
+              <Link href="/admin/applications" className="block text-center text-sm font-medium text-slate-500 hover:text-teal-700">
+                View all applications →
+              </Link>
+            </div>
+          )}
         </AdminSection>
 
         <AdminSection
-          eyebrow="Queue"
-          title="Approval snapshot"
-          description="Only the most recent application in each status lane is shown here so the overview remains compact."
+          eyebrow="Deadlines"
+          title="Upcoming deadlines"
+          description="Plaksha nomination deadlines alongside the official university dates. Set both when adding a deadline in Programs."
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            <QueueSummary title="Submitted" items={approvalQueue.submitted} />
-            <QueueSummary title="Under Review" items={approvalQueue.underReview} />
-            <QueueSummary title="Approved" items={approvalQueue.approved} />
-            <QueueSummary title="Nominated" items={approvalQueue.nominated} />
-          </div>
+          {dashboard.upcomingDeadlines.length === 0 ? (
+            <p className="text-sm text-slate-400">No upcoming deadlines.</p>
+          ) : (
+            <div className="space-y-3">
+              {dashboard.upcomingDeadlines.map((deadline) => (
+                <div key={deadline.id} className="rounded-2xl border border-slate-100 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900">{deadline.programTitle}</p>
+                      <p className="mt-0.5 text-sm text-slate-500">{deadline.title}</p>
+                    </div>
+                    <StatusBadge label={deadline.priority} />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-teal-50 px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">Plaksha deadline</p>
+                      <p className="mt-0.5 text-sm font-medium text-teal-900">{formatIsoDate(deadline.date)}</p>
+                    </div>
+                    {deadline.officialDeadline ? (
+                      <div className="rounded-xl bg-slate-50 px-3 py-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">University deadline</p>
+                        <p className="mt-0.5 text-sm font-medium text-slate-700">{formatIsoDate(deadline.officialDeadline)}</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-200 px-3 py-2">
+                        <p className="text-xs text-slate-400">No university deadline set</p>
+                        <Link href="/admin/programs" className="mt-0.5 block text-xs font-medium text-teal-600 hover:underline">Set in Programs →</Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </AdminSection>
       </div>
-
     </>
   );
 }
 
-function ProgramsSection({
-  programs,
-  selectedProgram,
-  programForm,
-  editingProgramId,
-  editingDeadlineId,
-  deadlineTitle,
-  deadlineDate,
-  deadlinePriority,
-  deadlineRequiredDocuments,
-  onProgramFormChange,
-  onSelectedProgramIdChange,
-  onEditingDeadlineIdChange,
-  onDeadlineTitleChange,
-  onDeadlineDateChange,
-  onDeadlinePriorityChange,
-  onDeadlineRequiredDocumentsChange,
-  onSubmit,
-  onCreateDeadline,
-  onDeleteDeadline,
-  onReset,
-  onEdit,
-  onDelete,
-}: {
-  programs: Program[];
-  selectedProgram: Program | null;
-  programForm: ProgramFormState;
-  editingProgramId: number | null;
-  editingDeadlineId: number | null;
-  deadlineTitle: string;
-  deadlineDate: string;
-  deadlinePriority: string;
-  deadlineRequiredDocuments: string[];
-  onProgramFormChange: React.Dispatch<React.SetStateAction<ProgramFormState>>;
-  onSelectedProgramIdChange: React.Dispatch<React.SetStateAction<number | null>>;
-  onEditingDeadlineIdChange: React.Dispatch<React.SetStateAction<number | null>>;
-  onDeadlineTitleChange: React.Dispatch<React.SetStateAction<string>>;
-  onDeadlineDateChange: React.Dispatch<React.SetStateAction<string>>;
-  onDeadlinePriorityChange: React.Dispatch<React.SetStateAction<string>>;
-  onDeadlineRequiredDocumentsChange: React.Dispatch<React.SetStateAction<string[]>>;
-  onSubmit: () => Promise<void>;
-  onCreateDeadline: () => Promise<void>;
-  onDeleteDeadline: (deadlineId: number) => Promise<void>;
-  onReset: () => void;
-  onEdit: (program: Program) => void;
-  onDelete: (programId: number) => Promise<void>;
-}) {
-  const programOptions = useMemo<SearchableOption[]>(
-    () =>
-      programs.map((program) => ({
-        value: String(program.id),
-        label: program.title,
-        helperText: `${program.university} · ${program.country}`,
-        keywords: [program.type, ...program.tags],
-      })),
-    [programs],
-  );
-
+function ProgramsSection({ programs }: { programs: Program[] }) {
   return (
     <AdminSection
       eyebrow="Programs"
-      title="Programs management"
-      description="Create programs from the left, then search and focus on one selected program at a time for editing, deletion, and deadline management."
+      title="All programs"
+      description="Click a program to edit it, manage its deadlines, or delete it. Use Add Program to create a new one."
     >
-      <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="rounded-xl bg-[var(--portal-panel)] p-6">
-          <h3 className="text-xl font-semibold">{editingProgramId ? "Edit program" : "Create program"}</h3>
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <input value={programForm.title} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, title: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Title" />
-            <input value={programForm.university} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, university: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="University" />
-            <input value={programForm.country} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, country: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Country" />
-            <SearchableSelect
-              value={programForm.type}
-              onChange={(value) => onProgramFormChange((prev) => ({ ...prev, type: value || "Exchange" }))}
-              options={[
-                { value: "Exchange", label: "Exchange" },
-                { value: "Research", label: "Research" },
-                { value: "Internship", label: "Internship" },
-                { value: "Summer School", label: "Summer School" },
-              ]}
-              placeholder="Program type"
-              searchPlaceholder="Search program type"
-            />
-          </div>
-          <textarea value={programForm.description} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, description: e.target.value }))} className="mt-3 min-h-[120px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Description" />
-          <textarea value={programForm.eligibility} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, eligibility: e.target.value }))} className="mt-3 min-h-20 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Eligibility" />
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            <input value={programForm.duration} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, duration: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Duration" />
-            <input
-              type="date"
-              value={programForm.startDate}
-              onChange={(e) => onProgramFormChange((prev) => ({ ...prev, startDate: e.target.value }))}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-              placeholder="Program start date"
-            />
-            <input
-              type="date"
-              value={programForm.endDate}
-              onChange={(e) => onProgramFormChange((prev) => ({ ...prev, endDate: e.target.value }))}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-              placeholder="Program end date"
-            />
-          </div>
-          <div className="mt-3 space-y-3">
-            <input
-              value={programForm.externalLink}
-              onChange={(e) => onProgramFormChange((prev) => ({ ...prev, externalLink: e.target.value }))}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-              placeholder="Official program link (https://...)"
-            />
-            <input value={programForm.tags} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, tags: e.target.value }))} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Tags, comma separated" />
-          </div>
-          <label className="mt-4 flex items-center gap-2 text-sm text-slate-500">
-            <input type="checkbox" checked={programForm.featured} onChange={(e) => onProgramFormChange((prev) => ({ ...prev, featured: e.target.checked }))} />
-            Featured on homepage
-          </label>
-          <div className="mt-5 flex gap-3">
-            <button onClick={() => void onSubmit()} className="rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white">
-              {editingProgramId ? "Update Program" : "Create Program"}
-            </button>
-            {editingProgramId ? (
-              <button onClick={onReset} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold">
-                Cancel Edit
-              </button>
-            ) : null}
-          </div>
-        </div>
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <p className="text-sm text-slate-500">{programs.length} program{programs.length === 1 ? "" : "s"}</p>
+        <Link
+          href="/admin/programs/new"
+          className="rounded-full bg-[var(--portal-teal)] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+        >
+          + Add Program
+        </Link>
+      </div>
 
-        <div className="space-y-6">
-          <div className="rounded-xl border border-slate-100 p-6">
-            <SearchableSelect
-              value={selectedProgram ? String(selectedProgram.id) : ""}
-              onChange={(value) => onSelectedProgramIdChange(value ? Number(value) : null)}
-              options={programOptions}
-              placeholder="Select a program"
-              searchPlaceholder="Search by title, university, country, or tag"
-            />
-            <p className="mt-3 text-sm text-slate-500">
-              Search once, then focus on a single selected program for editing, deletion, and deadlines.
-            </p>
-          </div>
-
-          {selectedProgram ? (
-            <div className="rounded-xl border border-slate-100 p-6">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xl font-semibold">{selectedProgram.title}</p>
-                    <StatusBadge label={selectedProgram.type} />
-                    {selectedProgram.featured ? <StatusBadge label="Featured" /> : null}
-                  </div>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {selectedProgram.university} · {selectedProgram.country}
-                  </p>
-                  <p className="mt-3 text-sm leading-6 text-slate-500">{selectedProgram.description}</p>
-                  <p className="mt-3 text-sm text-slate-500">
-                    Eligibility: {selectedProgram.eligibility}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">Duration: {selectedProgram.duration}</p>
-                  {selectedProgram.startDate ? <p className="mt-1 text-sm text-slate-500">Program starts on: {formatIsoDate(selectedProgram.startDate)}</p> : null}
-                  {selectedProgram.endDate ? <p className="mt-1 text-sm text-slate-500">Program runs until: {formatIsoDate(selectedProgram.endDate)}</p> : null}
-                  {selectedProgram.externalLink ? (
-                    <a
-                      href={selectedProgram.externalLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 inline-flex text-sm font-semibold text-[var(--portal-teal)]"
-                    >
-                      Open official program page
-                    </a>
-                  ) : null}
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <button onClick={() => onEdit(selectedProgram)} className="rounded-full border border-slate-200 px-4 py-2 text-sm">
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => void onDelete(selectedProgram.id)}
-                    className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600"
-                  >
-                    Delete
-                  </button>
-                </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {programs.map((program) => (
+          <Link
+            key={program.id}
+            href={`/admin/programs/${program.id}`}
+            className="group block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-teal-200 hover:shadow-md"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-slate-900 group-hover:text-teal-800">{program.title}</p>
+                <p className="mt-0.5 truncate text-sm text-slate-500">{program.university} · {program.country}</p>
               </div>
-
-              <div className="mt-8 grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
-                <div className="rounded-xl bg-[var(--portal-panel)] p-5">
-                  <h4 className="text-lg font-semibold">{editingDeadlineId ? "Edit selected deadline" : "Add deadline to selected program"}</h4>
-                  <div className="mt-4 grid gap-3">
-                    <input
-                      value={deadlineTitle}
-                      onChange={(e) => onDeadlineTitleChange(e.target.value)}
-                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-                      placeholder="Deadline title"
-                    />
-                    <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-slate-700">Required files</p>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onDeadlineRequiredDocumentsChange((prev) => [...prev, ""])
-                          }
-                          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500"
-                        >
-                          Add another file
-                        </button>
-                      </div>
-                      <div className="space-y-2">
-                        {deadlineRequiredDocuments.map((requiredDocument, index) => (
-                          <div key={`required-document-${index}`} className="flex items-center gap-2">
-                            <input
-                              value={requiredDocument}
-                              onChange={(e) =>
-                                onDeadlineRequiredDocumentsChange((prev) =>
-                                  prev.map((item, itemIndex) => (itemIndex === index ? e.target.value : item)),
-                                )
-                              }
-                              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-                              placeholder={`Required file ${index + 1} (e.g. Transcript, Resume, LOR)`}
-                            />
-                            {deadlineRequiredDocuments.length > 1 ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  onDeadlineRequiredDocumentsChange((prev) => {
-                                    const nextItems = prev.filter((_, itemIndex) => itemIndex !== index);
-                                    return nextItems.length > 0 ? nextItems : [""];
-                                  })
-                                }
-                                className="rounded-full border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600"
-                              >
-                                Remove
-                              </button>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <input
-                      type="date"
-                      value={deadlineDate}
-                      onChange={(e) => onDeadlineDateChange(e.target.value)}
-                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-                    />
-                    <SearchableSelect
-                      value={deadlinePriority}
-                      onChange={(value) => onDeadlinePriorityChange(value || "High")}
-                      options={[
-                        { value: "High", label: "High" },
-                        { value: "Medium", label: "Medium" },
-                        { value: "Low", label: "Low" },
-                      ]}
-                      placeholder="Priority"
-                      searchPlaceholder="Search priority"
-                    />
-                  </div>
-                  <button
-                    onClick={() => void onCreateDeadline()}
-                    className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white"
-                  >
-                    {editingDeadlineId ? "Update Deadline" : "Add Deadline"}
-                  </button>
-                  {editingDeadlineId ? (
-                    <button
-                      onClick={() => {
-                        onEditingDeadlineIdChange(null);
-                        onDeadlineTitleChange("Application deadline");
-                        onDeadlineDateChange(toIsoDate(new Date()));
-                        onDeadlinePriorityChange("High");
-                        onDeadlineRequiredDocumentsChange([""]);
-                      }}
-                      className="mt-3 rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold"
-                    >
-                      Cancel Deadline Edit
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-lg font-semibold">Deadlines for {selectedProgram.title}</h4>
-                    <span className="text-sm text-slate-500">{selectedProgram.deadlines.length}</span>
-                  </div>
-                  {selectedProgram.deadlines.length === 0 ? (
-                    <p className="rounded-2xl border border-slate-100 p-4 text-sm text-slate-500">
-                      No deadlines added for this program yet.
-                    </p>
-                  ) : (
-                    selectedProgram.deadlines.map((deadline) => (
-                      <div key={deadline.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <p className="font-semibold">{deadline.title}</p>
-                          <p className="text-sm text-slate-500">{formatIsoDate(deadline.date)}</p>
-                          {deadline.requiredDocuments.length > 0 ? (
-                            <p className="mt-2 text-sm text-slate-500">
-                              Required uploads: {deadline.requiredDocuments.join(", ")}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <StatusBadge label={deadline.priority} />
-                          <button
-                            onClick={() => {
-                              onEditingDeadlineIdChange(deadline.id);
-                              onDeadlineTitleChange(deadline.title);
-                              onDeadlineDateChange(deadline.date);
-                              onDeadlinePriorityChange(deadline.priority);
-                              onDeadlineRequiredDocumentsChange(
-                                deadline.requiredDocuments.length > 0 ? deadline.requiredDocuments : [""],
-                              );
-                            }}
-                            className="rounded-full border border-slate-200 px-4 py-2 text-sm"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => void onDeleteDeadline(deadline.id)}
-                            className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <StatusBadge label={program.type} />
+                {program.featured ? <StatusBadge label="Featured" /> : null}
               </div>
             </div>
-          ) : (
-            <p className="rounded-xl border border-slate-100 p-6 text-sm text-slate-500">
-              No programs match the current search.
-            </p>
-          )}
-        </div>
+            <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-slate-500">{program.description}</p>
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-xs text-slate-400">{program.deadlines.length} deadline{program.deadlines.length === 1 ? "" : "s"}</span>
+              <span className="text-xs font-semibold text-teal-700 group-hover:underline">Edit →</span>
+            </div>
+          </Link>
+        ))}
+        {programs.length === 0 ? (
+          <p className="col-span-full rounded-xl border border-slate-100 p-6 text-sm text-slate-500">
+            No programs yet. Add the first one.
+          </p>
+        ) : null}
       </div>
     </AdminSection>
   );
@@ -1231,9 +914,17 @@ function DiscoverySection({
       regionFilter && regionFilter !== "Global" ? `in ${regionFilter}` : "",
       studentLevelFilter && studentLevelFilter !== "Any level" ? `for ${studentLevelFilter.toLowerCase()} students` : "",
     ].filter(Boolean);
-
     return parts.join(" ").replace(/\s+/g, " ").trim();
   }, [opportunityTypeFilter, regionFilter, studentLevelFilter, topicFilter]);
+
+  function resetAll() {
+    setQuery("");
+    setTopicFilter("");
+    setOpportunityTypeFilter("");
+    setRegionFilter("");
+    setStudentLevelFilter("");
+    setDiscovery(null);
+  }
 
   async function runDiscovery() {
     const normalizedQuery = query.trim() || builtFilterRequest;
@@ -1241,7 +932,6 @@ function DiscoverySection({
       toast.error("Add a short request or choose a few filters so we know what to look for.");
       return;
     }
-
     setLoadingDiscovery(true);
     try {
       const response = await apiPost<OpportunityDiscoveryResponse>("/admin/opportunity-discovery", {
@@ -1260,96 +950,121 @@ function DiscoverySection({
     }
   }
 
+  const searchForm = (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-2">
+        <SearchableSelect value={topicFilter} onChange={setTopicFilter} options={topicOptions} placeholder="Topic or interest area" searchPlaceholder="Search topic" allowClear />
+        <SearchableSelect value={opportunityTypeFilter} onChange={setOpportunityTypeFilter} options={opportunityTypeOptions} placeholder="Opportunity type" searchPlaceholder="Search type" allowClear />
+        <SearchableSelect value={regionFilter} onChange={setRegionFilter} options={regionOptions} placeholder="Region" searchPlaceholder="Search region" allowClear />
+        <SearchableSelect value={studentLevelFilter} onChange={setStudentLevelFilter} options={studentLevelOptions} placeholder="Student level" searchPlaceholder="Search level" allowClear />
+      </div>
+
+      {builtFilterRequest ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Suggested search</p>
+          <p className="mt-1 text-slate-700">{builtFilterRequest}</p>
+        </div>
+      ) : null}
+
+      <textarea
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        className="min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-teal-400"
+        placeholder="Optional: describe what you're looking for in your own words..."
+      />
+
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={() => void runDiscovery()}
+          disabled={loadingDiscovery}
+          className="rounded-full bg-[var(--portal-teal)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {loadingDiscovery ? "Researching…" : "Discover Opportunities"}
+        </button>
+        <button onClick={resetAll} className="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+          Reset
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <AdminSection
       eyebrow="Discovery"
       title="Explore external opportunities"
-      description="Use this space to look for new global opportunities for students. You can type what you need in plain language, or use the filters if you prefer a guided search."
+      description="Search for new global opportunities for students. Use filters for a guided search, or describe what you need in plain language."
     >
-      <div className="grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
-        <div className="rounded-xl bg-[var(--portal-panel)] p-6">
-          <h3 className="text-xl font-semibold">What would you like to find?</h3>
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            You can either type a request in your own words or use the filters below. For example: “Find summer school options in robotics” or “Show research opportunities in AI for undergraduates in Europe.”
-          </p>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <SearchableSelect
-              value={topicFilter}
-              onChange={setTopicFilter}
-              options={topicOptions}
-              placeholder="Topic or interest area"
-              searchPlaceholder="Search topic"
-              allowClear
-            />
-            <SearchableSelect
-              value={opportunityTypeFilter}
-              onChange={setOpportunityTypeFilter}
-              options={opportunityTypeOptions}
-              placeholder="Opportunity type"
-              searchPlaceholder="Search type"
-              allowClear
-            />
-            <SearchableSelect
-              value={regionFilter}
-              onChange={setRegionFilter}
-              options={regionOptions}
-              placeholder="Region"
-              searchPlaceholder="Search region"
-              allowClear
-            />
-            <SearchableSelect
-              value={studentLevelFilter}
-              onChange={setStudentLevelFilter}
-              options={studentLevelOptions}
-              placeholder="Student level"
-              searchPlaceholder="Search level"
-              allowClear
-            />
+      {!discovery ? (
+        /* ── Pre-search: two-column form + tips ── */
+        <div className="grid gap-8 xl:grid-cols-[480px_1fr]">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-base font-bold text-slate-900">What would you like to find?</h3>
+            <p className="mt-1.5 text-sm text-slate-500">
+              Use the filters below or type a plain-language request.
+            </p>
+            <div className="mt-5">{searchForm}</div>
           </div>
 
-          {builtFilterRequest ? (
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-              <p className="font-medium text-[var(--portal-ink)]">Suggested search from filters</p>
-              <p className="mt-2">{builtFilterRequest}</p>
+          <div className="flex flex-col justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8">
+            {loadingDiscovery ? (
+              <div className="text-center">
+                <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-teal-500" />
+                <p className="mt-4 text-sm font-medium text-slate-600">Researching opportunities…</p>
+                <p className="mt-1 text-xs text-slate-400">This usually takes 15–30 seconds.</p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="text-sm font-semibold text-slate-600">Results appear here</p>
+                <p className="mt-2 text-sm text-slate-400">Try searches like:</p>
+                <div className="mt-4 flex flex-col gap-2">
+                  {[
+                    "Research in AI for undergraduates in Europe",
+                    "Summer school options in robotics, Asia",
+                    "Fellowship programs in computer science",
+                  ].map((example) => (
+                    <button
+                      key={example}
+                      onClick={() => setQuery(example)}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-500 hover:border-teal-300 hover:text-teal-700"
+                    >
+                      "{example}"
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* ── Post-search: compact recap + 2-col results grid ── */
+        <div className="space-y-6">
+          {/* Compact search recap bar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Searched for</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">
+                {discovery.normalizedRequest}
+              </p>
             </div>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                {discovery.results.length} result{discovery.results.length !== 1 ? "s" : ""}
+              </span>
+              <button
+                onClick={resetAll}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                New search
+              </button>
+            </div>
+          </div>
+
+          {discovery.overview ? (
+            <p className="text-sm text-slate-500">{discovery.overview}</p>
           ) : null}
 
-          <textarea
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="mt-5 min-h-40 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-            placeholder="Optional: type a more specific request here if you want to guide the search in your own words..."
-          />
-
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              onClick={() => void runDiscovery()}
-              disabled={loadingDiscovery}
-              className="rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {loadingDiscovery ? "Researching opportunities..." : "Discover Opportunities"}
-            </button>
-            <button
-              onClick={() => {
-                setQuery("");
-                setTopicFilter("");
-                setOpportunityTypeFilter("");
-                setRegionFilter("");
-                setStudentLevelFilter("");
-                setDiscovery(null);
-              }}
-              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold"
-            >
-              Reset
-            </button>
-          </div>
-
-        </div>
-
-        <div className="space-y-6">
-          {discovery?.results?.length ? (
-            <div className="space-y-4">
+          {discovery.results.length > 0 ? (
+            <div className="grid gap-4 xl:grid-cols-2">
               {discovery.results.map((result, index) => (
                 <OpportunityResultCard
                   key={result.id}
@@ -1359,13 +1074,16 @@ function DiscoverySection({
                 />
               ))}
             </div>
-          ) : discovery ? (
-            <div className="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
-              <p>{discovery.overview || "We couldn’t find strong matches from the current request. Try narrowing the search by topic, region, opportunity type, or student level."}</p>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+              <p>We couldn't find strong matches. Try narrowing by topic, region, or type.</p>
+              <button onClick={resetAll} className="mt-4 text-sm font-semibold text-teal-600 hover:underline">
+                Try a new search →
+              </button>
             </div>
-          ) : null}
+          )}
         </div>
-      </div>
+      )}
     </AdminSection>
   );
 }
@@ -1379,6 +1097,8 @@ function OpportunityResultCard({
   result: OpportunityDiscoveryResult;
   onPrepareProgramDraft: (draft: OpportunityDiscoveryDraft) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   const tierTone =
     result.confidenceTier === "best_match"
       ? "bg-emerald-50 text-emerald-700"
@@ -1387,75 +1107,94 @@ function OpportunityResultCard({
         : "bg-amber-50 text-amber-700";
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-500">
-              #{index + 1}
+    <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300">
+      {/* Top row: badges + actions */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">
+            #{index + 1}
+          </span>
+          <StatusBadge label={result.opportunityType} />
+          {result.country ? <StatusBadge label={result.country} /> : null}
+          {result.confidenceLabel ? (
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${tierTone}`}>
+              {result.confidenceLabel}
             </span>
-            <p className="text-xl font-semibold">{result.title}</p>
-            <StatusBadge label={result.opportunityType} />
-            {result.country ? <StatusBadge label={result.country} /> : null}
-            {result.confidenceLabel ? (
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${tierTone}`}>
-                {result.confidenceLabel}
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-1 text-sm text-slate-500">{result.institution}</p>
+          ) : null}
         </div>
-
-        <div className="flex flex-wrap gap-3">
+        <div className="flex shrink-0 gap-2">
           <a
             href={result.url}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold"
+            className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
           >
-            Open source
+            ↗ Source
           </a>
           <button
             onClick={() => onPrepareProgramDraft(result.draftProgram)}
-            className="rounded-full bg-[var(--portal-teal)] px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-full bg-[var(--portal-teal)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
           >
-            Prepare in Programs
+            + Add to Programs
           </button>
         </div>
       </div>
 
-      <p className="mt-4 text-sm leading-6 text-slate-500">{result.summary}</p>
+      {/* Title + institution */}
+      <p className="mt-3 font-semibold leading-snug text-slate-900">{result.title}</p>
+      <p className="mt-0.5 text-sm text-slate-500">{result.institution}</p>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl bg-[var(--portal-panel)] p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Why it fits</p>
-          <p className="mt-2 text-sm leading-6 text-slate-500">{result.fitReason}</p>
+      {/* Summary */}
+      <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">{result.summary}</p>
+
+      {/* Quick facts */}
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="rounded-lg bg-slate-50 p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Timing</p>
+          <p className="mt-1 line-clamp-2 text-xs text-slate-600">{result.timing}</p>
         </div>
-        <div className="rounded-2xl bg-[var(--portal-panel)] p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Eligibility</p>
-          <p className="mt-2 text-sm leading-6 text-slate-500">{result.eligibility}</p>
+        <div className="rounded-lg bg-slate-50 p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Deadline</p>
+          <p className="mt-1 line-clamp-2 text-xs text-slate-600">{result.deadline}</p>
+        </div>
+        <div className="rounded-lg bg-slate-50 p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Source</p>
+          <p className="mt-1 line-clamp-1 text-xs text-slate-600">{result.sourceLabel}</p>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-100 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Timing</p>
-          <p className="mt-2 text-sm text-slate-500">{result.timing}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-100 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Deadline</p>
-          <p className="mt-2 text-sm text-slate-500">{result.deadline}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-100 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-slate-400">Source</p>
-          <p className="mt-2 text-sm text-slate-500">{result.sourceLabel}</p>
-        </div>
-      </div>
+      {/* Expandable details */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="mt-3 self-start text-xs font-semibold text-teal-600 hover:underline"
+      >
+        {expanded ? "Hide details ↑" : "Why it fits · Eligibility ↓"}
+      </button>
 
+      {expanded ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Why it fits</p>
+            <p className="mt-1.5 text-sm leading-6 text-slate-500">{result.fitReason}</p>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Eligibility</p>
+            <p className="mt-1.5 text-sm leading-6 text-slate-500">{result.eligibility}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Tags */}
       {result.tags?.length ? (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {result.tags.map((tag) => (
-            <StatusBadge key={`${result.id}-${tag}`} label={tag} />
+            <span
+              key={`${result.id}-${tag}`}
+              className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500"
+            >
+              {tag}
+            </span>
           ))}
         </div>
       ) : null}
@@ -1463,301 +1202,313 @@ function OpportunityResultCard({
   );
 }
 
-function MentorsSection({
+function toTimeMinutes(t: string): number {
+  const m = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!m) return 0;
+  let h = Number(m[1]);
+  const min = Number(m[2]);
+  const mer = m[3].toUpperCase();
+  if (mer === "AM" && h === 12) h = 0;
+  if (mer === "PM" && h !== 12) h += 12;
+  return h * 60 + min;
+}
+
+function MeetingCard({ meeting, showDate = false }: { meeting: Booking; showDate?: boolean }) {
+  const statusColor =
+    meeting.status === "Confirmed"
+      ? "bg-teal-50 text-teal-700"
+      : meeting.status === "Pending"
+        ? "bg-amber-50 text-amber-700"
+        : "bg-slate-100 text-slate-600";
+
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-bold text-teal-700">{meeting.time}</span>
+            {showDate ? (
+              <span className="text-xs text-slate-400">{formatIsoDate(meeting.date)}</span>
+            ) : null}
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor}`}>
+              {meeting.status}
+            </span>
+          </div>
+          <p className="mt-1 font-semibold text-slate-900">{meeting.studentName}</p>
+          <p className="text-xs text-slate-400">{meeting.studentEmail}</p>
+        </div>
+      </div>
+      {meeting.topic ? (
+        <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">{meeting.topic}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function MentorOverviewSection({
+  meetings,
   mentors,
   currentUserEmail,
-  isMentorUser,
-  selectedMentor,
-  mentorMeetings,
-  mentorForm,
-  editingMentorId,
-  availabilityMentorId,
-  availabilityDate,
-  availabilitySlot,
-  availabilityBatchStartTime,
-  availabilityBatchEndTime,
-  availabilityBatchInterval,
-  availabilitySlots,
-  onMentorFormChange,
-  onSubmit,
-  onReset,
-  onEdit,
-  onDelete,
-  onSelectedMentorIdChange,
-  onAvailabilityMentorIdChange,
-  onAvailabilityDateChange,
-  onAvailabilitySlotChange,
-  onAvailabilityBatchStartTimeChange,
-  onAvailabilityBatchEndTimeChange,
-  onAvailabilityBatchIntervalChange,
-  onCreateAvailability,
-  onCreateAvailabilityBatch,
-  onDeleteAvailability,
 }: {
+  meetings: Booking[];
   mentors: Mentor[];
   currentUserEmail: string | null;
-  isMentorUser: boolean;
-  selectedMentor: Mentor | null;
-  mentorMeetings: Booking[];
-  mentorForm: MentorFormState;
-  editingMentorId: number | null;
-  availabilityMentorId: number | null;
-  availabilityDate: string;
-  availabilitySlot: string;
-  availabilityBatchStartTime: string;
-  availabilityBatchEndTime: string;
-  availabilityBatchInterval: string;
-  availabilitySlots: Array<{ id: number; time: string; available: boolean; date: string }>;
-  onMentorFormChange: React.Dispatch<React.SetStateAction<MentorFormState>>;
-  onSubmit: () => Promise<void>;
-  onReset: () => void;
-  onEdit: (mentor: Mentor) => void;
-  onDelete: (mentorId: number) => Promise<void>;
-  onSelectedMentorIdChange: React.Dispatch<React.SetStateAction<number | null>>;
-  onAvailabilityMentorIdChange: React.Dispatch<React.SetStateAction<number | null>>;
-  onAvailabilityDateChange: React.Dispatch<React.SetStateAction<string>>;
-  onAvailabilitySlotChange: React.Dispatch<React.SetStateAction<string>>;
-  onAvailabilityBatchStartTimeChange: React.Dispatch<React.SetStateAction<string>>;
-  onAvailabilityBatchEndTimeChange: React.Dispatch<React.SetStateAction<string>>;
-  onAvailabilityBatchIntervalChange: React.Dispatch<React.SetStateAction<string>>;
-  onCreateAvailability: () => Promise<void>;
-  onCreateAvailabilityBatch: () => Promise<void>;
-  onDeleteAvailability: (slotId: number) => Promise<void>;
 }) {
-  const visibleMentors = isMentorUser ? mentors.filter((mentor) => mentor.email === currentUserEmail) : mentors;
-  const mentorOptions = useMemo<SearchableOption[]>(
+  const ownMentor = mentors.find((m) => m.email === currentUserEmail) || null;
+  const today = toIsoDate(new Date());
+
+  const upcomingMeetings = useMemo(
     () =>
-      visibleMentors.map((mentor) => ({
-        value: String(mentor.id),
-        label: mentor.name,
-        helperText: `${mentor.email} · ${mentor.region}`,
-        keywords: [mentor.expertise],
-      })),
-    [visibleMentors],
+      meetings
+        .filter((m) => m.date >= today)
+        .sort((a, b) => {
+          if (a.date !== b.date) return a.date.localeCompare(b.date);
+          return toTimeMinutes(a.time) - toTimeMinutes(b.time);
+        }),
+    [meetings, today],
   );
-  const [showAllAvailabilitySlots, setShowAllAvailabilitySlots] = useState(false);
-  const sortedAvailabilitySlots = useMemo(
-    () => [...availabilitySlots].sort((left, right) => parseDisplayTimeToMinutes(left.time) - parseDisplayTimeToMinutes(right.time)),
-    [availabilitySlots],
+
+  const todayMeetings = useMemo(
+    () => upcomingMeetings.filter((m) => m.date === today),
+    [upcomingMeetings, today],
   );
-  const previewAvailabilitySlots = showAllAvailabilitySlots ? sortedAvailabilitySlots : sortedAvailabilitySlots.slice(0, 4);
-  const availableSlotCount = sortedAvailabilitySlots.filter((slot) => slot.available).length;
-  const bookedSlotCount = sortedAvailabilitySlots.length - availableSlotCount;
+
+  const weekEnd = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return toIsoDate(d);
+  }, []);
+
+  const thisWeekCount = useMemo(
+    () => upcomingMeetings.filter((m) => m.date > today && m.date <= weekEnd).length,
+    [upcomingMeetings, today, weekEnd],
+  );
+
+  const groupedUpcoming = useMemo(() => {
+    const map = new Map<string, Booking[]>();
+    for (const m of upcomingMeetings) {
+      if (!map.has(m.date)) map.set(m.date, []);
+      map.get(m.date)!.push(m);
+    }
+    return [...map.entries()]
+      .map(([date, items]) => ({ date, items }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [upcomingMeetings]);
+
+  const futureGroups = groupedUpcoming.filter((g) => g.date > today);
+
+  return (
+    <AdminSection
+      eyebrow="Dashboard"
+      title={`Welcome back${ownMentor ? `, ${ownMentor.name.split(" ")[0]}` : ""}`}
+      description="Here's your advising schedule and upcoming student meetings."
+    >
+      {/* Summary stats */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[
+          {
+            label: "Today's meetings",
+            value: todayMeetings.length,
+            sub: todayMeetings.length === 0 ? "Clear day" : todayMeetings.map((m) => m.time).join(", "),
+            accent: todayMeetings.length > 0,
+          },
+          {
+            label: "This week",
+            value: thisWeekCount,
+            sub: "Upcoming next 7 days",
+            accent: false,
+          },
+          {
+            label: "Total upcoming",
+            value: upcomingMeetings.length,
+            sub: "All booked meetings",
+            accent: false,
+          },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className={`rounded-xl border p-5 shadow-sm ${stat.accent ? "border-teal-200 bg-teal-50" : "border-slate-200 bg-white"}`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{stat.label}</p>
+            <p className={`mt-2 text-4xl font-bold ${stat.accent ? "text-teal-700" : "text-slate-900"}`}>
+              {stat.value}
+            </p>
+            <p className="mt-1 truncate text-sm text-slate-400">{stat.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Two-column: Today | Upcoming */}
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1.6fr]">
+        {/* Today's schedule */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-900">Today</h2>
+            <span className="text-xs text-slate-400">{formatIsoDate(today)}</span>
+          </div>
+
+          {todayMeetings.length === 0 ? (
+            <div className="mt-5 rounded-xl border border-dashed border-slate-200 p-6 text-center">
+              <p className="text-sm font-medium text-slate-500">No meetings today.</p>
+              <p className="mt-1 text-xs text-slate-400">Enjoy the clear day.</p>
+              {ownMentor ? (
+                <Link
+                  href={`/admin/mentors/${ownMentor.id}`}
+                  className="mt-3 inline-block text-sm font-semibold text-teal-600 hover:underline"
+                >
+                  Manage availability →
+                </Link>
+              ) : null}
+            </div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {todayMeetings.map((m) => (
+                <MeetingCard key={m.id} meeting={m} />
+              ))}
+            </div>
+          )}
+
+          {ownMentor ? (
+            <Link
+              href={`/admin/mentors/${ownMentor.id}`}
+              className="mt-5 flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-200 py-3 text-sm font-semibold text-teal-600 hover:bg-slate-50"
+            >
+              + Add or manage availability
+            </Link>
+          ) : null}
+        </div>
+
+        {/* Upcoming meetings */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-900">Upcoming meetings</h2>
+            {ownMentor ? (
+              <Link
+                href={`/admin/mentors/${ownMentor.id}`}
+                className="text-xs font-semibold text-teal-600 hover:underline"
+              >
+                Manage availability →
+              </Link>
+            ) : null}
+          </div>
+
+          {upcomingMeetings.length === 0 ? (
+            <div className="mt-5 rounded-xl border border-dashed border-slate-200 p-8 text-center">
+              <p className="text-sm font-medium text-slate-500">No upcoming meetings booked yet.</p>
+              <p className="mt-1 text-xs text-slate-400">Students will appear here once they book a slot.</p>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-5 overflow-y-auto" style={{ maxHeight: "480px" }}>
+              {/* Today's entries in upcoming pane */}
+              {todayMeetings.length > 0 ? (
+                <div>
+                  <p className="mb-2.5 text-xs font-bold uppercase tracking-wider text-teal-600">
+                    Today — {formatIsoDate(today)}
+                  </p>
+                  <div className="space-y-2">
+                    {todayMeetings.map((m) => (
+                      <MeetingCard key={m.id} meeting={m} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Future date groups */}
+              {futureGroups.map((group) => (
+                <div key={group.date}>
+                  <p className="mb-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    {formatIsoDate(group.date)}
+                  </p>
+                  <div className="space-y-2">
+                    {group.items.map((m) => (
+                      <MeetingCard key={m.id} meeting={m} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </AdminSection>
+  );
+}
+
+function MentorsSection({
+  mentors,
+  isMentorUser,
+  currentUserEmail,
+}: {
+  mentors: Mentor[];
+  isMentorUser: boolean;
+  currentUserEmail: string | null;
+}) {
+  const visibleMentors = isMentorUser
+    ? mentors.filter((m) => m.email === currentUserEmail)
+    : mentors;
 
   return (
     <AdminSection
       eyebrow="Mentors"
-      title={isMentorUser ? "Your mentor calendar" : "Mentor and availability management"}
+      title={isMentorUser ? "Your mentor profile" : "Mentor management"}
       description={
         isMentorUser
-          ? "Update your own availability and review upcoming meetings booked by students."
-          : "Maintain advisor profiles and directly control which slots appear in the student booking flow."
+          ? "Manage your availability and view upcoming student meetings."
+          : "Add advisors, update profiles, and manage availability slots."
       }
     >
-      <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="space-y-6">
+      {!isMentorUser ? (
+        <div className="mb-6 flex items-center justify-between">
+          <p className="text-sm text-slate-500">
+            {mentors.length} mentor{mentors.length !== 1 ? "s" : ""} registered
+          </p>
+          <Link
+            href="/admin/mentors/new"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[var(--portal-teal)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90"
+          >
+            + Add Mentor
+          </Link>
+        </div>
+      ) : null}
+
+      {visibleMentors.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <p className="text-sm font-medium text-slate-500">No mentors registered yet.</p>
           {!isMentorUser ? (
-            <div className="rounded-xl bg-[var(--portal-panel)] p-6">
-              <h3 className="text-xl font-semibold">{editingMentorId ? "Edit mentor" : "Create mentor"}</h3>
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <input value={mentorForm.name} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, name: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Mentor name" />
-                <input value={mentorForm.email} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, email: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Mentor email" />
-                <input value={mentorForm.expertise} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, expertise: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Expertise" />
-                <input value={mentorForm.region} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, region: e.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Support domain / region" />
-              </div>
-              <textarea value={mentorForm.bio} onChange={(e) => onMentorFormChange((prev) => ({ ...prev, bio: e.target.value }))} className="mt-3 min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="Bio" />
-              <div className="mt-5 flex gap-3">
-                <button onClick={() => void onSubmit()} className="rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white">
-                  {editingMentorId ? "Update Mentor" : "Create Mentor"}
-                </button>
-                {editingMentorId ? (
-                  <button onClick={onReset} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold">
-                    Cancel Edit
-                  </button>
-                ) : null}
-              </div>
-            </div>
+            <Link
+              href="/admin/mentors/new"
+              className="mt-3 inline-block text-sm font-semibold text-teal-600 hover:underline"
+            >
+              Add the first mentor →
+            </Link>
           ) : null}
-
-          <div className="rounded-xl bg-[var(--portal-panel)] p-6">
-            <h3 className="text-xl font-semibold">Availability controls</h3>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              <SearchableSelect
-                value={availabilityMentorId ? String(availabilityMentorId) : ""}
-                onChange={(value) => onAvailabilityMentorIdChange(value ? Number(value) : null)}
-                options={visibleMentors.map((mentor) => ({
-                  value: String(mentor.id),
-                  label: mentor.name,
-                  helperText: mentor.email,
-                  keywords: [mentor.region, mentor.expertise],
-                }))}
-                placeholder="Select mentor"
-                searchPlaceholder="Search mentor"
-                disabled={isMentorUser}
-              />
-              <input type="date" value={availabilityDate} onChange={(e) => onAvailabilityDateChange(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" />
-              <input value={availabilitySlot} onChange={(e) => onAvailabilitySlotChange(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none" placeholder="10:00 AM" />
-            </div>
-            <button onClick={() => void onCreateAvailability()} className="mt-4 rounded-full bg-[var(--portal-gold)] px-5 py-3 text-sm font-semibold text-[var(--portal-ink)]">
-              Add Slot
-            </button>
-
-            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h4 className="text-lg font-semibold text-[var(--portal-ink)]">Batch create slots</h4>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Generate a full block of availability in one go. A 30-minute interval is the best default for standard mentor sessions.
-                  </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visibleMentors.map((mentor) => (
+            <Link
+              key={mentor.id}
+              href={`/admin/mentors/${mentor.id}`}
+              className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-teal-300 hover:shadow"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-50 text-sm font-bold text-teal-700">
+                  {mentor.name.charAt(0)}
                 </div>
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                  {mentor.region}
+                </span>
               </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <input
-                  type="time"
-                  value={availabilityBatchStartTime}
-                  onChange={(e) => onAvailabilityBatchStartTimeChange(e.target.value)}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-                />
-                <input
-                  type="time"
-                  value={availabilityBatchEndTime}
-                  onChange={(e) => onAvailabilityBatchEndTimeChange(e.target.value)}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-                />
-                <SearchableSelect
-                  value={availabilityBatchInterval}
-                  onChange={(value) => onAvailabilityBatchIntervalChange(value || "30")}
-                  options={[
-                    { value: "30", label: "30 minutes" },
-                    { value: "45", label: "45 minutes" },
-                    { value: "60", label: "60 minutes" },
-                  ]}
-                  placeholder="Interval"
-                  searchPlaceholder="Search interval"
-                />
-              </div>
-
-              <button
-                onClick={() => void onCreateAvailabilityBatch()}
-                className="mt-4 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white"
-              >
-                Generate Slots For This Day
-              </button>
-            </div>
-
-            <div className="mt-5 space-y-2">
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-500">
-                <span className="font-medium text-[var(--portal-ink)]">{sortedAvailabilitySlots.length} total slots</span>
-                <StatusBadge label={`${availableSlotCount} Available`} />
-                {bookedSlotCount > 0 ? <StatusBadge label={`${bookedSlotCount} Booked`} /> : null}
-              </div>
-
-              {previewAvailabilitySlots.map((slot) => (
-                <div key={slot.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-3">
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium">{slot.time}</span>
-                    <StatusBadge label={slot.available ? "Available" : "Booked"} />
-                  </div>
-                  {slot.available ? (
-                    <button onClick={() => void onDeleteAvailability(slot.id)} className="text-sm text-rose-600">
-                      Remove
-                    </button>
-                  ) : null}
-                </div>
-              ))}
-
-              {sortedAvailabilitySlots.length > 4 ? (
-                <button
-                  type="button"
-                  onClick={() => setShowAllAvailabilitySlots((current) => !current)}
-                  className="w-full rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm font-medium text-slate-500 transition hover:bg-white"
-                >
-                  {showAllAvailabilitySlots
-                    ? "Show fewer slots"
-                    : `Show all ${sortedAvailabilitySlots.length} slots for this day`}
-                </button>
+              <p className="mt-3 font-semibold text-slate-900 group-hover:text-teal-700">{mentor.name}</p>
+              <p className="mt-0.5 text-sm text-slate-500">{mentor.expertise}</p>
+              <p className="mt-1 text-xs text-slate-400">{mentor.email}</p>
+              {mentor.bio ? (
+                <p className="mt-3 line-clamp-2 text-sm text-slate-400">{mentor.bio}</p>
               ) : null}
-            </div>
-          </div>
-
-          {isMentorUser ? (
-            <div className="rounded-xl bg-[var(--portal-panel)] p-6">
-              <h3 className="text-xl font-semibold">Scheduled meetings</h3>
-              <div className="mt-5 space-y-3">
-                {mentorMeetings.length === 0 ? (
-                  <p className="rounded-2xl bg-white p-4 text-sm text-slate-500">No student meetings scheduled yet.</p>
-                ) : (
-                  mentorMeetings.map((meeting) => (
-                    <div key={meeting.id} className="rounded-2xl bg-white p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold">{meeting.studentName}</p>
-                          <p className="text-sm text-slate-500">{meeting.studentEmail}</p>
-                        </div>
-                        <StatusBadge label={meeting.status} />
-                      </div>
-                      <p className="mt-3 text-sm text-slate-500">
-                        {formatIsoDate(meeting.date)} · {meeting.time}
-                      </p>
-                      {meeting.topic ? <p className="mt-2 text-sm text-slate-500">{meeting.topic}</p> : null}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          ) : null}
+            </Link>
+          ))}
         </div>
-
-        <div className="space-y-6">
-          <div className="rounded-xl border border-slate-100 p-6">
-            <SearchableSelect
-              value={selectedMentor ? String(selectedMentor.id) : ""}
-              onChange={(value) => {
-                const nextMentorId = value ? Number(value) : null;
-                onSelectedMentorIdChange(nextMentorId);
-                onAvailabilityMentorIdChange(nextMentorId);
-              }}
-              options={mentorOptions}
-              placeholder="Select a mentor"
-              searchPlaceholder="Search by mentor name, email, region, or expertise"
-            />
-            <p className="mt-3 text-sm text-slate-500">
-              Search once, then focus on one mentor profile at a time for quick edits.
-            </p>
-          </div>
-
-          {selectedMentor ? (
-            <div className="rounded-xl border border-slate-100 p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-lg font-semibold">{selectedMentor.name}</p>
-                    <StatusBadge label={selectedMentor.region} />
-                  </div>
-                  <p className="mt-1 text-sm text-slate-500">{selectedMentor.email}</p>
-                  <p className="mt-1 text-sm text-slate-500">{selectedMentor.expertise}</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-500">{selectedMentor.bio}</p>
-                </div>
-                {!isMentorUser ? (
-                  <div className="flex flex-wrap gap-3">
-                    <button onClick={() => onEdit(selectedMentor)} className="rounded-full border border-slate-200 px-4 py-2 text-sm">
-                      Edit
-                    </button>
-                    <button onClick={() => void onDelete(selectedMentor.id)} className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600">
-                      Delete
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <p className="rounded-xl border border-slate-100 p-6 text-sm text-slate-500">
-              No mentors match the current search.
-            </p>
-          )}
-        </div>
-      </div>
+      )}
     </AdminSection>
   );
 }

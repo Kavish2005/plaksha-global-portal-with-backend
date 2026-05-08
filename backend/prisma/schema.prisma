@@ -134,16 +134,17 @@ model Application {
 }
 
 model Deadline {
-  id        Int      @id @default(autoincrement())
-  programId Int
-  title     String
-  date      DateTime
-  priority  String
+  id               Int      @id @default(autoincrement())
+  programId        Int
+  title            String
+  date             DateTime
+  officialDeadline DateTime?
+  priority         String
   requiredDocumentsJson String @default("[]")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
-  documents ApplicationDocument[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  program          Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  documents        ApplicationDocument[]
 }
 
 model ApplicationDocument {

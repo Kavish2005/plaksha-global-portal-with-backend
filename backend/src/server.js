@@ -233,7 +233,7 @@ function parseMentorPayload(body) {
 }
 
 function parseDeadlinePayload(body) {
-  const { programId, title, date, priority, requiredDocuments } = body;
+  const { programId, title, date, officialDeadline, priority, requiredDocuments } = body;
   if (!programId || !title || !date || !priority) {
     return failure("programId, title, date, and priority are required.", 400);
   }
@@ -242,6 +242,7 @@ function parseDeadlinePayload(body) {
     programId: Number(programId),
     title: String(title).trim(),
     date: new Date(`${String(date).slice(0, 10)}T00:00:00.000Z`),
+    officialDeadline: officialDeadline ? new Date(`${String(officialDeadline).slice(0, 10)}T00:00:00.000Z`) : null,
     priority: String(priority).trim(),
     requiredDocumentsJson: JSON.stringify(parseRequiredDocuments(requiredDocuments)),
   };

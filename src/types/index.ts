@@ -15,6 +15,7 @@ export type Deadline = {
   programUniversity?: string;
   title: string;
   date: string;
+  officialDeadline?: string | null;
   priority: string;
   requiredDocuments: string[];
   requirementLabel?: string | null;
