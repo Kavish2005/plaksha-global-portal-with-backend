@@ -508,10 +508,8 @@ function buildProgramFacts(program) {
   const tags = formatted.tags.join(", ");
   const deadlineFacts = (program.deadlines || []).map((deadline) => ({
     type: "deadline",
-    label: `${program.title} deadline`,
-    text: `Program deadline for ${program.title} at ${program.university}: ${deadline.title} on ${normalizeDateString(
-      deadline.date,
-    )} with priority ${deadline.priority}.`,
+    label: `${program.title} Plaksha nomination deadline`,
+    text: `PLAKSHA NOMINATION DEADLINE (set by the Global Engagement Office — this is the date students must submit to Plaksha, which is earlier than the university's official deadline): ${program.title} at ${program.university}: "${deadline.title}" on ${normalizeDateString(deadline.date)} with priority ${deadline.priority}. Required documents: ${(deadline.requiredDocuments || []).join(", ") || "none listed"}.`,
     metadata: {
       programId: program.id,
       programTitle: program.title,
@@ -815,6 +813,7 @@ async function generateLlmReply({ message, actor, context }) {
     "If the answer is not supported by the grounded facts, say that clearly.",
     "When listing results, include names and statuses exactly as given.",
     "Respond naturally and concisely.",
+    "CRITICAL DEADLINE RULE: All deadline facts in the database (type=deadline) are the Plaksha nomination deadlines set by the Global Engagement Office. These are the authoritative deadlines for students — they are intentionally set earlier than the official university program deadlines so OGE has time to review and nominate students. Always quote these database deadlines when asked. Never invent or reference external program deadlines.",
   ].join(" ");
 
   const userPrompt = [
@@ -947,7 +946,7 @@ function buildProgramAssistantFallback({ mode, program, application, combinedUpl
     `Duration: ${program.duration}.`,
     `Start date: ${program.startDate ? normalizeDateString(program.startDate) : "not listed"}.`,
     `End date: ${program.endDate ? normalizeDateString(program.endDate) : "not listed"}.`,
-    `Deadlines: ${(program.deadlines || []).map((deadline) => `${deadline.title} on ${normalizeDateString(deadline.date)}`).join("; ") || "none listed"}.`,
+    `Plaksha nomination deadlines (set by the Global Engagement Office, earlier than official program deadlines): ${(program.deadlines || []).map((deadline) => `${deadline.title} on ${normalizeDateString(deadline.date)}`).join("; ") || "none listed"}.`,
   ];
 
   if (mode === "review") {
@@ -1061,11 +1060,13 @@ async function createProgramAssistantReply({ actor, program, application, messag
     `Program-specific assistant mode: ${normalizedMode}`,
     `Student question: ${normalizedMessage}`,
     "",
-    "Program facts from the database:",
+    "IMPORTANT — DEADLINE AUTHORITY RULE: The deadlines in the program facts below (type=deadline) are the Plaksha NOMINATION deadlines set by the Global Engagement Office. These are the only deadlines that matter for Plaksha students. They are intentionally set earlier than the official university program deadlines to give the office time to review, approve, and nominate students before the university deadline. When a student asks about deadlines, ALWAYS quote the database deadlines ONLY. NEVER mention or use any deadline found in the external program link — those are the official university deadlines that do not apply to Plaksha's internal nomination process.",
+    "",
+    "Program facts from the database (deadlines here are the authoritative Plaksha nomination deadlines):",
     JSON.stringify(programFacts, null, 2),
     "",
-    `Official program link: ${program.externalLink || "not provided"}`,
-    `Official program page extract: ${linkContext || "Could not fetch official page content."}`,
+    `Official program link (for program description and requirements context ONLY — never use any dates or deadlines from this source): ${program.externalLink || "not provided"}`,
+    `Official program page extract (context ONLY — ignore any deadline or date information in this extract): ${linkContext || "Could not fetch official page content."}`,
     "",
     `Current student application status for this program: ${application?.status || "not submitted yet"}`,
     `Current application reviewer notes: ${application?.reviewerNotes || "none"}`,
@@ -1095,6 +1096,7 @@ async function createProgramAssistantReply({ actor, program, application, messag
       "Do not give generic encouragement.",
       "Do not confuse a complete application with a competitive application. A fully complete but weak application should still score low.",
       "Judge the student's current readiness against the actual program eligibility, deadlines, and official program information provided.",
+      "CRITICAL DEADLINE RULE: When mentioning deadlines, ONLY use the Plaksha nomination deadlines from the database facts (type=deadline). These are set by the Global Engagement Office and are earlier than the university's official program deadlines. Never reference any dates from the external program link or page extract.",
       "If the uploaded files count is greater than zero, you must acknowledge that materials have been uploaded. Never say there are no uploaded materials when files are present.",
       "If uploaded files are not text-readable, say that clearly and do not pretend you reviewed their contents.",
       "Give program-specific strengths, gaps, concrete improvements, and an honest current standing.",
@@ -1227,6 +1229,7 @@ async function createProgramAssistantReply({ actor, program, application, messag
     "Answer only from the provided database facts, the official program page extract, and the student's own application context if relevant.",
     "Do not invent unsupported details.",
     "Be concise, clear, and specific to the selected program.",
+    "CRITICAL DEADLINE RULE: When answering any question about deadlines, submission dates, or when to apply, you MUST use only the deadlines stored in the database (type=deadline facts). These are the Plaksha nomination deadlines set by the Global Engagement Office and are the only dates Plaksha students must follow. Never quote dates from the official program link or external page extract — those are the university's own deadlines and do not apply here.",
   ].join(" ");
 
   const outputText = await callAnthropicText({

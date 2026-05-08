@@ -3,7 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Bookmark, BookmarkCheck, CalendarRange, Clock3, ExternalLink, FileUp, GraduationCap, MapPin, Sparkles } from "lucide-react";
+import {
+  Bookmark,
+  BookmarkCheck,
+  CalendarRange,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  FileText,
+  GraduationCap,
+  MapPin,
+  Paperclip,
+  Sparkles,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/components/AuthProvider";
 import StatusBadge from "@/components/StatusBadge";
@@ -25,11 +39,7 @@ type UploadRequirement = {
   deadlineTitle: string;
   deadlineDate: string;
   requirementLabel: string;
-  existingFiles: {
-    id: number;
-    fileName: string;
-    uploadedAt: string;
-  }[];
+  existingFiles: { id: number; fileName: string; uploadedAt: string }[];
 };
 
 export default function ProgramDetailPage() {
@@ -40,12 +50,13 @@ export default function ProgramDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingDocuments, setUploadingDocuments] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<Record<string, PendingUpload[]>>({});
+  const [applyMode, setApplyMode] = useState(false);
 
   async function loadProgram() {
     try {
       const response = await apiGet<Program>(`/programs/${params.id}`);
       setProgram(response);
-    } catch (_error) {
+    } catch {
       setProgram(null);
     } finally {
       setLoading(false);
@@ -53,40 +64,49 @@ export default function ProgramDetailPage() {
   }
 
   useEffect(() => {
-    if (authLoading) {
-      return;
-    }
-
+    if (authLoading) return;
     setLoading(true);
     void loadProgram();
   }, [params.id, activeUser, authLoading]);
 
   const uploadRequirements = useMemo<UploadRequirement[]>(() => {
     if (!program) return [];
-
     const existingDocuments = program.myApplication?.documents ?? [];
-
     return program.deadlines.flatMap((deadline) =>
       deadline.requiredDocuments.map((requirementLabel) => {
         const existingFiles = existingDocuments.filter(
-          (document) => document.deadlineId === deadline.id && document.requirementLabel === requirementLabel,
+          (d) => d.deadlineId === deadline.id && d.requirementLabel === requirementLabel,
         );
-
         return {
           key: `${deadline.id}:${requirementLabel}`,
           deadlineId: deadline.id,
           deadlineTitle: deadline.title,
           deadlineDate: deadline.date,
           requirementLabel,
-          existingFiles: existingFiles.map((document) => ({
-            id: document.id,
-            fileName: document.fileName,
-            uploadedAt: document.uploadedAt,
-          })),
+          existingFiles: existingFiles.map((d) => ({ id: d.id, fileName: d.fileName, uploadedAt: d.uploadedAt })),
         };
       }),
     );
   }, [program]);
+
+  // Group requirements by deadline for cleaner sidebar display
+  const requirementsByDeadline = useMemo(() => {
+    const map = new Map<number, { deadlineId: number; deadlineTitle: string; deadlineDate: string; requirements: UploadRequirement[] }>();
+    for (const req of uploadRequirements) {
+      if (!map.has(req.deadlineId)) {
+        map.set(req.deadlineId, { deadlineId: req.deadlineId, deadlineTitle: req.deadlineTitle, deadlineDate: req.deadlineDate, requirements: [] });
+      }
+      map.get(req.deadlineId)!.requirements.push(req);
+    }
+    return Array.from(map.values());
+  }, [uploadRequirements]);
+
+  const hasPendingUploads = Object.keys(pendingUploads).length > 0;
+
+  // At least one deadline must have ALL its requirements staged
+  const canSubmitApplication = requirementsByDeadline.some((group) =>
+    group.requirements.every((req) => (pendingUploads[req.key] ?? []).length > 0),
+  );
 
   async function readFileAsDataUrl(file: File) {
     return await new Promise<string>((resolve, reject) => {
@@ -99,7 +119,6 @@ export default function ProgramDetailPage() {
 
   async function onSelectUpload(requirement: UploadRequirement, files: FileList | File[] | null) {
     if (!files || files.length === 0) return;
-
     try {
       const nextUploads = await Promise.all(
         Array.from(files).map(async (file) => ({
@@ -110,38 +129,19 @@ export default function ProgramDetailPage() {
           fileData: await readFileAsDataUrl(file),
         })),
       );
-
-      setPendingUploads((current) => ({
-        ...current,
-        [requirement.key]: [
-          ...(current[requirement.key] || []),
-          ...nextUploads,
-        ],
-      }));
-      toast.success(
-        nextUploads.length === 1
-          ? `${requirement.requirementLabel} attached.`
-          : `${nextUploads.length} files attached for ${requirement.requirementLabel}.`,
-      );
+      setPendingUploads((curr) => ({ ...curr, [requirement.key]: [...(curr[requirement.key] || []), ...nextUploads] }));
+      toast.success(nextUploads.length === 1 ? `${requirement.requirementLabel} attached.` : `${nextUploads.length} files attached.`);
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   }
 
   function clearPendingUpload(requirementKey: string, fileIndex?: number) {
-    setPendingUploads((current) => {
-      const next = { ...current };
-      if (typeof fileIndex !== "number") {
-        delete next[requirementKey];
-        return next;
-      }
-
-      const remaining = (next[requirementKey] || []).filter((_, index) => index !== fileIndex);
-      if (remaining.length === 0) {
-        delete next[requirementKey];
-      } else {
-        next[requirementKey] = remaining;
-      }
+    setPendingUploads((curr) => {
+      const next = { ...curr };
+      if (typeof fileIndex !== "number") { delete next[requirementKey]; return next; }
+      const remaining = (next[requirementKey] || []).filter((_, i) => i !== fileIndex);
+      if (remaining.length === 0) delete next[requirementKey]; else next[requirementKey] = remaining;
       return next;
     });
   }
@@ -167,14 +167,10 @@ export default function ProgramDetailPage() {
 
   async function uploadApplicationDocuments() {
     if (!program?.myApplication) return;
-    if (Object.keys(pendingUploads).length === 0) {
-      toast.error("Attach at least one file first.");
-      return;
-    }
-
+    if (!hasPendingUploads) { toast.error("Attach at least one file first."); return; }
     setUploadingDocuments(true);
     try {
-        const updatedApplication = await apiPut<Application>(`/applications/${program.myApplication.id}/documents`, {
+      const updatedApplication = await apiPut<Application>(`/applications/${program.myApplication.id}/documents`, {
         uploads: Object.values(pendingUploads).flat(),
       });
       setProgram({ ...program, myApplication: updatedApplication });
@@ -204,285 +200,401 @@ export default function ProgramDetailPage() {
     }
   }
 
-  if (authLoading || loading) {
-    return <div className="mx-auto max-w-6xl px-6 py-8 text-slate-500">Loading program...</div>;
-  }
+  if (authLoading || loading) return <div className="px-6 py-8 text-slate-500">Loading program...</div>;
+  if (!program) return <div className="px-6 py-8 text-slate-500">Program not found.</div>;
 
-  if (!program) {
-    return <div className="mx-auto max-w-6xl px-6 py-8 text-slate-500">Program not found.</div>;
-  }
+  const isStudent = activeUser?.role === "student";
+  const application = program.myApplication;
 
   return (
-<div className="mx-auto max-w-screen-2xl px-6 py-8">
-      <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
+    <div className="mx-auto max-w-screen-2xl px-6 py-8">
+      <div className="grid gap-6 lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_460px]">
+
+        {/* ── LEFT: Program info ── */}
+        <div className="space-y-5">
+
+          {/* Header card */}
+          <div className="rounded-xl border border-slate-200 bg-white p-7 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex flex-wrap gap-2">
                 <StatusBadge label={program.type} />
                 {program.featured ? <StatusBadge label="Featured" /> : null}
               </div>
-              <h1 className="mt-4 text-4xl font-bold">{program.title}</h1>
-              <p className="mt-2 text-slate-500">{program.university}</p>
-            </div>
-            {activeUser?.role === "student" ? (
-              <button
-                onClick={() => void toggleSaved()}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium"
-              >
-                {program.isSaved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
-                {program.isSaved ? "Saved" : "Save Program"}
-              </button>
-            ) : null}
-          </div>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-5">
-            <InfoTile icon={<MapPin size={18} />} label="Country" value={program.country} />
-            <InfoTile icon={<GraduationCap size={18} />} label="Eligibility" value={program.eligibility} />
-            <InfoTile icon={<Clock3 size={18} />} label="Duration" value={program.duration} />
-            <InfoTile icon={<CalendarRange size={18} />} label="Program Starts" value={program.startDate ? formatIsoDate(program.startDate) : "To be announced"} />
-            <InfoTile icon={<CalendarRange size={18} />} label="Program Ends" value={program.endDate ? formatIsoDate(program.endDate) : "To be announced"} />
-          </div>
-
-          {program.externalLink ? (
-            <div className="mt-6 rounded-2xl border border-slate-100 bg-[var(--portal-panel)] p-4">
-              <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Official Program Page</p>
-              <a
-                href={program.externalLink}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[var(--portal-teal)]"
-              >
-                Visit the official program page
-                <ExternalLink size={16} />
-              </a>
-            </div>
-          ) : null}
-
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold">Program Overview</h2>
-            <p className="mt-3 whitespace-pre-wrap leading-7 text-slate-500">{program.description}</p>
-          </div>
-
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold">Tags</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {program.tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-slate-50 px-3 py-1 text-sm text-slate-500">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold">Deadlines and required documents</h2>
-            <div className="mt-4 space-y-3">
-              {program.deadlines.map((deadline) => (
-                <div key={deadline.id} className="rounded-2xl border border-slate-100 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium">{deadline.title}</p>
-                      <p className="text-sm text-slate-500">{formatIsoDate(deadline.date)}</p>
-                    </div>
-                    <StatusBadge label={deadline.priority} />
-                  </div>
-                  {deadline.requiredDocuments.length > 0 ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {deadline.requiredDocuments.map((item) => (
-                        <span key={`${deadline.id}-${item}`} className="rounded-full bg-[var(--portal-panel)] px-3 py-1 text-sm text-slate-500">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-3 text-sm text-slate-500">No supporting upload is required for this milestone.</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <aside className="space-y-6">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">Application</h2>
-            {activeUser?.role !== "student" ? (
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                Switch to a student user from the navbar to apply to this program and see synced dashboard updates.
-              </p>
-            ) : (
-              <div className="mt-4 space-y-5">
-                {program.myApplication ? (
-                  <>
-                    <StatusBadge label={program.myApplication.status} />
-                    {program.myApplication.reviewerNotes ? (
-                      <div className="rounded-2xl border border-slate-100 p-4">
-                        <p className="text-sm font-medium text-slate-500">Reviewer Notes</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-500">{program.myApplication.reviewerNotes}</p>
-                      </div>
-                    ) : null}
-                    {program.myApplication.nominationNotes ? (
-                      <div className="rounded-2xl border border-slate-100 p-4">
-                        <p className="text-sm font-medium text-slate-500">Nomination Notes</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-500">{program.myApplication.nominationNotes}</p>
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-
-                <div className="rounded-2xl border border-slate-100 p-4">
-                  <div className="flex items-center gap-2">
-                    <FileUp size={18} className="text-[var(--portal-teal)]" />
-                    <h3 className="font-semibold">Required uploads</h3>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Upload the files requested by each deadline. The deadline stays visible next to every upload requirement.
-                  </p>
-
-                  <div className="mt-4 space-y-3">
-                    {uploadRequirements.length === 0 ? (
-                      <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                        No file uploads are required for this program at the moment.
-                      </p>
-                    ) : (
-                      uploadRequirements.map((requirement) => {
-                        const pendingUpload = pendingUploads[requirement.key] || [];
-                        return (
-                          <div key={requirement.key} className="rounded-2xl border border-slate-100 p-4">
-                            <div className="flex flex-col gap-2">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div>
-                                  <p className="font-medium text-[var(--portal-ink)]">{requirement.requirementLabel}</p>
-                                  <p className="text-sm text-slate-500">
-                                    {requirement.deadlineTitle} · upload by {formatIsoDate(requirement.deadlineDate)}
-                                  </p>
-                                </div>
-                                {requirement.existingFiles.length > 0 ? <StatusBadge label="Uploaded" /> : <StatusBadge label="Pending" />}
-                              </div>
-
-                              {requirement.existingFiles.length > 0 ? (
-                                <div className="space-y-2 text-sm text-slate-500">
-                                  {requirement.existingFiles.map((file) => (
-                                    <p key={file.id}>
-                                      Uploaded: {file.fileName}
-                                      {file.uploadedAt ? ` · uploaded ${formatIsoDate(file.uploadedAt)}` : ""}
-                                    </p>
-                                  ))}
-                                </div>
-                              ) : null}
-
-                              {pendingUpload.length > 0 ? (
-                                <div className="space-y-2">
-                                  {pendingUpload.map((file, index) => (
-                                    <div key={`${file.fileName}-${index}`} className="flex items-center justify-between rounded-2xl bg-[var(--portal-panel)] px-4 py-3 text-sm">
-                                      <span className="text-slate-500">Ready to upload: {file.fileName}</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => clearPendingUpload(requirement.key, index)}
-                                        className="font-medium text-rose-600"
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : null}
-
-                              <label className="block cursor-pointer rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 transition hover:border-[var(--portal-teal)] hover:bg-[var(--portal-panel)]">
-                                <div className="flex items-center justify-between gap-4">
-                                  <div>
-                                    <p className="text-sm font-semibold text-[var(--portal-ink)]">
-                                      {requirement.existingFiles.length > 0 || pendingUpload.length > 0 ? "Add more files" : "Upload file(s)"}
-                                    </p>
-                                    <p className="mt-1 text-xs text-slate-500">
-                                      Click to choose one or more files for {requirement.requirementLabel}.
-                                    </p>
-                                  </div>
-                                  <span className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">
-                                    Choose files
-                                  </span>
-                                </div>
-                                <input
-                                  type="file"
-                                  multiple
-                                  className="sr-only"
-                                  onChange={(event) => {
-                                    void onSelectUpload(requirement, event.target.files);
-                                    event.currentTarget.value = "";
-                                  }}
-                                />
-                              </label>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {activeUser?.role === "student" && program.myApplication ? (
-                    <button
-                      onClick={() => void uploadApplicationDocuments()}
-                      disabled={uploadingDocuments}
-                      className="mt-5 w-full rounded-full border border-slate-200 px-6 py-3 font-semibold text-[var(--portal-ink)] disabled:opacity-70"
-                    >
-                      {uploadingDocuments ? "Uploading..." : "Upload / Replace Documents"}
-                    </button>
-                  ) : null}
-                </div>
-
-                {!program.myApplication ? (
-                  <button
-                    onClick={() => void submitApplication()}
-                    disabled={submitting}
-                    className="w-full rounded-full bg-[var(--portal-teal)] px-6 py-3 font-semibold text-white disabled:opacity-70"
+              <div className="flex items-center gap-2">
+                {program.externalLink ? (
+                  <a
+                    href={program.externalLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-teal-300 hover:text-teal-700"
                   >
-                    {submitting ? "Submitting..." : "Apply to Program"}
+                    <ExternalLink size={13} />
+                    Official page
+                  </a>
+                ) : null}
+                {isStudent ? (
+                  <button
+                    onClick={() => void toggleSaved()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-teal-300 hover:text-teal-700"
+                  >
+                    {program.isSaved ? <BookmarkCheck size={13} className="text-teal-600" /> : <Bookmark size={13} />}
+                    {program.isSaved ? "Saved" : "Save"}
                   </button>
                 ) : null}
               </div>
-            )}
+            </div>
+
+            <h1 className="mt-4 text-3xl font-bold text-slate-900">{program.title}</h1>
+            <p className="mt-1 text-base text-slate-500">{program.university}</p>
+
+            {/* Key facts row */}
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <InfoTile icon={<MapPin size={15} />} label="Country" value={program.country} />
+              <InfoTile icon={<Clock3 size={15} />} label="Duration" value={program.duration} />
+              <InfoTile icon={<CalendarRange size={15} />} label="Starts" value={program.startDate ? formatIsoDate(program.startDate) : "TBA"} />
+              <InfoTile icon={<CalendarRange size={15} />} label="Ends" value={program.endDate ? formatIsoDate(program.endDate) : "TBA"} />
+            </div>
+
+            {/* Eligibility — full-width since it's long text */}
+            <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <GraduationCap size={13} />
+                Eligibility
+              </div>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-700">{program.eligibility}</p>
+            </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">Need guidance first?</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-500">
-              Book a mentor session to refine fit, application strategy, and documentation before you submit.
+          {/* Description */}
+          <div className="rounded-xl border border-slate-200 bg-white p-7 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900">Program Overview</h2>
+            <p className="mt-3 whitespace-pre-wrap leading-7 text-slate-600">{program.description}</p>
+          </div>
+
+          {/* Deadlines */}
+          {program.deadlines.length > 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-7 shadow-sm">
+              <h2 className="text-lg font-bold text-slate-900">Deadlines</h2>
+              <div className="mt-4 space-y-3">
+                {program.deadlines.map((deadline) => (
+                  <div key={deadline.id} className="rounded-lg border border-slate-100 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-900">{deadline.title}</p>
+                        <p className="mt-0.5 text-sm text-slate-500">{formatIsoDate(deadline.date)}</p>
+                      </div>
+                      <StatusBadge label={deadline.priority} />
+                    </div>
+                    {deadline.requiredDocuments.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {deadline.requiredDocuments.map((item) => (
+                          <span key={`${deadline.id}-${item}`} className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+                            <Paperclip size={11} />
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* ── RIGHT: Application sidebar ── */}
+        <aside className="space-y-5">
+
+          {/* Application card */}
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+
+            {/* Card header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+              <h2 className="text-lg font-bold text-slate-900">Your Application</h2>
+              {application ? <StatusBadge label={application.status} /> : null}
+            </div>
+
+            <div className="px-6 py-5">
+              {!isStudent ? (
+                <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+                  Switch to a student account from the navbar to apply to this program.
+                </p>
+              ) : !application ? (
+                /* ── Not yet applied ── */
+                !applyMode ? (
+                  /* Step 1: entry point */
+                  <div className="space-y-4">
+                    <p className="text-sm leading-relaxed text-slate-500">
+                      {uploadRequirements.length > 0
+                        ? "You'll need to upload the required documents for at least one deadline before your application can be submitted."
+                        : "No documents required for this program."}
+                    </p>
+                    <button
+                      onClick={() => setApplyMode(true)}
+                      className="w-full rounded-lg bg-teal-600 px-6 py-3 font-semibold text-white transition hover:bg-teal-700"
+                    >
+                      Apply to Program
+                    </button>
+                  </div>
+                ) : (
+                  /* Step 2: upload mode */
+                  <div className="space-y-5">
+                    {uploadRequirements.length > 0 ? (
+                      <>
+                        {/* Progress hint */}
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                          <p className="text-sm font-semibold text-slate-800">Upload required documents</p>
+                          <p className="mt-1 text-sm text-slate-500">
+                            Complete all documents for at least one deadline to enable submission.
+                          </p>
+                        </div>
+
+                        {/* Upload fields grouped by deadline */}
+                        <div className="space-y-5">
+                          {requirementsByDeadline.map((group) => {
+                            const deadlineComplete = group.requirements.every(
+                              (req) => (pendingUploads[req.key] ?? []).length > 0,
+                            );
+                            return (
+                              <div key={group.deadlineId}>
+                                <div className="mb-2 flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    {deadlineComplete
+                                      ? <CheckCircle2 size={14} className="text-emerald-600" />
+                                      : <span className="h-3.5 w-3.5 rounded-full border-2 border-slate-300" />
+                                    }
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">{group.deadlineTitle}</p>
+                                  </div>
+                                  <p className="text-xs text-slate-400">Due {formatIsoDate(group.deadlineDate)}</p>
+                                </div>
+                                <div className="space-y-2">
+                                  {group.requirements.map((requirement) => {
+                                    const pending = pendingUploads[requirement.key] || [];
+                                    return (
+                                      <div key={requirement.key} className="rounded-lg border border-slate-200 bg-white p-3">
+                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                          <div className="flex items-center gap-2">
+                                            <FileText size={14} className={pending.length > 0 ? "text-teal-600" : "text-slate-400"} />
+                                            <p className="text-sm font-semibold text-slate-800">{requirement.requirementLabel}</p>
+                                          </div>
+                                          {pending.length > 0
+                                            ? <span className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700">Ready</span>
+                                            : <span className="text-xs text-slate-400">Required</span>
+                                          }
+                                        </div>
+                                        {pending.map((file, index) => (
+                                          <div key={`${file.fileName}-${index}`} className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                              <Paperclip size={13} className="shrink-0 text-amber-600" />
+                                              <p className="truncate text-sm font-medium text-slate-800">{file.fileName}</p>
+                                            </div>
+                                            <button type="button" onClick={() => clearPendingUpload(requirement.key, index)} className="shrink-0 text-slate-400 hover:text-rose-600">
+                                              <X size={13} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 transition hover:border-teal-400 hover:bg-teal-50">
+                                          <p className="text-xs text-slate-500">{pending.length > 0 ? "Add another file" : `Attach ${requirement.requirementLabel}`}</p>
+                                          <span className="shrink-0 rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">Browse</span>
+                                          <input type="file" multiple className="sr-only" onChange={(e) => { void onSelectUpload(requirement, e.target.files); e.currentTarget.value = ""; }} />
+                                        </label>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          onClick={() => void submitApplication()}
+                          disabled={submitting || !canSubmitApplication}
+                          className="w-full rounded-lg bg-teal-600 px-6 py-3 font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {submitting ? "Submitting…" : canSubmitApplication ? "Submit Application" : "Complete a deadline to apply"}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => void submitApplication()}
+                        disabled={submitting}
+                        className="w-full rounded-lg bg-teal-600 px-6 py-3 font-semibold text-white transition hover:bg-teal-700 disabled:opacity-70"
+                      >
+                        {submitting ? "Submitting…" : "Confirm Application"}
+                      </button>
+                    )}
+
+                    {/* Cancel — go back to step 1 */}
+                    <button
+                      type="button"
+                      onClick={() => { setApplyMode(false); setPendingUploads({}); }}
+                      className="w-full rounded-lg border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )
+              ) : (
+                /* ── Already applied ── */
+                <div className="space-y-5">
+
+                  {/* Reviewer / nomination notes */}
+                  {application.reviewerNotes ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">Reviewer Notes</p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-slate-700">{application.reviewerNotes}</p>
+                    </div>
+                  ) : null}
+                  {application.nominationNotes ? (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Nomination Notes</p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-slate-700">{application.nominationNotes}</p>
+                    </div>
+                  ) : null}
+
+                  {/* Documents — grouped by deadline */}
+                  {uploadRequirements.length > 0 ? (
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <UploadCloud size={16} className="text-teal-600" />
+                        <h3 className="font-semibold text-slate-900">Required Documents</h3>
+                      </div>
+
+                      <div className="space-y-5">
+                        {requirementsByDeadline.map((group) => (
+                          <div key={group.deadlineId}>
+                            {/* Deadline header */}
+                            <div className="mb-3 flex items-center justify-between">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{group.deadlineTitle}</p>
+                              <p className="text-xs text-slate-400">Due {formatIsoDate(group.deadlineDate)}</p>
+                            </div>
+
+                            <div className="space-y-3">
+                              {group.requirements.map((requirement) => {
+                                const pending = pendingUploads[requirement.key] || [];
+                                const hasUploaded = requirement.existingFiles.length > 0;
+                                return (
+                                  <div key={requirement.key} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                    {/* Document name + status */}
+                                    <div className="flex items-center justify-between gap-2 mb-3">
+                                      <div className="flex items-center gap-2">
+                                        <FileText size={15} className={hasUploaded ? "text-emerald-600" : "text-slate-400"} />
+                                        <p className="font-semibold text-slate-800">{requirement.requirementLabel}</p>
+                                      </div>
+                                      <StatusBadge label={hasUploaded ? "Uploaded" : "Pending"} />
+                                    </div>
+
+                                    {/* Existing uploaded files — PROMINENT */}
+                                    {requirement.existingFiles.map((file) => (
+                                      <div key={file.id} className="mb-2 flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                                        <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald-600" />
+                                        <div className="min-w-0">
+                                          <p className="truncate text-sm font-semibold text-slate-900">{file.fileName}</p>
+                                          {file.uploadedAt ? (
+                                            <p className="text-xs text-slate-500">Uploaded {formatIsoDate(file.uploadedAt)}</p>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                    ))}
+
+                                    {/* Pending (staged, not yet submitted) files */}
+                                    {pending.map((file, index) => (
+                                      <div key={`${file.fileName}-${index}`} className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <Paperclip size={14} className="shrink-0 text-amber-600" />
+                                          <p className="truncate text-sm font-medium text-slate-800">{file.fileName}</p>
+                                          <span className="shrink-0 text-xs text-amber-700">Ready to upload</span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => clearPendingUpload(requirement.key, index)}
+                                          className="shrink-0 text-slate-400 hover:text-rose-600"
+                                        >
+                                          <X size={14} />
+                                        </button>
+                                      </div>
+                                    ))}
+
+                                    {/* Upload input */}
+                                    <label className="mt-1 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2.5 transition hover:border-teal-400 hover:bg-teal-50">
+                                      <p className="text-sm text-slate-500">
+                                        {hasUploaded || pending.length > 0 ? "Replace or add another file" : `Choose file for ${requirement.requirementLabel}`}
+                                      </p>
+                                      <span className="shrink-0 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                                        Browse
+                                      </span>
+                                      <input
+                                        type="file"
+                                        multiple
+                                        className="sr-only"
+                                        onChange={(e) => { void onSelectUpload(requirement, e.target.files); e.currentTarget.value = ""; }}
+                                      />
+                                    </label>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Upload submit button — only shows when there are staged files */}
+                      {hasPendingUploads ? (
+                        <button
+                          onClick={() => void uploadApplicationDocuments()}
+                          disabled={uploadingDocuments}
+                          className="mt-5 w-full rounded-lg bg-teal-600 px-6 py-3 font-semibold text-white transition hover:bg-teal-700 disabled:opacity-70"
+                        >
+                          {uploadingDocuments ? "Uploading…" : "Save Documents"}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+                      No file uploads are required for this program.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Mentor guidance */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="font-semibold text-slate-900">Need guidance first?</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+              Book a mentor session to refine your fit, strategy, and documentation before you submit.
             </p>
-            <Link href="/mentor" className="mt-4 inline-flex text-sm font-semibold text-[var(--portal-teal)]">
-              Go to Mentor Booking
+            <Link
+              href="/mentor"
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-teal-700 hover:text-teal-800"
+            >
+              Book a mentor session →
             </Link>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          {/* Program Assistant */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-2">
-              <Sparkles size={18} className="text-[var(--portal-teal)]" />
-              <h2 className="text-xl font-semibold">Program Assistant</h2>
+              <Sparkles size={16} className="text-teal-600" />
+              <h3 className="font-semibold text-slate-900">Program Assistant</h3>
             </div>
-            <p className="mt-3 text-sm leading-6 text-slate-500">
-              Open the dedicated assistant workspace for this program. You can switch between program assistants there, keep a full per-program conversation history, and run honest application reviews against the latest uploaded materials saved in the portal.
+            <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+              Ask questions about this program or run an honest review of your uploaded application materials against the requirements.
             </p>
-            {activeUser?.role !== "student" ? (
-              <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                Switch to a student account to open the program assistant workspace.
+            {!isStudent ? (
+              <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                Switch to a student account to use the program assistant.
               </p>
             ) : (
-              <div className="mt-5 rounded-2xl border border-slate-200 bg-[var(--portal-panel)] p-4">
-                <p className="text-sm leading-6 text-slate-500">
-                  Use the workspace for two things:
-                </p>
-                <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
-                  <li>1. Ask grounded questions about this specific program and its official page.</li>
-                  <li>2. Review your current application against the latest documents already uploaded for this program.</li>
-                </ul>
-                <Link
-                  href={`/assistant?programId=${program.id}`}
-                  className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white"
-                >
-                  Open {program.title} assistant
-                  <ExternalLink size={16} />
-                </Link>
-              </div>
+              <Link
+                href={`/assistant?programId=${program.id}`}
+                className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700"
+              >
+                Open {program.title} Assistant
+                <ExternalLink size={13} />
+              </Link>
             )}
           </div>
         </aside>
@@ -493,10 +605,12 @@ export default function ProgramDetailPage() {
 
 function InfoTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-[var(--portal-panel)] p-4">
-      <div className="flex items-center gap-2 text-[var(--portal-teal)]">{icon}</div>
-      <p className="mt-3 text-sm uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-700">{value}</p>
+    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+        {icon}
+        {label}
+      </div>
+      <p className="mt-1.5 text-sm font-medium text-slate-800">{value}</p>
     </div>
   );
 }

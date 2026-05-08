@@ -4,57 +4,91 @@ import { useEffect, useState } from "react";
 import MentorCalendar from "@/components/MentorCalendar";
 import { apiGet } from "@/services/api";
 import type { Mentor } from "@/types";
+import { cx } from "@/lib/utils";
 
 export default function MentorPage() {
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMentorId, setSelectedMentorId] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadMentors() {
       try {
         const response = await apiGet<Mentor[]>("/mentors");
         setMentors(response);
+        if (response.length > 0) setSelectedMentorId(response[0].id);
       } catch (error) {
         console.error("Failed to load mentors", error);
       } finally {
         setLoading(false);
       }
     }
-
     loadMentors();
   }, []);
 
   return (
-<div className="mx-auto max-w-screen-2xl px-6 py-8">
-      <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-sm uppercase tracking-[0.2em] text-[var(--portal-teal)]">Mentor Support</p>
-        <h1 className="mt-2 text-4xl font-bold">Mentor booking and advising</h1>
-        <p className="mt-3 max-w-3xl text-slate-500">
+    <div className="mx-auto max-w-screen-2xl px-6 py-8">
+
+      {/* Page header */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">Mentor Support</p>
+        <h1 className="mt-1 text-2xl font-bold text-slate-900">Mentor booking and advising</h1>
+        <p className="mt-1.5 text-sm text-slate-500 max-w-2xl">
           Meet the Global Engagement mentors, understand their support areas, and reserve guidance slots directly from the shared availability calendar.
         </p>
       </div>
 
       {loading ? (
-        <p className="mt-8 text-gray-500">Loading mentors...</p>
+        <p className="mt-6 text-sm text-slate-400">Loading mentors…</p>
       ) : (
-        <div className="mt-10 grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
-          <MentorCalendar mentors={mentors} />
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px]">
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold">Available Mentors</h2>
-            <div className="mt-4 space-y-4">
-              {mentors.map((mentor) => (
-                <div key={mentor.id} className="rounded-2xl border border-slate-100 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold">{mentor.name}</h3>
-                      <p className="text-sm text-gray-600">{mentor.expertise}</p>
-                    </div>
-                    <span className="rounded-full bg-slate-50 px-3 py-1 text-xs text-slate-500">{mentor.region}</span>
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-500">{mentor.bio}</p>
-                </div>
-              ))}
+          {/* Left: booking form */}
+          <MentorCalendar
+            mentors={mentors}
+            selectedMentorId={selectedMentorId}
+            onSelectMentor={setSelectedMentorId}
+          />
+
+          {/* Right: mentor directory — self-start so it doesn't stretch */}
+          <div className="self-start space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-5 py-4">
+                <p className="font-semibold text-slate-900">Available Mentors</p>
+                <p className="mt-0.5 text-xs text-slate-500">Click a mentor to select them for booking</p>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {mentors.map((mentor) => {
+                  const active = mentor.id === selectedMentorId;
+                  return (
+                    <button
+                      key={mentor.id}
+                      type="button"
+                      onClick={() => setSelectedMentorId(mentor.id)}
+                      className={cx(
+                        "w-full px-5 py-4 text-left transition",
+                        active ? "bg-teal-50" : "hover:bg-slate-50",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className={cx("font-semibold text-sm", active ? "text-teal-800" : "text-slate-900")}>
+                            {mentor.name}
+                          </p>
+                          <p className="mt-0.5 text-xs text-slate-500">{mentor.expertise}</p>
+                        </div>
+                        <span className={cx(
+                          "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium",
+                          active ? "bg-teal-100 text-teal-700" : "bg-slate-100 text-slate-500",
+                        )}>
+                          {mentor.region}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-500">{mentor.bio}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
