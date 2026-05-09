@@ -359,6 +359,8 @@ export type AdminDashboard = {
   pendingReviews: number;
   upcomingDeadlines: Deadline[];
   approvalQueue: Application[];
+  queue: ApprovalQueue;
+  allApplications: Application[];
 };
 
 export type ApprovalQueue = {

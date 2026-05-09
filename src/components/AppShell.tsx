@@ -64,6 +64,23 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const isAdminArea = pathname.startsWith("/admin");
+
+  if (isAdminArea) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc]">
+        <main>
+          <AnimatePresence mode="wait">
+            <motion.div key={pathname} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: "easeOut" }}>
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+        <Toaster position="top-right" toastOptions={{ style: { background: "#fff", color: "#0f172a", border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(15,23,42,0.08)" } }} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       <Navbar />

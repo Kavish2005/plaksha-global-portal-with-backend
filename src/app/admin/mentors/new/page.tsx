@@ -8,6 +8,14 @@ import { apiPost } from "@/services/api";
 import type { Mentor } from "@/types";
 import { getErrorMessage } from "@/lib/utils";
 
+const DEMO_MENTOR = {
+  name: "Dr. Preethi Krishnaswamy",
+  email: "preethi.krishnaswamy@plaksha.edu.in",
+  expertise: "North America and Singapore Research Programs",
+  region: "North America and Asia-Pacific",
+  bio: "Advises students on research internship applications across North America and Asia. Specialises in lab-based programs including Mitacs Globalink, CMU RISS, and NUS UROP. Former research advisor at IIT Delhi with experience in international student placement and research mentorship.",
+};
+
 export default function NewMentorPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -48,11 +56,20 @@ export default function NewMentorPage() {
         ← Back to mentors
       </Link>
 
-      <div className="mt-4">
-        <h1 className="text-2xl font-bold text-slate-900">Add mentor</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Create a new advisor profile. You can manage their availability after saving.
-        </p>
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Add mentor</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Create a new advisor profile. You can manage their availability after saving.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setForm(DEMO_MENTOR)}
+          className="rounded-full border border-dashed border-teal-400 bg-teal-50 px-4 py-2 text-sm font-medium text-teal-700 hover:bg-teal-100"
+        >
+          ✦ Fill demo data
+        </button>
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">

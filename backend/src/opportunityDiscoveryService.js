@@ -1,42 +1,87 @@
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
-const BLOCKED_HOST_KEYWORDS = ["medium.com", "substack.com", "wordpress", "blogspot", "algoverseairesearch.org"];
-const BLOCKED_PATH_KEYWORDS = ["/blog", "/blogs", "/news", "/article", "/articles"];
-const INSTITUTION_HOST_HINTS = [".edu", ".ac.", ".edu.", ".ac.uk", ".gov"];
-const INSTITUTION_TEXT_HINTS = ["university", "institute", "college", "school of", "campus", "faculty", "department"];
-const OPPORTUNITY_TEXT_HINTS = ["summer school", "research program", "exchange", "fellowship", "internship", "lab", "undergraduate research", "program"];
-const BLOCKED_OUTBOUND_HOST_KEYWORDS = ["studyabroad.", "abroad."];
+
+// Spam / aggregator sites — never useful
+const BLOCKED_HOST_KEYWORDS = [
+  "medium.com", "substack.com", "wordpress", "blogspot", "algoverseairesearch.org",
+  "quora.com", "reddit.com", "collegedunia", "shiksha.com", "yocket.com",
+  "gradcafe", "prepscholar", "collegevine", "niche.com", "cappex.com",
+];
+const BLOCKED_PATH_KEYWORDS = ["/blog", "/blogs", "/news", "/article", "/articles", "/press", "/events"];
+
+// Institution authority — anything from these domains is a real institution
+const INSTITUTION_HOST_HINTS = [
+  ".edu", ".ac.uk", ".ac.in", ".ac.au", ".edu.sg", ".edu.au",
+  ".edu.hk", ".edu.tw", ".edu.cn", ".ac.jp", ".ac.kr",
+  "nsf.gov", "nih.gov", "daad.de", "mitacs.ca", "fulbright.org",
+  "ethz.ch", "epfl.ch", "tum.de", "rwth-aachen.de", "kit.edu",
+  "nus.edu", "ntu.edu", "iaeste.org", "research.gov",
+];
+const INSTITUTION_TEXT_HINTS = [
+  "university", "institute", "college", "school of", "campus",
+  "faculty", "department", "research center", "laboratory",
+];
+const OPPORTUNITY_TEXT_HINTS = [
+  "summer school", "research program", "exchange", "fellowship", "internship",
+  "lab", "undergraduate research", "program", "scholarship", "visiting student",
+  "research internship", "research experience", "research opportunity",
+];
+
+// Pages describing a university's OWN students going abroad — filter these out
+const BLOCKED_OUTBOUND_HOST_KEYWORDS = ["studyabroad.", "abroad.", "globalexperiences."];
 const BLOCKED_OUTBOUND_TEXT_HINTS = [
   "study abroad office",
   "my study abroad",
   "apply via portal",
-  "outbound",
-  "our students",
-  "current students",
-  "students from our university",
-  "send students abroad",
+  "outbound students",
+  "our students who want to study abroad",
+  "students who wish to go abroad",
+  "outbound exchange application",
+  "for students currently enrolled at",
   "advisors parents",
-  "begin application",
   "how to apply my study abroad",
+  "send our students",
+  "only for enrolled students",
 ];
+
+// Positive signals that a program accepts EXTERNAL / VISITING applicants
 const EXTERNAL_FACING_TEXT_HINTS = [
   "visiting students",
   "international students",
   "external students",
   "open to students from other universities",
+  "open to students from all universities",
+  "students from any university",
+  "students enrolled at any accredited",
   "summer school",
   "applications are open",
   "eligibility",
   "program dates",
   "deadline",
+  "apply online",
+  "stipend",
+  "funded by nsf",
+  "funded by daad",
+  "mitacs",
+  "research internship",
+  "visiting researcher",
+  "host institution",
+  "participating universities",
+  "students worldwide",
+  "international applicants",
+  "from any country",
+  "global applicants",
+  "fellows from",
+  "scholars from",
 ];
+
 const RESULT_LIMITS = {
   initialPerQuery: 10,
-  topSeedSources: 30,
-  hostExpansionCount: 10,
+  topSeedSources: 45,
+  hostExpansionCount: 12,
   hostExpansionPerHost: 5,
-  preferredTopCount: 10,
-  reviewTopCount: 10,
+  preferredTopCount: 14,
+  reviewTopCount: 8,
 };
 
 function trimSnippet(text, maxLength = 280) {
@@ -520,52 +565,44 @@ function scoreInstitutionSource(source) {
 
   let score = 0;
 
-  if (BLOCKED_HOST_KEYWORDS.some((keyword) => hostname.includes(keyword))) {
-    score -= 10;
-  }
+  // Hard blocks
+  if (BLOCKED_HOST_KEYWORDS.some((k) => hostname.includes(k))) return -100;
+  if (BLOCKED_PATH_KEYWORDS.some((k) => pathname.includes(k))) score -= 10;
 
-  if (BLOCKED_PATH_KEYWORDS.some((keyword) => pathname.includes(keyword))) {
-    score -= 5;
-  }
+  // Domain authority — tiered
+  if (hostname.endsWith(".edu")) score += 12;
+  else if (hostname.includes(".ac.uk") || hostname.includes(".ac.au") || hostname.endsWith(".edu.sg") || hostname.endsWith(".edu.au") || hostname.endsWith(".edu.hk")) score += 11;
+  else if (hostname.endsWith(".gov") || hostname.includes("nsf.gov") || hostname.includes("nih.gov") || hostname.includes("research.gov")) score += 10;
+  else if (["daad.de", "mitacs.ca", "fulbright.org", "iaeste.org"].some((h) => hostname.includes(h))) score += 10;
+  else if (["ethz.ch", "epfl.ch"].some((h) => hostname.includes(h))) score += 11;
+  else if (hostname.endsWith(".de") || hostname.endsWith(".ch") || hostname.endsWith(".fr") || hostname.endsWith(".nl") || hostname.endsWith(".se") || hostname.endsWith(".dk")) score += 7;
+  else if (hostname.endsWith(".ca") || hostname.endsWith(".au")) score += 6;
+  else score -= 3; // Unknown TLD — penalise
 
-  if (INSTITUTION_HOST_HINTS.some((keyword) => hostname.includes(keyword))) {
-    score += 8;
-  }
+  // Strong inbound-program signals (these are what we want)
+  if (/visiting students?|visiting undergraduate/i.test(combinedText)) score += 8;
+  if (/external students?|students from other universities|students from any university/i.test(combinedText)) score += 8;
+  if (/international students?|global applicants|worldwide applicants/i.test(combinedText)) score += 6;
+  if (/reu|research experience for undergraduates/i.test(combinedText)) score += 8;
+  if (/nsf.funded|nsf grant|daad|mitacs|fulbright|iaeste/i.test(combinedText)) score += 8;
+  if (/stipend|financial support|housing provided|funded position/i.test(combinedText)) score += 5;
+  if (/summer school|summer session|summer research|summer program/i.test(combinedText)) score += 5;
+  if (/fellowship|scholarship/i.test(combinedText)) score += 4;
+  if (/research internship|research opportunity|lab rotation/i.test(combinedText)) score += 4;
+  if (/apply|application|deadline|apply online|apply now/i.test(combinedText)) score += 3;
+  if (/undergraduate|bachelor/i.test(combinedText)) score += 3;
 
-  if (INSTITUTION_TEXT_HINTS.some((keyword) => combinedText.includes(keyword))) {
-    score += 4;
-  }
+  // Path signals
+  if (/\/summer|\/visiting|\/research|\/fellowship|\/internship|\/programs?|\/exchange/i.test(pathname)) score += 3;
 
-  if (OPPORTUNITY_TEXT_HINTS.some((keyword) => combinedText.includes(keyword))) {
-    score += 3;
-  }
-
-  if (pathname.includes("/admissions") || pathname.includes("/summer") || pathname.includes("/research") || pathname.includes("/exchange")) {
-    score += 2;
-  }
-
-  if (/visiting students|external students|international students|students from other universities/i.test(combinedText)) {
-    score += 4;
-  }
-
-  if (/summer school|summer session|reu|research experience for undergraduates/i.test(combinedText)) {
-    score += 4;
-  }
-
-  if (/undergraduate/i.test(combinedText)) {
-    score += 2;
-  }
+  // Penalise outbound / home-student pages
+  if (isOutboundStudyAbroadPortal(source)) score -= 20;
 
   return score;
 }
 
 function hasInstitutionAuthority(source) {
   const url = String(source?.url || "");
-  const title = String(source?.title || "").toLowerCase();
-  const snippet = String(source?.snippet || "").toLowerCase();
-  const pageExtract = String(source?.pageExtract || "").toLowerCase();
-  const combinedText = `${title} ${snippet} ${pageExtract}`;
-
   let parsedUrl;
   try {
     parsedUrl = new URL(url);
@@ -576,20 +613,27 @@ function hasInstitutionAuthority(source) {
   const hostname = parsedUrl.hostname.toLowerCase();
   const pathname = parsedUrl.pathname.toLowerCase();
 
-  if (BLOCKED_HOST_KEYWORDS.some((keyword) => hostname.includes(keyword))) {
-    return false;
+  if (BLOCKED_HOST_KEYWORDS.some((k) => hostname.includes(k))) return false;
+  if (BLOCKED_PATH_KEYWORDS.some((k) => pathname.includes(k))) return false;
+
+  // Tier 1: direct institutional TLDs
+  if (hostname.endsWith(".edu")) return true;
+  if (hostname.includes(".ac.uk") || hostname.includes(".ac.au") || hostname.endsWith(".edu.sg") || hostname.endsWith(".edu.au") || hostname.endsWith(".edu.hk") || hostname.endsWith(".ac.jp") || hostname.endsWith(".ac.kr")) return true;
+  if (hostname.endsWith(".gov") || hostname.includes("nsf.gov") || hostname.includes("nih.gov")) return true;
+
+  // Tier 2: known high-quality scholarship/research orgs
+  const knownAuthorities = ["daad.de", "mitacs.ca", "fulbright.org", "iaeste.org", "research.gov", "ethz.ch", "epfl.ch", "tum.de", "rwth-aachen.de", "kit.edu", "nus.edu.sg", "ntu.edu.sg"];
+  if (knownAuthorities.some((h) => hostname.includes(h))) return true;
+
+  // Tier 3: European/international academic TLDs with text confirmation
+  const combinedText = `${source?.title || ""} ${source?.snippet || ""} ${source?.pageExtract || ""}`.toLowerCase();
+  const hasInstitutionText = INSTITUTION_TEXT_HINTS.some((h) => combinedText.includes(h));
+  const hasOpportunityText = OPPORTUNITY_TEXT_HINTS.some((h) => combinedText.includes(h));
+  if (hasInstitutionText && hasOpportunityText) {
+    if (hostname.endsWith(".de") || hostname.endsWith(".ch") || hostname.endsWith(".fr") || hostname.endsWith(".nl") || hostname.endsWith(".se") || hostname.endsWith(".dk") || hostname.endsWith(".ca") || hostname.endsWith(".au")) return true;
   }
 
-  if (BLOCKED_PATH_KEYWORDS.some((keyword) => pathname.includes(keyword))) {
-    return false;
-  }
-
-  const strongHostSignal = INSTITUTION_HOST_HINTS.some((keyword) => hostname.includes(keyword));
-  const strongTextSignal =
-    INSTITUTION_TEXT_HINTS.some((keyword) => combinedText.includes(keyword)) &&
-    OPPORTUNITY_TEXT_HINTS.some((keyword) => combinedText.includes(keyword));
-
-  return strongHostSignal && strongTextSignal;
+  return false;
 }
 
 function isOutboundStudyAbroadPortal(source) {
@@ -637,9 +681,14 @@ function filterPreferredInstitutionSources(sources, request) {
       institutionScore: scoreInstitutionSource(source),
     }))
     .filter((source) => {
-      if (source.institutionScore < 10 || !hasInstitutionAuthority(source)) return false;
-      if (!explicitlyAskedForExchange && isOutboundStudyAbroadPortal(source)) return false;
-      if (!isExternalFacingOpportunitySource(source) && !explicitlyAskedForExchange) return false;
+      // Hard minimum — must have institution authority
+      if (!hasInstitutionAuthority(source)) return false;
+      // Always drop outbound portals (pages for a university's own students going abroad)
+      if (isOutboundStudyAbroadPortal(source)) return false;
+      // Score floor: lower threshold so international programs on .de/.ch etc. pass through
+      if (source.institutionScore < 6) return false;
+      // For lower-scoring sources, require at least one external-facing signal
+      if (source.institutionScore < 14 && !isExternalFacingOpportunitySource(source) && !explicitlyAskedForExchange) return false;
       return true;
     })
     .sort((left, right) => right.institutionScore - left.institutionScore);
@@ -648,68 +697,100 @@ function filterPreferredInstitutionSources(sources, request) {
 function buildSearchQueries(request) {
   const normalized = String(request || "").trim();
   const lower = normalized.toLowerCase();
-  const mentionsAbroad = lower.includes("abroad") || lower.includes("summer abroad");
-  const mentionsSummer = lower.includes("summer");
+
+  const mentionsSummer   = lower.includes("summer");
   const mentionsResearch = lower.includes("research");
-  const mentionsExchange = lower.includes("exchange");
-  const mentionsVisiting =
-    lower.includes("visiting") ||
-    lower.includes("external students") ||
-    lower.includes("students from other universities") ||
-    lower.includes("international students");
-  const mentionsComputerScience =
-    lower.includes("computer science") ||
-    /\bcs\b/.test(lower) ||
-    lower.includes("computing");
+  const mentionsExchange = lower.includes("exchange") || lower.includes("semester");
+  const mentionsFellow   = lower.includes("fellowship") || lower.includes("scholar");
+  const mentionsEurope   = /europe|germany|uk\b|france|switzerland|netherlands|sweden|denmark|austria/.test(lower);
+  const mentionsAsia     = /asia|singapore|japan|korea|hong kong|taiwan|china/.test(lower);
+  const mentionsUSA      = /\bus\b|usa|united states|american university/.test(lower);
+  const mentionsCompSci  = /computer science|\bcs\b|computing|\bai\b|machine learning|data science/.test(lower);
+  const mentionsBio      = /biology|biotech|bioinformatics|life science|neuroscience/.test(lower);
+  const mentionsPhysics  = /physics|astrophysics|particle|quantum/.test(lower);
 
-  const baseQueries = [
-    normalized,
-    `${normalized} official university program site:.edu`,
-    `${normalized} official institute program site:.edu`,
-    `${normalized} official university opportunity site:.edu`,
-    `${normalized} official college program site:.edu`,
-  ];
+  const queries = [];
 
-  if (mentionsSummer && !mentionsExchange) {
-    baseQueries.push(`${normalized} summer school visiting students site:.edu`);
-    baseQueries.push(`${normalized} summer session visiting students site:.edu`);
-    baseQueries.push(`${normalized} summer program external students site:.edu`);
+  // — Core: target inbound programs explicitly —
+  queries.push(`${normalized} for international undergraduate students apply`);
+  queries.push(`${normalized} visiting students program open applications`);
+  queries.push(`${normalized} undergraduate research program external students apply site:.edu`);
+  queries.push(`${normalized} summer program international students eligibility deadline site:.edu`);
+
+  // — Named high-quality program families —
+  if (mentionsResearch || mentionsSummer) {
+    queries.push(`NSF REU ${normalized} international students apply site:nsf.gov OR site:.edu`);
+    queries.push(`DAAD RISE research internship ${normalized} international undergraduates`);
+    queries.push(`Mitacs Globalink research internship ${normalized} international`);
+    queries.push(`${normalized} undergraduate research internship stipend international apply`);
+    queries.push(`${normalized} research experience undergraduates visiting international students deadline`);
   }
 
-  if (mentionsResearch) {
-    baseQueries.push(`${normalized} undergraduate research program external students site:.edu`);
-    baseQueries.push(`${normalized} research opportunity visiting students site:.edu`);
+  // — Summer schools —
+  if (mentionsSummer) {
+    queries.push(`${normalized} summer school visiting students apply international`);
+    queries.push(`${normalized} summer research institute international undergraduates stipend`);
+    queries.push(`${normalized} summer program deadline eligibility international students`);
   }
 
-  if (mentionsAbroad && !mentionsExchange) {
-    baseQueries.push(`${normalized} international summer school external students site:.edu`);
-    baseQueries.push(`${normalized} visiting students summer program site:.edu`);
+  // — Fellowships & scholarships —
+  if (mentionsFellow || mentionsResearch) {
+    queries.push(`${normalized} fellowship undergraduate international students apply site:.edu OR site:.gov`);
+    queries.push(`Fulbright ${normalized} undergraduate international`);
   }
 
+  // — Exchange / semester —
   if (mentionsExchange) {
-    baseQueries.push(`${normalized} exchange visiting students site:.edu`);
+    queries.push(`${normalized} semester exchange visiting students apply deadline site:.edu`);
+    queries.push(`${normalized} exchange program international students eligibility`);
   }
 
-  if (mentionsVisiting) {
-    baseQueries.push(`${normalized} open to visiting students site:.edu`);
-    baseQueries.push(`${normalized} students from other universities site:.edu`);
+  // — Europe specifically —
+  if (mentionsEurope) {
+    queries.push(`${normalized} summer school international students apply site:.ac.uk`);
+    queries.push(`${normalized} visiting students research program ETH Zurich EPFL TU Munich RWTH`);
+    queries.push(`DAAD ${normalized} scholarship Germany international undergraduates apply`);
+    queries.push(`${normalized} summer school Europe international undergraduate apply deadline`);
+    queries.push(`${normalized} research internship Europe international students`);
   }
 
-  if (mentionsComputerScience) {
-    baseQueries.push(`${normalized} school of computer science site:.edu`);
-    baseQueries.push(`${normalized} cs department site:.edu`);
+  // — Asia specifically —
+  if (mentionsAsia) {
+    queries.push(`${normalized} visiting students program site:.edu.sg OR site:.edu.hk`);
+    queries.push(`NUS NTU ${normalized} research attachment international students apply`);
+    queries.push(`${normalized} summer program Japan Korea Singapore international undergraduates`);
   }
 
-  baseQueries.push(`${normalized} application deadline site:.edu`);
-  baseQueries.push(`${normalized} eligibility site:.edu`);
+  // — USA —
+  if (mentionsUSA || (!mentionsEurope && !mentionsAsia)) {
+    queries.push(`${normalized} visiting undergraduates research program site:.edu stipend apply`);
+    queries.push(`top university ${normalized} summer research program international students apply site:.edu`);
+  }
+
+  // — Domain-specific fields —
+  if (mentionsCompSci) {
+    queries.push(`${normalized} computer science research internship international undergraduates apply site:.edu`);
+    queries.push(`CMU Stanford MIT Berkeley ${normalized} summer research visiting international students`);
+    queries.push(`${normalized} AI machine learning research internship international apply`);
+  }
+
+  if (mentionsBio) {
+    queries.push(`${normalized} biology research internship international undergraduates site:.edu`);
+    queries.push(`NIH ${normalized} summer research international undergraduates`);
+  }
+
+  if (mentionsPhysics) {
+    queries.push(`${normalized} physics research internship international undergraduates site:.edu OR site:.ac.uk`);
+    queries.push(`CERN ${normalized} summer student international undergraduates apply`);
+  }
+
+  // — Always: known high-quality aggregators & official listings —
+  queries.push(`${normalized} research internship international undergraduates apply 2025`);
+  queries.push(`${normalized} funded international internship undergraduate apply deadline 2025`);
 
   return Array.from(
-    new Set(
-      baseQueries
-        .map((item) => item.replace(/\s+/g, " ").trim())
-        .filter(Boolean),
-    ),
-  ).slice(0, 14);
+    new Set(queries.map((q) => q.replace(/\s+/g, " ").trim()).filter(Boolean)),
+  ).slice(0, 18);
 }
 
 function getHostRoot(url) {
@@ -1040,15 +1121,17 @@ async function synthesizeOpportunityResults({ request, searchQueries, sources })
   }
 
   const systemPrompt = [
-    "You are an opportunity discovery analyst for a university Global Engagement Office.",
-    "Your job is to review externally retrieved sources and propose opportunities that match the office query.",
+    "You are an opportunity discovery analyst for Plaksha University's Global Engagement Office.",
+    "Plaksha is a private tech university in India. Its undergraduate students want to apply to international research internships, summer schools, fellowships, and exchange programs at universities worldwide.",
+    "CRITICAL: Only return opportunities where students NOT enrolled at the host institution can apply.",
+    "This means: inbound visiting programs, international summer schools, research internships open to external applicants, named fellowships (REU, DAAD RISE, Mitacs Globalink, etc.), and exchange programs that accept visiting students.",
+    "NEVER return outbound study-abroad pages (pages a university puts up for its OWN students to go abroad).",
+    "NEVER return pages that are only for currently enrolled students of that institution.",
     "Only use the provided source material. Do not invent institutions, deadlines, or eligibility.",
+    "Prefer well-known, high-quality programs: NSF REU, DAAD, Mitacs, Fulbright, IAESTE, university summer schools at top institutions (MIT, Stanford, ETH Zurich, EPFL, NUS, TU Munich, UCL, Oxford, etc.).",
     "Return concise, structured results suitable for an admin operations console.",
-    "Only return opportunities from official university, college, institute, or clearly institutional pages.",
-    "Do not return blog posts, aggregators, commentary pages, or generic advice articles as opportunities.",
     "Use at most one result per source URL.",
-    "If only one source is credible, return only one result.",
-    "Never derive multiple different opportunities from a single generic article or overview page.",
+    "If only one source is credible, return only one result rather than inventing more.",
   ].join(" ");
 
   const userPrompt = [
@@ -1101,11 +1184,13 @@ async function synthesizeOpportunityResults({ request, searchQueries, sources })
     ),
     "",
     "Rules:",
-    "- Return 1 to 6 high-quality results if available.",
-    "- If there are fewer credible opportunities, return fewer rather than inventing.",
+    "- Return 4 to 8 high-quality results if available. Prefer quality over quantity.",
+    "- EXCLUDE any source that is a university's outbound study-abroad page or is only for enrolled students.",
+    "- INCLUDE programs with these strong signals: stipend, NSF-funded, DAAD, Mitacs, Fulbright, 'visiting students', 'open to international applicants', 'apply online'.",
     "- If the retrieved sources are not official university/institution opportunity pages, exclude them.",
     "- Keep draftProgram conservative and based on the evidence.",
     "- If dates are unknown, use null for startDate/endDate and 'Not clearly stated' in timing/deadline.",
+    "- In fitReason, explicitly confirm whether Plaksha students (undergraduate, India) would be eligible.",
     "- Output JSON only.",
   ].join("\n");
 
@@ -1199,11 +1284,34 @@ async function discoverOpportunities(request) {
     };
   }
 
-  const synthesized = await synthesizeOpportunityResults({
-    request: normalizedRequest,
-    searchQueries: [...primaryQueries, ...hostExpansionQueries].slice(0, 12),
-    sources: preferredInstitutionSources,
-  });
+  let synthesized;
+  try {
+    synthesized = await synthesizeOpportunityResults({
+      request: normalizedRequest,
+      searchQueries: [...primaryQueries, ...hostExpansionQueries].slice(0, 12),
+      sources: preferredInstitutionSources,
+    });
+  } catch (synthesisError) {
+    const isBillingError =
+      String(synthesisError?.message || "").includes("credit balance") ||
+      String(synthesisError?.message || "").includes("402") ||
+      String(synthesisError?.message || "").includes("400");
+
+    if (isBillingError) {
+      console.warn("Anthropic API unavailable (billing). Returning web-search-derived results.");
+      return {
+        ...buildFallbackDiscoveryResults({
+          request: normalizedRequest,
+          searchQueries: [...primaryQueries, ...hostExpansionQueries].slice(0, 12),
+          strongSources: preferredInstitutionSources.slice(0, 8),
+          reviewSources: preferredInstitutionSources.slice(8, 14),
+        }),
+        overview:
+          "AI synthesis is temporarily unavailable. These results come directly from the web search — they match your query and are from official institutional sources, but have not been AI-verified. Review each link manually.",
+      };
+    }
+    throw synthesisError;
+  }
 
   const allowedUrls = new Set(preferredInstitutionSources.map((source) => source.url));
   const uniqueResults = [];

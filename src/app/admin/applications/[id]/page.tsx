@@ -33,6 +33,12 @@ export default function AdminApplicationDetailPage() {
 
   const [stageDraft, setStageDraft] = useState({ internalNotes: "", studentVisibleUpdate: "" });
   const [sendReviewDraft, setSendReviewDraft] = useState({ toEmail: "", toName: "", toRoleLabel: "", instructions: "" });
+  const DEMO_REVIEW_REQUEST = {
+    toEmail: "ugacademics@plaksha.edu.in",
+    toName: "UG Academics Office",
+    toRoleLabel: "UG Academics",
+    instructions: "Please verify the student's academic transcript and confirm they meet the minimum eligibility requirements for this program. Specifically, confirm GPA standing, credit completion status, and that there are no outstanding academic holds.",
+  };
   const [moveNextDraft, setMoveNextDraft] = useState({ nextStageLabel: "", studentVisibleUpdate: "" });
   const [seedDraft, setSeedDraft] = useState({
     stageLabel: "Global Engagement review",
@@ -485,12 +491,21 @@ export default function AdminApplicationDetailPage() {
                     </div>
                   ) : tab === "request" ? (
                     <div className="space-y-3">
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setSendReviewDraft(DEMO_REVIEW_REQUEST)}
+                          className="rounded-full border border-dashed border-teal-400 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100"
+                        >
+                          ✦ Fill demo data
+                        </button>
+                      </div>
                       <div className="grid gap-3 md:grid-cols-2">
                         <input
                           value={sendReviewDraft.toEmail}
                           onChange={(e) => setSendReviewDraft((d) => ({ ...d, toEmail: e.target.value }))}
                           className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none md:col-span-2"
-                          placeholder="Stakeholder email"
+                          placeholder="Reviewer email"
                           type="email"
                         />
                         <input
@@ -511,7 +526,7 @@ export default function AdminApplicationDetailPage() {
                         onChange={(e) => setSendReviewDraft((d) => ({ ...d, instructions: e.target.value }))}
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
                         rows={3}
-                        placeholder="What should this stakeholder review or provide input on?"
+                        placeholder="What should this reviewer review or provide input on?"
                       />
                       <button
                         type="button"

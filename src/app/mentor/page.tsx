@@ -3,27 +3,35 @@
 import { useEffect, useState } from "react";
 import MentorCalendar from "@/components/MentorCalendar";
 import { apiGet } from "@/services/api";
+import { readCache, writeCache } from "@/lib/pageCache";
 import type { Mentor } from "@/types";
 import { cx } from "@/lib/utils";
 
+const MENTORS_CACHE_KEY = "plaksha-mentors";
+const MENTORS_TTL = 5 * 60_000; // 5 min
+
 export default function MentorPage() {
-  const [mentors, setMentors] = useState<Mentor[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedMentorId, setSelectedMentorId] = useState<number | null>(null);
+  const cached = readCache<Mentor[]>(MENTORS_CACHE_KEY, MENTORS_TTL);
+  const [mentors, setMentors] = useState<Mentor[]>(cached ?? []);
+  const [loading, setLoading] = useState(!cached);
+  const [selectedMentorId, setSelectedMentorId] = useState<number | null>(
+    cached?.[0]?.id ?? null,
+  );
 
   useEffect(() => {
     async function loadMentors() {
       try {
         const response = await apiGet<Mentor[]>("/mentors");
         setMentors(response);
-        if (response.length > 0) setSelectedMentorId(response[0].id);
+        writeCache(MENTORS_CACHE_KEY, response);
+        if (!selectedMentorId && response.length > 0) setSelectedMentorId(response[0].id);
       } catch (error) {
         console.error("Failed to load mentors", error);
       } finally {
         setLoading(false);
       }
     }
-    loadMentors();
+    void loadMentors();
   }, []);
 
   return (

@@ -10,6 +10,23 @@ import { getErrorMessage } from "@/lib/utils";
 
 const PROGRAM_TYPES = ["Exchange", "Research", "Internship", "Summer School"];
 
+const DEMO_PROGRAM = {
+  title: "University of Tokyo Research Internship Programme (UTRIP)",
+  university: "University of Tokyo",
+  country: "Japan",
+  type: "Research",
+  description:
+    "UTRIP is a 6-week summer research internship at the University of Tokyo's Faculty of Science, hosted exclusively for international undergraduate students. Interns are embedded in active research groups across life sciences, chemistry, physics, earth science, astronomy, mathematics, and computational biology. The programme includes a weekly seminar series, a lab tour, and a final presentation symposium. A monthly stipend of ¥80,000 is provided.",
+  eligibility:
+    "International undergraduate students who have completed at least 2 years of study in natural sciences or related STEM fields. Applicants must not be enrolled at the University of Tokyo. Strong academic record required; English proficiency sufficient for research communication.",
+  duration: "6 weeks (late June – early August)",
+  startDate: "2027-06-28",
+  endDate: "2027-08-08",
+  externalLink: "https://www.s.u-tokyo.ac.jp/en/utrip/",
+  tags: "research, Japan, Asia, life sciences, physics, chemistry, stipend, funded",
+  featured: true,
+};
+
 export default function NewProgramPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -60,9 +77,18 @@ export default function NewProgramPage() {
         ← Back to programs
       </Link>
 
-      <div className="mt-4">
-        <h1 className="text-2xl font-bold text-slate-900">Add program</h1>
-        <p className="mt-1 text-sm text-slate-500">Fill in the program details. You can add deadlines after saving.</p>
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Add program</h1>
+          <p className="mt-1 text-sm text-slate-500">Fill in the program details. You can add deadlines after saving.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setForm(DEMO_PROGRAM)}
+          className="rounded-full border border-dashed border-teal-400 bg-teal-50 px-4 py-2 text-sm font-medium text-teal-700 hover:bg-teal-100"
+        >
+          ✦ Fill demo data
+        </button>
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">

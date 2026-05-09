@@ -31,20 +31,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setMentorOptions(options.mentors);
         setReviewerOptions(options.reviewers);
 
-        const stored = window.localStorage.getItem(DEMO_USER_STORAGE_KEY);
+        const stored = window.sessionStorage.getItem(DEMO_USER_STORAGE_KEY);
         let parsed: DemoUser | null = null;
         if (stored) {
           try {
             parsed = JSON.parse(stored) as DemoUser;
           } catch (_error) {
-            window.localStorage.removeItem(DEMO_USER_STORAGE_KEY);
+            window.sessionStorage.removeItem(DEMO_USER_STORAGE_KEY);
           }
         }
 
         if (parsed) {
           try {
             const me = await apiGet<DemoUser>("/me");
-            window.localStorage.setItem(DEMO_USER_STORAGE_KEY, JSON.stringify(me));
+            window.sessionStorage.setItem(DEMO_USER_STORAGE_KEY, JSON.stringify(me));
             setActiveUserState(me);
           } catch (_error) {
             clearStoredUser();
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       login: async (payload) => {
         const user = await apiPost<DemoUser>("/auth/login", payload);
-        window.localStorage.setItem(DEMO_USER_STORAGE_KEY, JSON.stringify(user));
+        window.sessionStorage.setItem(DEMO_USER_STORAGE_KEY, JSON.stringify(user));
         setActiveUserState(user);
         return user;
       },

@@ -2,7 +2,7 @@
 
 A portfolio-grade MVP for university Global Engagement / International Programs offices.
 
-This repo preserves the original student-facing prototype and extends it into a connected student + admin platform backed by Prisma + SQLite. Students and admins now operate on the same shared data model, so admin-side changes immediately appear across student-facing flows.
+This repo preserves the original student-facing prototype and extends it into a connected student + admin platform backed by Prisma and a shared database. Students, admins, mentors, and reviewers can operate on the same live data model when the app is deployed against one shared backend and one shared Postgres database.
 
 ## Product Scope
 
@@ -32,7 +32,7 @@ This repo preserves the original student-facing prototype and extends it into a 
 
 - Frontend: Next.js App Router, TypeScript, Tailwind CSS
 - Backend: Express
-- Database: Prisma + SQLite
+- Database: Prisma + PostgreSQL
 - Chatbot: Rule-based service with an abstraction ready for future LLM mode
 
 ## Repo Structure
@@ -59,7 +59,7 @@ This repo preserves the original student-facing prototype and extends it into a 
 
 ## Data Model
 
-The SQLite database includes these core models:
+The PostgreSQL database includes these core models:
 
 - `Student`
 - `Admin`
@@ -168,13 +168,43 @@ The root `postinstall` script also installs backend dependencies.
 
 ### 2. Prepare the database
 
+Create:
+
+- `.env.local` in the repo root
+- `.env` inside `backend/`
+
+Example root `.env.local`:
+
+```bash
+NEXT_PUBLIC_API_URL="http://localhost:5001/api"
+```
+
+Example `backend/.env`:
+
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/plaksha_global_portal?sslmode=require"
+PORT="5001"
+ANTHROPIC_API_KEY=""
+ANTHROPIC_MODEL="claude-sonnet-4-5"
+FRONTEND_URL="http://localhost:3000"
+FRONTEND_URLS="http://localhost:3000"
+SMTP_HOST=""
+SMTP_PORT="587"
+SMTP_USER=""
+SMTP_PASS=""
+SMTP_FROM=""
+SMTP_SECURE="false"
+```
+
+Then:
+
 ```bash
 npm run db:setup
 ```
 
 This will:
 
-- create / update the SQLite schema
+- create / update the PostgreSQL schema
 - generate the Prisma client
 - seed demo data
 
@@ -188,6 +218,154 @@ npm run dev:full
 
 - Frontend: `http://localhost:3000`
 - Backend health: `http://localhost:5001/api/health`
+
+## Production Deployment
+
+To make the app usable by multiple people at the same time, you need:
+
+1. one deployed frontend
+2. one deployed backend
+3. one shared Postgres database
+
+That way:
+
+- one user can log in as student
+- another as admin / OGE
+- another as mentor or reviewer
+- all changes are reflected everywhere because everyone is using the same backend and database
+
+### Recommended setup
+
+- Frontend: Vercel
+- Backend: Render web service
+- Database: Neon Postgres
+- Email: SMTP provider (Gmail app password, SendGrid SMTP, Mailgun SMTP, etc.)
+
+### Step 1. Create the shared Postgres database
+
+Create a hosted Postgres database, for example on Neon.
+
+Copy its connection string into:
+
+- local `backend/.env`
+- deployed backend environment variables
+
+The variable must be:
+
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/plaksha_global_portal?sslmode=require"
+```
+
+### Step 2. Push schema and seed the shared DB
+
+Before deploying or right after first deploy:
+
+```bash
+cd backend
+npx prisma db push
+npx prisma generate
+node prisma/seed.js
+```
+
+This seeds:
+
+- the admin / OGE account
+- reviewer accounts
+- programs
+- mentors
+- demo students
+
+### Step 3. Deploy the backend
+
+Deploy the `backend` service as a Node web service.
+
+Required environment variables:
+
+- `DATABASE_URL`
+- `PORT`
+- `FRONTEND_URL`
+- `FRONTEND_URLS`
+- `ANTHROPIC_API_KEY`
+- `ANTHROPIC_MODEL`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+- `SMTP_SECURE`
+
+Recommended backend commands:
+
+- Install:
+
+```bash
+npm install
+```
+
+- Start:
+
+```bash
+npm run start
+```
+
+If the deployment service uses the repo root instead of the backend folder, use:
+
+```bash
+npm --prefix backend install
+npm --prefix backend run start
+```
+
+### Step 4. Deploy the frontend
+
+Deploy the root Next.js app to Vercel.
+
+Set:
+
+```bash
+NEXT_PUBLIC_API_URL="https://YOUR-BACKEND-DOMAIN/api"
+```
+
+Example:
+
+```bash
+NEXT_PUBLIC_API_URL="https://plaksha-global-portal-api.onrender.com/api"
+```
+
+### Step 5. Allow the frontend origin in the backend
+
+On the backend deployment, set:
+
+```bash
+FRONTEND_URL="https://YOUR-FRONTEND-DOMAIN"
+FRONTEND_URLS="https://YOUR-FRONTEND-DOMAIN,https://YOUR-VERCEL-PREVIEW-DOMAIN"
+```
+
+The backend now enforces CORS against these origins, so this step is required.
+
+### Step 6. Verify the shared app
+
+After deployment:
+
+1. log in on one machine as student
+2. log in on another machine as admin / OGE
+3. log in on another machine as mentor or reviewer
+4. make a change in one role
+5. confirm it appears for the others
+
+That confirms everyone is using the same backend + database.
+
+## Shared demo accounts
+
+After seeding the shared database, these accounts should exist:
+
+- Admin / OGE:
+  - `global.office@plaksha.edu.in`
+- Reviewers:
+  - `studentlife@plaksha.edu.in`
+  - `ugacademics@plaksha.edu.in`
+  - `dean.office@plaksha.edu.in`
+
+Students can also be created dynamically through the login flow.
 
 ## Login / Roles
 
@@ -237,15 +415,15 @@ Today, `backend/src/chatService.js` uses database-aware rules to answer question
 
 ## Notes
 
-- Student and admin views are synchronized through the same Prisma/SQLite database.
+- Student, admin, mentor, and reviewer views are synchronized through the same shared Postgres database.
 - If an admin updates a program, mentor, deadline, or application, the student-facing UI will reflect it on the next fetch.
 - `NEXT_PUBLIC_API_URL` can be set in `.env.local` if the frontend should talk to a different backend base URL.
 - The backend defaults to port `5001` to avoid common macOS conflicts on `5000`.
-- The backend SQLite database lives under `backend/dev.db` after setup and is ignored by git.
+- For production/shared use, all users must point to the same deployed backend and the same `DATABASE_URL`.
 
 ## Current Caveat
 
-This workspace did not have `node` or `npm` available during implementation, so I could not run `npm install`, Prisma generation, or lint/build verification inside this environment. The codebase has been updated to be setup-ready for a normal Node environment, and the first thing to run locally is:
+After changing the datasource from SQLite to PostgreSQL, the first local/prod setup run should be:
 
 ```bash
 npm install

@@ -38,6 +38,20 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
+function getAllowedOrigins() {
+  const rawOrigins = [
+    FRONTEND_URL,
+    ...(process.env.FRONTEND_URLS || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+  ];
+
+  return Array.from(new Set(rawOrigins.filter(Boolean)));
+}
+
+const allowedOrigins = getAllowedOrigins();
+
 let workflowMailerPromise = null;
 
 function getWorkflowMailer() {
@@ -72,7 +86,17 @@ function getWorkflowMailer() {
 
 app.use(
   cors({
-    origin: true,
+    origin(origin, callback) {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`Origin ${origin} is not allowed by CORS.`));
+    },
     credentials: true,
   }),
 );
@@ -1357,6 +1381,62 @@ app.post("/api/availability", async (req, res) => {
       error: "That mentor slot already exists.",
     });
   }
+});
+
+// Bulk recurring: all dates in one request → one DB round trip instead of N.
+app.post("/api/availability/bulk-recurring", async (req, res) => {
+  if (!(await requireOfficeOrMentorResponse(req, res))) return;
+
+  const { mentorId, dates, startTime, endTime, intervalMinutes = 30 } = req.body;
+  if (!mentorId || !Array.isArray(dates) || dates.length === 0 || !startTime || !endTime) {
+    return sendError(res, "mentorId, dates[], startTime, and endTime are required.", 400);
+  }
+
+  const mentor = await prisma.mentor.findUnique({ where: { id: Number(mentorId) } });
+  if (!mentor) return sendError(res, "Mentor not found.", 404);
+  if (requireMentor(req.actor) && req.actor.mentor.id !== Number(mentorId)) {
+    return sendError(res, "Mentors can only manage their own availability.", 403);
+  }
+
+  const startMinutes = parseClockTimeToMinutes(startTime);
+  const endMinutes   = parseClockTimeToMinutes(endTime);
+  const interval     = Number(intervalMinutes);
+
+  if (startMinutes === null || endMinutes === null) return sendError(res, "Invalid startTime or endTime.", 400);
+  if (isNaN(interval) || interval < 15) return sendError(res, "intervalMinutes must be at least 15.", 400);
+  if (endMinutes <= startMinutes) return sendError(res, "endTime must be after startTime.", 400);
+
+  const slotLabels = [];
+  for (let m = startMinutes; m < endMinutes; m += interval) slotLabels.push(formatMinutesAsSlot(m));
+
+  const parsedDates = dates.map((d) => new Date(`${String(d).slice(0, 10)}T00:00:00.000Z`));
+
+  // Fetch all existing slots for all dates in one query.
+  const existing = await prisma.availability.findMany({
+    where: { mentorId: Number(mentorId), date: { in: parsedDates } },
+    select: { date: true, slot: true },
+  });
+  const existingSet = new Set(existing.map((e) => `${e.date.toISOString().slice(0, 10)}|${e.slot}`));
+
+  const toInsert = [];
+  for (const date of parsedDates) {
+    const dateKey = date.toISOString().slice(0, 10);
+    for (const slot of slotLabels) {
+      if (!existingSet.has(`${dateKey}|${slot}`)) {
+        toInsert.push({ mentorId: Number(mentorId), date, slot });
+      }
+    }
+  }
+
+  if (toInsert.length > 0) {
+    await prisma.availability.createMany({ data: toInsert });
+  }
+
+  res.status(201).json(success({
+    createdCount: toInsert.length,
+    skippedCount: dates.length * slotLabels.length - toInsert.length,
+    dateCount: dates.length,
+  }));
 });
 
 app.put("/api/availability/:id", async (req, res) => {
@@ -2839,30 +2919,7 @@ app.delete("/api/saved-programs/:programId", async (req, res) => {
   res.json(success({ programId }));
 });
 
-app.get("/api/admin/approval-queue", async (req, res) => {
-  if (!(await requireAdminResponse(req, res))) return;
-
-  const applications = await prisma.application.findMany({
-    where: {
-      status: {
-        in: ["Submitted", "Under Review", "Approved", "Nominated", "Rejected"],
-      },
-    },
-    include: applicationInclude,
-    orderBy: { updatedAt: "desc" },
-  });
-
-  res.json(
-    success({
-      submitted: applications.filter((item) => item.status === "Submitted").map(formatApplication),
-      underReview: applications.filter((item) => item.status === "Under Review").map(formatApplication),
-      approved: applications.filter((item) => item.status === "Approved").map(formatApplication),
-      nominated: applications.filter((item) => item.status === "Nominated").map(formatApplication),
-      rejected: applications.filter((item) => item.status === "Rejected").map(formatApplication),
-    }),
-  );
-});
-
+// Merged dashboard + approval-queue: single DB query for applications shared by both.
 app.get("/api/admin/dashboard", async (req, res) => {
   if (!(await requireAdminResponse(req, res))) return;
 
@@ -2871,6 +2928,7 @@ app.get("/api/admin/dashboard", async (req, res) => {
     prisma.mentor.count(),
     prisma.application.findMany({
       include: applicationInclude,
+      orderBy: { updatedAt: "desc" },
     }),
     prisma.deadline.findMany({
       include: { program: true },
@@ -2879,19 +2937,49 @@ app.get("/api/admin/dashboard", async (req, res) => {
     }),
   ]);
 
+  const nonDraft = applications.filter((a) =>
+    ["Submitted", "Under Review", "Approved", "Nominated", "Rejected"].includes(a.status),
+  );
+  const formatted = nonDraft.map(formatApplication);
+
   res.json(
     success({
       totalPrograms: programsCount,
       totalMentors: mentorsCount,
       totalApplications: applications.length,
-      pendingReviews: applications.filter((item) => item.status === "Submitted" || item.status === "Under Review")
-        .length,
+      pendingReviews: applications.filter((a) => a.status === "Submitted" || a.status === "Under Review").length,
       upcomingDeadlines: deadlines.map(formatDeadline),
-      approvalQueue: applications
-        .filter((item) => item.status === "Submitted" || item.status === "Under Review")
-        .map(formatApplication),
+      // overview card (backwards-compatible)
+      approvalQueue: formatted.filter((a) => a.status === "Submitted" || a.status === "Under Review"),
+      // full queue grouped by status (replaces separate /approval-queue call)
+      queue: {
+        submitted:  formatted.filter((a) => a.status === "Submitted"),
+        underReview: formatted.filter((a) => a.status === "Under Review"),
+        approved:   formatted.filter((a) => a.status === "Approved"),
+        nominated:  formatted.filter((a) => a.status === "Nominated"),
+        rejected:   formatted.filter((a) => a.status === "Rejected"),
+      },
+      // all applications for the applications list section
+      allApplications: applications.map(formatApplication),
     }),
   );
+});
+
+// Keep the old endpoint alive so existing code doesn't break during transition.
+app.get("/api/admin/approval-queue", async (req, res) => {
+  if (!(await requireAdminResponse(req, res))) return;
+  const applications = await prisma.application.findMany({
+    where: { status: { in: ["Submitted", "Under Review", "Approved", "Nominated", "Rejected"] } },
+    include: applicationInclude,
+    orderBy: { updatedAt: "desc" },
+  });
+  res.json(success({
+    submitted:  applications.filter((a) => a.status === "Submitted").map(formatApplication),
+    underReview: applications.filter((a) => a.status === "Under Review").map(formatApplication),
+    approved:   applications.filter((a) => a.status === "Approved").map(formatApplication),
+    nominated:  applications.filter((a) => a.status === "Nominated").map(formatApplication),
+    rejected:   applications.filter((a) => a.status === "Rejected").map(formatApplication),
+  }));
 });
 
 app.post("/api/admin/opportunity-discovery", async (req, res) => {
@@ -2920,5 +3008,6 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Backend running on http://localhost:${PORT}`);
+  console.log(`Backend running on port ${PORT}`);
+  console.log(`Allowed frontend origins: ${allowedOrigins.join(", ") || "any"}`);
 });

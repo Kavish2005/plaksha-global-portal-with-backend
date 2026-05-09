@@ -20,6 +20,14 @@ const emptyDeadlineForm = {
   requiredDocuments: [""] as string[],
 };
 
+const DEMO_DEADLINE = {
+  title: "UTRIP application deadline",
+  date: "2026-12-10",
+  officialDeadline: "2026-12-31",
+  priority: "High",
+  requiredDocuments: ["Resume", "Transcript", "Research statement", "LOR"],
+};
+
 export default function EditProgramPage() {
   const params = useParams();
   const router = useRouter();
@@ -338,9 +346,20 @@ export default function EditProgramPage() {
 
             {/* Add / Edit deadline form */}
             <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
-              <h3 className="text-sm font-bold text-slate-800">
-                {editingDeadlineId ? "Edit deadline" : "Add deadline"}
-              </h3>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-slate-800">
+                  {editingDeadlineId ? "Edit deadline" : "Add deadline"}
+                </h3>
+                {!editingDeadlineId ? (
+                  <button
+                    type="button"
+                    onClick={() => setDeadlineForm(DEMO_DEADLINE)}
+                    className="rounded-full border border-dashed border-teal-400 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100"
+                  >
+                    ✦ Fill demo data
+                  </button>
+                ) : null}
+              </div>
               <div className="mt-4 space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-slate-500">Deadline title</label>

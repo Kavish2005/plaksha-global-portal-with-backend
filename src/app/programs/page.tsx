@@ -7,50 +7,40 @@ import { Search } from "lucide-react";
 import ProgramCard from "@/components/ProgramCard";
 
 import { apiGet } from "@/services/api";
-
+import { readCache, writeCache } from "@/lib/pageCache";
 import type { Program } from "@/types";
 
+const PROGRAMS_CACHE_KEY = "plaksha-programs";
+const PROGRAMS_TTL = 5 * 60_000; // 5 min — programs rarely change
+
 export default function Programs() {
-  const [programs, setPrograms] =
-    useState<Program[]>([]);
-
-  const [search, setSearch] =
-    useState<string>("");
-
-  const [typeFilter, setTypeFilter] =
-    useState<string>("All");
-
-  const [countryFilter, setCountryFilter] =
-    useState<string>("All");
-
-  const [
-    universityFilter,
-    setUniversityFilter,
-  ] = useState<string>("All");
-
-  const [loading, setLoading] =
-    useState<boolean>(true);
+  const cached = readCache<Program[]>(PROGRAMS_CACHE_KEY, PROGRAMS_TTL);
+  const [programs, setPrograms] = useState<Program[]>(cached ?? []);
+  const [search, setSearch] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>("All");
+  const [countryFilter, setCountryFilter] = useState<string>("All");
+  const [universityFilter, setUniversityFilter] = useState<string>("All");
+  const [loading, setLoading] = useState<boolean>(!cached);
 
   useEffect(() => {
     async function loadPrograms() {
       try {
-        const response =
-          await apiGet<Program[]>(
-            "/programs",
-          );
-
+        const response = await apiGet<Program[]>("/programs");
         setPrograms(response);
+        writeCache(PROGRAMS_CACHE_KEY, response);
       } catch (error) {
-        console.error(
-          "Failed to load programs",
-          error,
-        );
+        console.error("Failed to load programs", error);
       } finally {
         setLoading(false);
       }
     }
 
-    void loadPrograms();
+    if (cached) {
+      // Restore instantly from cache, then refresh silently in background.
+      void loadPrograms();
+    } else {
+      void loadPrograms();
+    }
   }, []);
 
   const filteredPrograms =

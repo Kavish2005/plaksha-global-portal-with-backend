@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/components/AuthProvider";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/services/api";
-import type { Booking, Mentor } from "@/types";
+import type { Mentor } from "@/types";
 import { formatIsoDate, getErrorMessage, toIsoDate } from "@/lib/utils";
 
 type Slot = {
@@ -92,17 +92,10 @@ export default function MentorDetailPage() {
     total: number;
   } | null>(null);
 
-  const [meetings, setMeetings] = useState<Booking[]>([]);
-
   useEffect(() => {
     async function load() {
       try {
-        const [m, meetingsData] = await Promise.all([
-          apiGet<Mentor>(`/mentors/${mentorId}`),
-          isMentorUser
-            ? apiGet<Booking[]>("/mentors/me/meetings")
-            : Promise.resolve<Booking[]>([]),
-        ]);
+        const m = await apiGet<Mentor>(`/mentors/${mentorId}`);
         setMentor(m);
         setForm({
           name: m.name,
@@ -111,7 +104,6 @@ export default function MentorDetailPage() {
           region: m.region,
           bio: m.bio,
         });
-        setMeetings(meetingsData);
       } catch (error) {
         toast.error(getErrorMessage(error));
       } finally {
@@ -119,7 +111,7 @@ export default function MentorDetailPage() {
       }
     }
     void load();
-  }, [mentorId, isMentorUser]);
+  }, [mentorId]);
 
   useEffect(() => {
     async function loadSlots() {
@@ -229,34 +221,27 @@ export default function MentorDetailPage() {
     }
 
     setRecurringProgress({ current: 0, total: dates.length });
-    let totalCreated = 0;
-    let totalSkipped = 0;
-
-    for (let i = 0; i < dates.length; i++) {
-      try {
-        const result = await apiPost<{ createdCount: number; skippedCount: number }>(
-          "/availability",
-          {
-            mentorId,
-            date: dates[i],
-            startTime: recurringStart,
-            endTime: recurringEnd,
-            intervalMinutes: Number(recurringInterval),
-          },
-        );
-        totalCreated += result.createdCount;
-        totalSkipped += result.skippedCount;
-      } catch {
-        // continue on individual date failures
-      }
-      setRecurringProgress({ current: i + 1, total: dates.length });
+    try {
+      const result = await apiPost<{ createdCount: number; skippedCount: number; dateCount: number }>(
+        "/availability/bulk-recurring",
+        {
+          mentorId,
+          dates,
+          startTime: recurringStart,
+          endTime: recurringEnd,
+          intervalMinutes: Number(recurringInterval),
+        },
+      );
+      setRecurringProgress({ current: dates.length, total: dates.length });
+      await refreshSlots();
+      setRecurringProgress(null);
+      toast.success(
+        `Done — ${result.createdCount} slot${result.createdCount !== 1 ? "s" : ""} created across ${result.dateCount} date${result.dateCount !== 1 ? "s" : ""}${result.skippedCount > 0 ? ` (${result.skippedCount} skipped)` : ""}.`,
+      );
+    } catch (error) {
+      setRecurringProgress(null);
+      toast.error(getErrorMessage(error));
     }
-
-    await refreshSlots();
-    setRecurringProgress(null);
-    toast.success(
-      `Done — ${totalCreated} slot${totalCreated !== 1 ? "s" : ""} created across ${dates.length} date${dates.length !== 1 ? "s" : ""}${totalSkipped > 0 ? ` (${totalSkipped} skipped)` : ""}.`,
-    );
   }
 
   async function handleRemoveSlot(slotId: number) {
@@ -676,42 +661,6 @@ export default function MentorDetailPage() {
             </button>
           </div>
 
-          {/* Upcoming meetings — mentor view only */}
-          {isMentorUser ? (
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-900">Upcoming meetings</h2>
-              <div className="mt-4 space-y-3">
-                {meetings.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
-                    No student meetings scheduled yet.
-                  </p>
-                ) : (
-                  meetings.map((meeting) => (
-                    <div
-                      key={meeting.id}
-                      className="rounded-xl border border-slate-100 bg-slate-50 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-slate-900">{meeting.studentName}</p>
-                          <p className="text-sm text-slate-500">{meeting.studentEmail}</p>
-                        </div>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-                          {meeting.status}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm text-slate-500">
-                        {formatIsoDate(meeting.date)} · {meeting.time}
-                      </p>
-                      {meeting.topic ? (
-                        <p className="mt-1 text-sm text-slate-500">{meeting.topic}</p>
-                      ) : null}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          ) : null}
         </div>
 
         {/* Sidebar */}

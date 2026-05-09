@@ -9,14 +9,14 @@ const DEMO_USER_STORAGE_KEY = "global-engagement-demo-user";
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    const rawUser = window.localStorage.getItem(DEMO_USER_STORAGE_KEY);
+    const rawUser = window.sessionStorage.getItem(DEMO_USER_STORAGE_KEY);
     if (rawUser) {
       try {
         const user = JSON.parse(rawUser) as { email: string; role: DemoRole };
         config.headers["x-demo-user-email"] = user.email;
         config.headers["x-demo-user-role"] = user.role;
       } catch (_error) {
-        window.localStorage.removeItem(DEMO_USER_STORAGE_KEY);
+        window.sessionStorage.removeItem(DEMO_USER_STORAGE_KEY);
       }
     }
   }
@@ -52,7 +52,7 @@ export async function apiDelete<T>(url: string) {
 
 export function clearStoredUser() {
   if (typeof window !== "undefined") {
-    window.localStorage.removeItem(DEMO_USER_STORAGE_KEY);
+    window.sessionStorage.removeItem(DEMO_USER_STORAGE_KEY);
   }
 }
 

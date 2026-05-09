@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "@/components/StatusBadge";
 import { useAuth } from "@/components/AuthProvider";
 import { apiDelete, apiGet, apiPut } from "@/services/api";
+import { readCache, writeCache, clearCache } from "@/lib/pageCache";
 import type {
   Application,
   ApplicationDocumentAsset,
@@ -18,34 +19,47 @@ import { Bell, CalendarDays, FileText, Users } from "lucide-react";
 import { formatDateTime, formatIsoDate, getErrorMessage } from "@/lib/utils";
 import toast from "react-hot-toast";
 
+const STUDENT_DASH_CACHE_KEY = "plaksha-student-dashboard";
+const REVIEWER_DASH_CACHE_KEY = "plaksha-reviewer-dashboard";
+const DASH_TTL = 60_000; // 60 s — short enough to stay reasonably fresh
+
 export default function Dashboard() {
   const { activeUser, loading: authLoading } = useAuth();
-  const [dashboard, setDashboard] = useState<StudentDashboard | null>(null);
-  const [reviewerDashboard, setReviewerDashboard] = useState<ReviewerDashboard | null>(null);
-  const [loading, setLoading] = useState(true);
   const isOfficeUser = activeUser?.role === "admin";
   const isMentorUser = activeUser?.role === "mentor";
   const isReviewerUser = activeUser?.role === "reviewer";
 
+  const cachedStudent = isReviewerUser || isOfficeUser || isMentorUser
+    ? null
+    : readCache<StudentDashboard>(STUDENT_DASH_CACHE_KEY, DASH_TTL);
+  const cachedReviewer = isReviewerUser
+    ? readCache<ReviewerDashboard>(REVIEWER_DASH_CACHE_KEY, DASH_TTL)
+    : null;
+
+  const [dashboard, setDashboard] = useState<StudentDashboard | null>(cachedStudent);
+  const [reviewerDashboard, setReviewerDashboard] = useState<ReviewerDashboard | null>(cachedReviewer);
+  const [loading, setLoading] = useState(!cachedStudent && !cachedReviewer);
+
   useEffect(() => {
     async function loadDashboard() {
       if (authLoading) return;
+      if (isOfficeUser || isMentorUser) { setLoading(false); return; }
 
-      if (isOfficeUser || isMentorUser) {
-        setLoading(false);
-        return;
-      }
+      // If we had a cache hit, skip the loading spinner but still refresh.
+      const hasCached = isReviewerUser ? !!cachedReviewer : !!cachedStudent;
+      if (!hasCached) setLoading(true);
 
-      setLoading(true);
       try {
         if (isReviewerUser) {
           const response = await apiGet<ReviewerDashboard>("/reviewer/tasks");
           setReviewerDashboard(response);
           setDashboard(null);
+          writeCache(REVIEWER_DASH_CACHE_KEY, response);
         } else {
           const response = await apiGet<StudentDashboard>("/dashboard/me");
           setDashboard(response);
           setReviewerDashboard(null);
+          writeCache(STUDENT_DASH_CACHE_KEY, response);
         }
       } catch (error) {
         console.error("Failed to load dashboard", error);
@@ -61,8 +75,10 @@ export default function Dashboard() {
     try {
       await apiDelete<{ id: number }>(`/bookings/${bookingId}`);
       toast.success("Booking cancelled.");
+      clearCache(STUDENT_DASH_CACHE_KEY);
       const response = await apiGet<StudentDashboard>("/dashboard/me");
       setDashboard(response);
+      writeCache(STUDENT_DASH_CACHE_KEY, response);
     } catch (error) {
       toast.error(getErrorMessage(error));
     }

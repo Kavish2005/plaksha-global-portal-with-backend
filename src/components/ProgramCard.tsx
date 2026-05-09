@@ -21,7 +21,7 @@ export default function ProgramCard({ program }: Props) {
           <div className="flex flex-wrap gap-1.5">
             <StatusBadge label={program.type} />
             {program.featured && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 border border-amber-200">
+              <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 border border-teal-200">
                 <Sparkles className="h-3 w-3" />
                 Featured
               </span>

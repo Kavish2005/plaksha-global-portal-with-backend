@@ -24,6 +24,7 @@ import type {
   Program,
   WorkflowStageStatus,
 } from "@/types";
+import { FileText, Trash2, Upload } from "lucide-react";
 import { formatIsoDate, getErrorMessage, toIsoDate } from "@/lib/utils";
 
 export type AdminSectionKey = "overview" | "programs" | "mentors" | "deadlines" | "applications" | "discovery" | "assistant";
@@ -93,8 +94,79 @@ const emptyKnowledgeDocumentForm: KnowledgeDocumentFormState = {
   sourceType: "text",
 };
 
+const DEMO_KNOWLEDGE_DOCUMENT: KnowledgeDocumentFormState = {
+  title: "Visa & Travel Guide — Research Programs in Germany and Canada",
+  sourceType: "process",
+  content: `Students selected for DAAD RISE Germany or Mitacs Globalink should begin visa and travel preparation at least 8 weeks before their program start date.
+
+GERMANY (Schengen Visa):
+- Indian passport holders require a Schengen visa for stays under 90 days.
+- Apply at the German consulate/embassy in your city (Delhi, Mumbai, Chennai, Kolkata, or Hyderabad).
+- Required documents: acceptance letter from the German host institution, proof of travel insurance (min €30,000 coverage), return flight booking, bank statement (≥ €50/day or stipend letter from DAAD), accommodation confirmation, passport photos.
+- Processing time: 4–6 weeks. Apply early — do not wait for visa before booking flights.
+- DAAD provides a stipend letter that counts as proof of financial means.
+
+CANADA (Temporary Resident Visa / eTA):
+- Indian passport holders require a Temporary Resident Visa (TRV) for Canada.
+- Apply online via the IRCC portal. Biometrics appointment required (book separately).
+- Required documents: Mitacs acceptance letter, proof of sufficient funds (or Mitacs stipend letter), return travel booking, accommodation details, university enrollment proof.
+- Processing time: 4–8 weeks. Apply as soon as your Mitacs offer letter arrives.
+- Mitacs provides a standard support letter — request it from your Mitacs coordinator.
+
+TRAVEL INSURANCE:
+- Mandatory for Germany; strongly recommended for Canada.
+- Recommended providers: HDFC Ergo, Bajaj Allianz, Care Health. Minimum coverage €30,000.
+- Purchase before applying for visa, as proof of insurance is required.
+
+ACCOMMODATION:
+- DAAD RISE: The host lab usually helps identify university housing or shared flats (WGs). Students should confirm with their supervisor before arrival.
+- Mitacs: Many Canadian universities have summer housing available. Book early — summer housing fills by March/April.
+
+STIPEND AND BANKING:
+- Both programs provide a monthly stipend in local currency. Carry a multi-currency travel card (Niyo, HDFC Forex) to avoid conversion fees.
+- Notify your Indian bank of international travel to avoid blocked transactions.`,
+};
+
 const statusOptions: ApplicationStatus[] = ["Draft", "Submitted", "Under Review", "Approved", "Rejected", "Nominated"];
 const DISCOVERY_DRAFT_STORAGE_KEY = "admin-opportunity-discovery-draft";
+
+// ── Admin data cache ──────────────────────────────────────────────────────────
+// Persists fetched data in sessionStorage so navigating between admin sections
+// (each a separate Next.js page that remounts AdminClient) feels instant.
+const ADMIN_CACHE_KEY = "plaksha-admin-cache";
+const CACHE_TTL_MS = 90_000; // 90 s — stale-while-revalidate window
+
+type AdminCachePayload = {
+  ts: number;
+  dashboard: AdminDashboard | null;
+  programs: Program[];
+  mentors: Mentor[];
+  nominations: Nomination[];
+  knowledgeDocuments: KnowledgeDocument[];
+};
+
+function readAdminCache(): AdminCachePayload | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(ADMIN_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AdminCachePayload;
+    if (Date.now() - parsed.ts > CACHE_TTL_MS) return null;
+    return parsed;
+  } catch { return null; }
+}
+
+function writeAdminCache(payload: Omit<AdminCachePayload, "ts">) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify({ ...payload, ts: Date.now() }));
+  } catch { /* quota exceeded — skip silently */ }
+}
+
+export function clearAdminCache() {
+  if (typeof window === "undefined") return;
+  try { window.sessionStorage.removeItem(ADMIN_CACHE_KEY); } catch { /* */ }
+}
 
 export default function AdminClient({ section }: { section: AdminSectionKey }) {
   const router = useRouter();
@@ -170,26 +242,60 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     }
   }, [section]);
 
-  async function loadAllData() {
+  function applyData(
+    nextDashboard: AdminDashboard | null,
+    nextPrograms: Program[],
+    nextMentors: Mentor[],
+    nextNominations: Nomination[],
+    nextKnowledgeDocuments: KnowledgeDocument[],
+  ) {
+    setDashboard(nextDashboard);
+    setApprovalQueue(nextDashboard?.queue ?? null);
+    setPrograms(nextPrograms);
+    setMentors(nextMentors);
+    setApplications(nextDashboard?.allApplications ?? []);
+    setNominations(nextNominations);
+    setKnowledgeDocuments(nextKnowledgeDocuments);
+  }
+
+  async function loadAllData({ invalidate = false }: { invalidate?: boolean } = {}) {
+    // Restore from cache immediately so the UI appears without a loading spinner.
+    const cache = invalidate ? null : readAdminCache();
+    if (cache && !isMentorUser) {
+      applyData(cache.dashboard, cache.programs, cache.mentors, cache.nominations, cache.knowledgeDocuments);
+      setLoading(false);
+      // Refresh in background — update UI silently when done.
+      void (async () => {
+        try {
+          const [nextDashboard, nextPrograms, nextMentors, nextNominations, nextKnowledgeDocuments] = await Promise.all([
+            apiGet<AdminDashboard>("/admin/dashboard"),
+            apiGet<Program[]>("/programs"),
+            apiGet<Mentor[]>("/mentors"),
+            apiGet<Nomination[]>("/nominations"),
+            apiGet<KnowledgeDocument[]>("/chat/documents"),
+          ]);
+          applyData(nextDashboard, nextPrograms, nextMentors, nextNominations, nextKnowledgeDocuments);
+          writeAdminCache({ dashboard: nextDashboard, programs: nextPrograms, mentors: nextMentors, nominations: nextNominations, knowledgeDocuments: nextKnowledgeDocuments });
+        } catch { /* background refresh failed — cached data still shown */ }
+      })();
+      return;
+    }
+
     setLoading(true);
     try {
-      const [nextDashboard, nextQueue, nextPrograms, nextMentors, nextApplications, nextNominations, nextKnowledgeDocuments] = await Promise.all([
+      // Dashboard now returns queue + allApplications — no separate /approval-queue or /applications calls needed.
+      const [nextDashboard, nextPrograms, nextMentors, nextNominations, nextKnowledgeDocuments] = await Promise.all([
         isMentorUser ? Promise.resolve(null) : apiGet<AdminDashboard>("/admin/dashboard"),
-        isMentorUser ? Promise.resolve(null) : apiGet<ApprovalQueue>("/admin/approval-queue"),
         apiGet<Program[]>("/programs"),
         apiGet<Mentor[]>("/mentors"),
-        isMentorUser ? Promise.resolve([]) : apiGet<Application[]>("/applications"),
         isMentorUser ? Promise.resolve([]) : apiGet<Nomination[]>("/nominations"),
         apiGet<KnowledgeDocument[]>("/chat/documents"),
       ]);
 
-      setDashboard(nextDashboard);
-      setApprovalQueue(nextQueue);
-      setPrograms(nextPrograms);
-      setMentors(nextMentors);
-      setApplications(nextApplications);
-      setNominations(nextNominations);
-      setKnowledgeDocuments(nextKnowledgeDocuments);
+      applyData(nextDashboard, nextPrograms, nextMentors, nextNominations, nextKnowledgeDocuments);
+      if (!isMentorUser) {
+        writeAdminCache({ dashboard: nextDashboard, programs: nextPrograms, mentors: nextMentors, nominations: nextNominations, knowledgeDocuments: nextKnowledgeDocuments });
+      }
 
       if (!availabilityMentorId) {
         if (isMentorUser) {
@@ -232,7 +338,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       setLoading(false);
       return;
     }
-    void loadAllData();
+    void loadAllData({ invalidate: false });
   }, [activeUser, authLoading, isMentorUser]);
 
   useEffect(() => {
@@ -300,7 +406,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
         setSelectedProgramId(created.id);
       }
       resetProgramForm();
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -313,7 +419,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       if (selectedProgramId === programId) {
         setSelectedProgramId(null);
       }
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -345,7 +451,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
         toast.success("Mentor created.");
       }
       resetMentorForm();
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -358,7 +464,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       if (selectedMentorId === mentorId) {
         setSelectedMentorId(null);
       }
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -449,7 +555,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       setDeadlineOfficialDate("");
       setDeadlinePriority("High");
       setDeadlineRequiredDocuments([""]);
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -459,7 +565,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     try {
       await apiDelete(`/deadlines/${deadlineId}`);
       toast.success("Deadline deleted.");
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -476,7 +582,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     try {
       await apiPut(`/workflow-stages/${stageId}`, payload);
       toast.success("Workflow stage updated.");
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -498,7 +604,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     try {
       await apiPost(`/applications/${applicationId}/workflow/forward`, payload);
       toast.success("Application forwarded and email queued.");
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -518,7 +624,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     try {
       await apiPost(`/applications/${applicationId}/workflow/start`, payload);
       toast.success("Workflow stage opened and email queued.");
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -531,7 +637,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     try {
       await apiPost(`/applications/${applicationId}/workflow/send-review-request`, payload);
       toast.success("Review request sent and email queued.");
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -544,7 +650,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
         notes,
       });
       toast.success("Final nomination recorded.");
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -556,7 +662,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
       toast.success("Assistant reference document uploaded.");
       setKnowledgeDocumentForm(emptyKnowledgeDocumentForm);
       setKnowledgeFileName("");
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -566,7 +672,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     try {
       await apiDelete(`/chat/documents/${documentId}`);
       toast.success("Assistant reference document removed.");
-      await loadAllData();
+      await loadAllData({ invalidate: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -610,7 +716,7 @@ export default function AdminClient({ section }: { section: AdminSectionKey }) {
     return <LoadingState label="Loading admin workspace..." />;
   }
 
-  if (isMentorUser && section !== "mentors" && section !== "assistant") {
+  if (isMentorUser && section !== "overview" && section !== "mentors" && section !== "assistant") {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900">Mentor access</h1>
@@ -813,24 +919,64 @@ function OverviewSection({
 }
 
 function ProgramsSection({ programs }: { programs: Program[] }) {
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("All");
+  const [countryFilter, setCountryFilter] = useState("All");
+
+  const countries = useMemo(
+    () => ["All", ...Array.from(new Set(programs.map((p) => p.country))).sort()],
+    [programs],
+  );
+  const types = ["All", "Exchange", "Research", "Internship", "Summer School"];
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return programs.filter((p) => {
+      if (typeFilter !== "All" && p.type !== typeFilter) return false;
+      if (countryFilter !== "All" && p.country !== countryFilter) return false;
+      if (q && !p.title.toLowerCase().includes(q) && !p.university.toLowerCase().includes(q) && !p.country.toLowerCase().includes(q) && !p.tags.some((t) => t.toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }, [programs, search, typeFilter, countryFilter]);
+
   return (
     <AdminSection
       eyebrow="Programs"
       title="All programs"
       description="Click a program to edit it, manage its deadlines, or delete it. Use Add Program to create a new one."
     >
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <p className="text-sm text-slate-500">{programs.length} program{programs.length === 1 ? "" : "s"}</p>
-        <Link
-          href="/admin/programs/new"
-          className="rounded-full bg-[var(--portal-teal)] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-        >
-          + Add Program
-        </Link>
+      {/* Search + filters bar */}
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm min-w-48">
+          <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" /></svg>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search programs, universities, tags…"
+            className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none"
+          />
+        </div>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none">
+          {types.map((t) => <option key={t} value={t}>{t === "All" ? "All Types" : t}</option>)}
+        </select>
+        <select value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none">
+          {countries.map((c) => <option key={c} value={c}>{c === "All" ? "All Countries" : c}</option>)}
+        </select>
+        <div className="ml-auto flex items-center gap-3">
+          <p className="text-sm text-slate-500">{filtered.length} of {programs.length} program{programs.length === 1 ? "" : "s"}</p>
+          <Link
+            href="/admin/programs/new"
+            className="rounded-full bg-[var(--portal-teal)] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+          >
+            + Add Program
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {programs.map((program) => (
+        {filtered.map((program) => (
           <Link
             key={program.id}
             href={`/admin/programs/${program.id}`}
@@ -853,9 +999,9 @@ function ProgramsSection({ programs }: { programs: Program[] }) {
             </div>
           </Link>
         ))}
-        {programs.length === 0 ? (
+        {filtered.length === 0 ? (
           <p className="col-span-full rounded-xl border border-slate-100 p-6 text-sm text-slate-500">
-            No programs yet. Add the first one.
+            {programs.length === 0 ? "No programs yet. Add the first one." : "No programs match your search."}
           </p>
         ) : null}
       </div>
@@ -1103,7 +1249,7 @@ function OpportunityResultCard({
     result.confidenceTier === "best_match"
       ? "bg-emerald-50 text-emerald-700"
       : result.confidenceTier === "strong_match"
-        ? "bg-sky-50 text-sky-700"
+        ? "bg-teal-50 text-teal-700"
         : "bg-amber-50 text-amber-700";
 
   return (
@@ -1213,7 +1359,7 @@ function toTimeMinutes(t: string): number {
   return h * 60 + min;
 }
 
-function MeetingCard({ meeting, showDate = false }: { meeting: Booking; showDate?: boolean }) {
+function MeetingRow({ meeting }: { meeting: Booking }) {
   const statusColor =
     meeting.status === "Confirmed"
       ? "bg-teal-50 text-teal-700"
@@ -1221,29 +1367,31 @@ function MeetingCard({ meeting, showDate = false }: { meeting: Booking; showDate
         ? "bg-amber-50 text-amber-700"
         : "bg-slate-100 text-slate-600";
 
+  const initial = meeting.studentName?.[0]?.toUpperCase() ?? "?";
+
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-bold text-teal-700">{meeting.time}</span>
-            {showDate ? (
-              <span className="text-xs text-slate-400">{formatIsoDate(meeting.date)}</span>
-            ) : null}
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor}`}>
-              {meeting.status}
-            </span>
-          </div>
-          <p className="mt-1 font-semibold text-slate-900">{meeting.studentName}</p>
-          <p className="text-xs text-slate-400">{meeting.studentEmail}</p>
-        </div>
+    <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 transition hover:bg-white">
+      <span className="w-16 shrink-0 text-sm font-bold text-teal-700">{meeting.time}</span>
+      <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor}`}>
+        {meeting.status}
+      </span>
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-bold text-teal-700">
+        {initial}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-slate-900">{meeting.studentName}</p>
+        <p className="truncate text-xs text-slate-400">{meeting.studentEmail}</p>
       </div>
       {meeting.topic ? (
-        <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">{meeting.topic}</p>
+        <p className="hidden max-w-[220px] shrink-0 truncate text-sm text-slate-400 md:block">
+          {meeting.topic}
+        </p>
       ) : null}
     </div>
   );
 }
+
+type AvailabilitySlot = { id: number; time: string; available: boolean; date: string };
 
 function MentorOverviewSection({
   meetings,
@@ -1256,6 +1404,33 @@ function MentorOverviewSection({
 }) {
   const ownMentor = mentors.find((m) => m.email === currentUserEmail) || null;
   const today = toIsoDate(new Date());
+  const [search, setSearch] = useState("");
+  const [todaySlots, setTodaySlots] = useState<AvailabilitySlot[]>([]);
+
+  useEffect(() => {
+    if (!ownMentor) return;
+    apiGet<{ slots: AvailabilitySlot[] }>(`/mentors/${ownMentor.id}/availability`, { date: today })
+      .then((res) => setTodaySlots(res.slots ?? []))
+      .catch(() => setTodaySlots([]));
+  }, [ownMentor?.id, today]);
+
+  const tomorrowDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return toIsoDate(d);
+  }, []);
+
+  const weekEnd = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return toIsoDate(d);
+  }, []);
+
+  const twoWeeksEnd = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return toIsoDate(d);
+  }, []);
 
   const upcomingMeetings = useMemo(
     () =>
@@ -1273,49 +1448,71 @@ function MentorOverviewSection({
     [upcomingMeetings, today],
   );
 
-  const weekEnd = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 7);
-    return toIsoDate(d);
-  }, []);
-
   const thisWeekCount = useMemo(
     () => upcomingMeetings.filter((m) => m.date > today && m.date <= weekEnd).length,
     [upcomingMeetings, today, weekEnd],
   );
 
-  const groupedUpcoming = useMemo(() => {
+  // Merge today's slots with booking info
+  const todaySchedule = useMemo(() => {
+    const sorted = [...todaySlots].sort((a, b) => toTimeMinutes(a.time) - toTimeMinutes(b.time));
+    return sorted.map((slot) => ({
+      ...slot,
+      booking: todayMeetings.find((m) => m.time === slot.time) ?? null,
+    }));
+  }, [todaySlots, todayMeetings]);
+
+  const filteredMeetings = useMemo(() => {
+    if (!search.trim()) return upcomingMeetings;
+    const q = search.toLowerCase();
+    return upcomingMeetings.filter(
+      (m) =>
+        m.studentName?.toLowerCase().includes(q) ||
+        m.studentEmail?.toLowerCase().includes(q) ||
+        m.topic?.toLowerCase().includes(q),
+    );
+  }, [upcomingMeetings, search]);
+
+  const groupedMeetings = useMemo(() => {
     const map = new Map<string, Booking[]>();
-    for (const m of upcomingMeetings) {
+    for (const m of filteredMeetings) {
       if (!map.has(m.date)) map.set(m.date, []);
       map.get(m.date)!.push(m);
     }
     return [...map.entries()]
       .map(([date, items]) => ({ date, items }))
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [upcomingMeetings]);
+  }, [filteredMeetings]);
 
-  const futureGroups = groupedUpcoming.filter((g) => g.date > today);
+  function getDateBadge(dateStr: string): { label: string; className: string } | null {
+    if (dateStr === today) return { label: "Today", className: "bg-teal-100 text-teal-700" };
+    if (dateStr === tomorrowDate) return { label: "Tomorrow", className: "bg-blue-50 text-blue-600" };
+    if (dateStr <= weekEnd) return { label: "This week", className: "bg-slate-200 text-slate-600" };
+    if (dateStr <= twoWeeksEnd) return { label: "Next week", className: "bg-slate-100 text-slate-500" };
+    return null;
+  }
+
+  const todayLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <AdminSection
       eyebrow="Dashboard"
       title={`Welcome back${ownMentor ? `, ${ownMentor.name.split(" ")[0]}` : ""}`}
-      description="Here's your advising schedule and upcoming student meetings."
+      description="Your advising schedule and upcoming student meetings."
     >
-      {/* Summary stats */}
+      {/* Stats row */}
       <div className="grid gap-4 sm:grid-cols-3">
         {[
           {
-            label: "Today's meetings",
+            label: "Today's bookings",
             value: todayMeetings.length,
-            sub: todayMeetings.length === 0 ? "Clear day" : todayMeetings.map((m) => m.time).join(", "),
+            sub: todayMeetings.length === 0 ? "No meetings today" : `${todaySlots.filter(s => s.available).length} slots still open`,
             accent: todayMeetings.length > 0,
           },
           {
             label: "This week",
             value: thisWeekCount,
-            sub: "Upcoming next 7 days",
+            sub: "Meetings in next 7 days",
             accent: false,
           },
           {
@@ -1338,98 +1535,169 @@ function MentorOverviewSection({
         ))}
       </div>
 
-      {/* Two-column: Today | Upcoming */}
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1.6fr]">
+      {/* Two-column: today's schedule | upcoming meetings */}
+      <div className="mt-6 grid gap-6 xl:grid-cols-[380px_1fr]">
+
         {/* Today's schedule */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-slate-900">Today</h2>
-            <span className="text-xs text-slate-400">{formatIsoDate(today)}</span>
-          </div>
-
-          {todayMeetings.length === 0 ? (
-            <div className="mt-5 rounded-xl border border-dashed border-slate-200 p-6 text-center">
-              <p className="text-sm font-medium text-slate-500">No meetings today.</p>
-              <p className="mt-1 text-xs text-slate-400">Enjoy the clear day.</p>
-              {ownMentor ? (
-                <Link
-                  href={`/admin/mentors/${ownMentor.id}`}
-                  className="mt-3 inline-block text-sm font-semibold text-teal-600 hover:underline"
-                >
-                  Manage availability →
-                </Link>
-              ) : null}
+        <div className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Today&apos;s schedule</h2>
+              <p className="text-xs text-slate-400">{todayLabel}</p>
             </div>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {todayMeetings.map((m) => (
-                <MeetingCard key={m.id} meeting={m} />
-              ))}
-            </div>
-          )}
-
-          {ownMentor ? (
-            <Link
-              href={`/admin/mentors/${ownMentor.id}`}
-              className="mt-5 flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-200 py-3 text-sm font-semibold text-teal-600 hover:bg-slate-50"
-            >
-              + Add or manage availability
-            </Link>
-          ) : null}
-        </div>
-
-        {/* Upcoming meetings */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-slate-900">Upcoming meetings</h2>
             {ownMentor ? (
               <Link
                 href={`/admin/mentors/${ownMentor.id}`}
-                className="text-xs font-semibold text-teal-600 hover:underline"
+                className="shrink-0 text-xs font-semibold text-teal-600 hover:underline"
               >
-                Manage availability →
+                Edit slots →
               </Link>
             ) : null}
           </div>
 
-          {upcomingMeetings.length === 0 ? (
-            <div className="mt-5 rounded-xl border border-dashed border-slate-200 p-8 text-center">
-              <p className="text-sm font-medium text-slate-500">No upcoming meetings booked yet.</p>
-              <p className="mt-1 text-xs text-slate-400">Students will appear here once they book a slot.</p>
+          <div className="flex-1 overflow-y-auto p-4" style={{ maxHeight: "460px" }}>
+            {todaySchedule.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 p-6 text-center">
+                <p className="text-sm font-medium text-slate-500">No slots set for today.</p>
+                {ownMentor ? (
+                  <Link
+                    href={`/admin/mentors/${ownMentor.id}`}
+                    className="mt-3 text-sm font-semibold text-teal-600 hover:underline"
+                  >
+                    Add availability →
+                  </Link>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {todaySchedule.map((slot) => (
+                  <div
+                    key={slot.id}
+                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
+                      slot.booking
+                        ? "border-amber-100 bg-amber-50"
+                        : "border-teal-100 bg-teal-50"
+                    }`}
+                  >
+                    {/* Time */}
+                    <span className={`w-16 shrink-0 text-sm font-bold ${slot.booking ? "text-amber-700" : "text-teal-700"}`}>
+                      {slot.time}
+                    </span>
+
+                    {/* Status dot */}
+                    <div className={`h-2 w-2 shrink-0 rounded-full ${slot.booking ? "bg-amber-400" : "bg-teal-400"}`} />
+
+                    {slot.booking ? (
+                      /* Booked — show student info */
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-200 text-xs font-bold text-amber-800">
+                            {slot.booking.studentName?.[0]?.toUpperCase() ?? "?"}
+                          </div>
+                          <p className="truncate text-sm font-semibold text-slate-900">{slot.booking.studentName}</p>
+                        </div>
+                        <p className="mt-0.5 truncate text-xs text-slate-400">{slot.booking.studentEmail}</p>
+                        {slot.booking.topic ? (
+                          <p className="mt-0.5 truncate text-xs text-slate-500">{slot.booking.topic}</p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      /* Available */
+                      <span className="text-sm text-teal-600">Open</span>
+                    )}
+
+                    {/* Status badge */}
+                    <span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      slot.booking ? "bg-amber-100 text-amber-700" : "bg-teal-100 text-teal-700"
+                    }`}>
+                      {slot.booking ? "Booked" : "Free"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Upcoming meetings — searchable, grouped */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">All upcoming meetings</h2>
+              <p className="text-xs text-slate-400">
+                {upcomingMeetings.length} meeting{upcomingMeetings.length !== 1 ? "s" : ""} scheduled
+              </p>
+            </div>
+            <input
+              type="search"
+              placeholder="Search name, email, or topic…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-52 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-teal-400 focus:bg-white"
+            />
+          </div>
+
+          {groupedMeetings.length === 0 ? (
+            <div className="p-10 text-center">
+              {search ? (
+                <p className="text-sm text-slate-500">No meetings match &ldquo;{search}&rdquo;.</p>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-slate-500">No upcoming meetings booked yet.</p>
+                  <p className="mt-1 text-xs text-slate-400">Students will appear here once they book a slot.</p>
+                  {ownMentor ? (
+                    <Link href={`/admin/mentors/${ownMentor.id}`} className="mt-3 inline-block text-sm font-semibold text-teal-600 hover:underline">
+                      Set up availability →
+                    </Link>
+                  ) : null}
+                </>
+              )}
             </div>
           ) : (
-            <div className="mt-4 space-y-5 overflow-y-auto" style={{ maxHeight: "480px" }}>
-              {/* Today's entries in upcoming pane */}
-              {todayMeetings.length > 0 ? (
-                <div>
-                  <p className="mb-2.5 text-xs font-bold uppercase tracking-wider text-teal-600">
-                    Today — {formatIsoDate(today)}
-                  </p>
-                  <div className="space-y-2">
-                    {todayMeetings.map((m) => (
-                      <MeetingCard key={m.id} meeting={m} />
-                    ))}
+            <div className="divide-y divide-slate-50 overflow-y-auto" style={{ maxHeight: "460px" }}>
+              {groupedMeetings.map((group) => {
+                const badge = getDateBadge(group.date);
+                const isToday = group.date === today;
+                const dateDisplay = new Date(`${group.date}T00:00:00`).toLocaleDateString("en-GB", {
+                  weekday: "short", day: "numeric", month: "short", year: "numeric",
+                });
+                return (
+                  <div key={group.date}>
+                    <div className={`sticky top-0 z-10 flex items-center gap-2.5 px-5 py-2.5 ${isToday ? "bg-teal-50" : "bg-slate-50"}`}>
+                      <span className={`text-xs font-bold uppercase tracking-wider ${isToday ? "text-teal-700" : "text-slate-500"}`}>
+                        {dateDisplay}
+                      </span>
+                      {badge ? (
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                      ) : null}
+                      <span className="ml-auto text-xs text-slate-400">
+                        {group.items.length} meeting{group.items.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="space-y-1 px-4 py-2">
+                      {group.items.map((m) => (
+                        <MeetingRow key={m.id} meeting={m} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : null}
-
-              {/* Future date groups */}
-              {futureGroups.map((group) => (
-                <div key={group.date}>
-                  <p className="mb-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    {formatIsoDate(group.date)}
-                  </p>
-                  <div className="space-y-2">
-                    {group.items.map((m) => (
-                      <MeetingCard key={m.id} meeting={m} />
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+
+      {/* Manage availability CTA */}
+      {ownMentor ? (
+        <Link
+          href={`/admin/mentors/${ownMentor.id}`}
+          className="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-200 py-3 text-sm font-semibold text-teal-600 hover:bg-slate-50"
+        >
+          + Add or manage availability slots
+        </Link>
+      ) : null}
     </AdminSection>
   );
 }
@@ -1443,9 +1711,30 @@ function MentorsSection({
   isMentorUser: boolean;
   currentUserEmail: string | null;
 }) {
-  const visibleMentors = isMentorUser
+  const [search, setSearch] = useState("");
+  const [regionFilter, setRegionFilter] = useState("All");
+
+  const baseMentors = isMentorUser
     ? mentors.filter((m) => m.email === currentUserEmail)
     : mentors;
+
+  const regions = useMemo(
+    () => ["All", ...Array.from(new Set(mentors.map((m) => m.region))).sort()],
+    [mentors],
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return baseMentors.filter((m) => {
+      const matchesRegion = regionFilter === "All" || m.region === regionFilter;
+      const matchesSearch =
+        !q ||
+        m.name.toLowerCase().includes(q) ||
+        m.expertise.toLowerCase().includes(q) ||
+        (m.email ?? "").toLowerCase().includes(q);
+      return matchesRegion && matchesSearch;
+    });
+  }, [baseMentors, search, regionFilter]);
 
   return (
     <AdminSection
@@ -1458,23 +1747,48 @@ function MentorsSection({
       }
     >
       {!isMentorUser ? (
-        <div className="mb-6 flex items-center justify-between">
-          <p className="text-sm text-slate-500">
-            {mentors.length} mentor{mentors.length !== 1 ? "s" : ""} registered
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 min-w-[180px]">
+            <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <circle cx={11} cy={11} r={8} /><path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              placeholder="Search mentors…"
+              className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            value={regionFilter}
+            onChange={(e) => setRegionFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none"
+          >
+            {regions.map((r) => (
+              <option key={r} value={r}>{r === "All" ? "All Regions" : r}</option>
+            ))}
+          </select>
+          <p className="text-sm text-slate-500 shrink-0">
+            <span className="font-semibold text-slate-800">{filtered.length}</span>
+            {" of "}
+            <span className="font-semibold text-slate-800">{mentors.length}</span>
+            {" mentor"}{mentors.length !== 1 ? "s" : ""}
           </p>
           <Link
             href="/admin/mentors/new"
-            className="inline-flex items-center gap-1.5 rounded-full bg-[var(--portal-teal)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--portal-teal)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 shrink-0"
           >
             + Add Mentor
           </Link>
         </div>
       ) : null}
 
-      {visibleMentors.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
-          <p className="text-sm font-medium text-slate-500">No mentors registered yet.</p>
-          {!isMentorUser ? (
+          <p className="text-sm font-medium text-slate-500">
+            {mentors.length === 0 ? "No mentors registered yet." : "No mentors match your search."}
+          </p>
+          {!isMentorUser && mentors.length === 0 ? (
             <Link
               href="/admin/mentors/new"
               className="mt-3 inline-block text-sm font-semibold text-teal-600 hover:underline"
@@ -1485,7 +1799,7 @@ function MentorsSection({
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleMentors.map((mentor) => (
+          {filtered.map((mentor) => (
             <Link
               key={mentor.id}
               href={`/admin/mentors/${mentor.id}`}
@@ -1643,6 +1957,24 @@ function ApplicationsSection({
   );
 }
 
+const DOC_TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+  text:     { bg: "bg-slate-100",   text: "text-slate-600",  label: "Text note" },
+  markdown: { bg: "bg-teal-50",     text: "text-teal-700",   label: "Markdown" },
+  policy:   { bg: "bg-slate-100",   text: "text-slate-600",  label: "Policy" },
+  faq:      { bg: "bg-amber-50",    text: "text-amber-700",  label: "FAQ" },
+  process:  { bg: "bg-teal-50",     text: "text-teal-700",   label: "Process guide" },
+  json:     { bg: "bg-emerald-50",  text: "text-emerald-700",label: "Structured JSON" },
+};
+
+function DocTypeBadge({ type }: { type: string }) {
+  const style = DOC_TYPE_STYLES[type] ?? { bg: "bg-slate-100", text: "text-slate-600", label: type };
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.bg} ${style.text}`}>
+      {style.label}
+    </span>
+  );
+}
+
 function AssistantSection({
   isMentorUser,
   documents,
@@ -1662,6 +1994,37 @@ function AssistantSection({
   onDelete: (documentId: number) => Promise<void>;
   onFileSelect: (file: File | null) => Promise<void>;
 }) {
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [docSearch, setDocSearch] = useState("");
+
+  async function handleUpload() {
+    setUploading(true);
+    try { await onUpload(); } finally { setUploading(false); }
+  }
+
+  async function handleDelete(id: number) {
+    setDeletingId(id);
+    try { await onDelete(id); } finally { setDeletingId(null); }
+  }
+
+  function toggleExpand(id: number) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  const filteredDocs = docSearch.trim()
+    ? documents.filter((d) =>
+        d.title.toLowerCase().includes(docSearch.toLowerCase()) ||
+        d.uploadedByName.toLowerCase().includes(docSearch.toLowerCase()) ||
+        d.sourceType.toLowerCase().includes(docSearch.toLowerCase()),
+      )
+    : documents;
+
   return (
     <AdminSection
       eyebrow="Assistant"
@@ -1672,96 +2035,201 @@ function AssistantSection({
           : "Upload office guides, policies, and program reference notes so the assistant answers from live portal data plus approved documents."
       }
     >
-      <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-xl bg-[var(--portal-panel)] p-6">
-          <h3 className="text-xl font-semibold">Upload reference document</h3>
-          <p className="mt-2 text-sm text-slate-500">
-            Plain text, markdown, CSV, or JSON files work best. The assistant will search these documents alongside programs, mentors, deadlines, and workflow data already in the database.
-          </p>
+      <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
 
-          <div className="mt-5 grid gap-3">
-            <input
-              value={form.title}
-              onChange={(e) => onFormChange((prev) => ({ ...prev, title: e.target.value }))}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-              placeholder="Document title"
-            />
-            <SearchableSelect
-              value={form.sourceType}
-              onChange={(value) => onFormChange((prev) => ({ ...prev, sourceType: value || "text" }))}
-              options={[
-                { value: "text", label: "Text note" },
-                { value: "markdown", label: "Markdown" },
-                { value: "policy", label: "Policy" },
-                { value: "faq", label: "FAQ" },
-                { value: "process", label: "Process guide" },
-                { value: "json", label: "Structured JSON" },
-              ]}
-              placeholder="Document type"
-              searchPlaceholder="Search document type"
-            />
-            <label className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-500">
-              <span className="block font-medium text-[var(--portal-ink)]">Upload file</span>
-              <span className="mt-1 block">Choose a text-based file to autofill the content area.</span>
-              <input
-                type="file"
-                accept=".txt,.md,.markdown,.csv,.json,text/plain,text/markdown,application/json,text/csv"
-                className="mt-3 block w-full text-sm"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  void onFileSelect(file);
-                }}
-              />
-            </label>
-            {fileName ? <p className="text-xs text-slate-500">Loaded file: {fileName}</p> : null}
-            <textarea
-              value={form.content}
-              onChange={(e) => onFormChange((prev) => ({ ...prev, content: e.target.value }))}
-              className="min-h-52 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none"
-              placeholder="Paste office policy notes, partner guidance, FAQs, or mentor reference material here."
-            />
+        {/* ── Upload panel ── */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-6 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Upload document</h3>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  Plain text, markdown, CSV, or JSON. The assistant searches these alongside live portal data.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onFormChange(() => DEMO_KNOWLEDGE_DOCUMENT)}
+                className="shrink-0 rounded-full border border-dashed border-teal-400 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100"
+              >
+                ✦ Fill demo data
+              </button>
+            </div>
           </div>
 
-          <button
-            onClick={() => void onUpload()}
-            className="mt-5 rounded-full bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white"
-          >
-            Add To Assistant Knowledge Base
-          </button>
+          <div className="space-y-4 p-6">
+            {/* Title */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500">Document title</label>
+              <input
+                value={form.title}
+                onChange={(e) => onFormChange((prev) => ({ ...prev, title: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-teal-400 focus:bg-white"
+                placeholder="e.g. Europe Mobility Advising Notes"
+              />
+            </div>
+
+            {/* Type */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500">Document type</label>
+              <SearchableSelect
+                value={form.sourceType}
+                onChange={(value) => onFormChange((prev) => ({ ...prev, sourceType: value || "text" }))}
+                options={[
+                  { value: "text",     label: "Text note" },
+                  { value: "markdown", label: "Markdown" },
+                  { value: "policy",   label: "Policy" },
+                  { value: "faq",      label: "FAQ" },
+                  { value: "process",  label: "Process guide" },
+                  { value: "json",     label: "Structured JSON" },
+                ]}
+                placeholder="Select type"
+                searchPlaceholder="Search type"
+              />
+            </div>
+
+            {/* File upload zone */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500">Upload file (optional)</label>
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center transition hover:border-teal-300 hover:bg-teal-50">
+                <Upload size={20} className="text-slate-400" />
+                <span className="text-sm font-medium text-slate-600">Click to choose a file</span>
+                <span className="text-xs text-slate-400">.txt · .md · .csv · .json</span>
+                <input
+                  type="file"
+                  accept=".txt,.md,.markdown,.csv,.json,text/plain,text/markdown,application/json,text/csv"
+                  className="hidden"
+                  onChange={(e) => { void onFileSelect(e.target.files?.[0] ?? null); }}
+                />
+              </label>
+              {fileName ? (
+                <div className="flex items-center gap-2 rounded-lg border border-teal-100 bg-teal-50 px-3 py-2">
+                  <FileText size={13} className="shrink-0 text-teal-600" />
+                  <p className="truncate text-xs font-medium text-teal-700">{fileName}</p>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Content */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500">Content</label>
+              <textarea
+                value={form.content}
+                onChange={(e) => onFormChange((prev) => ({ ...prev, content: e.target.value }))}
+                className="min-h-40 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-teal-400 focus:bg-white"
+                placeholder="Paste policy notes, partner guidance, FAQs, or reference material here…"
+              />
+            </div>
+
+            <button
+              onClick={() => void handleUpload()}
+              disabled={uploading || !form.title.trim() || !form.content.trim()}
+              className="w-full rounded-xl bg-[var(--portal-teal)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : "Add to Knowledge Base"}
+            </button>
+          </div>
         </div>
 
-        <div className="space-y-3">
-          {documents.length === 0 ? (
-            <div className="rounded-xl border border-slate-100 p-6 text-sm text-slate-500">
-              No reference documents uploaded yet. Add office guides or mentor notes to improve chatbot answers.
+        {/* ── Document library ── */}
+        <div className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
+          {/* Library header */}
+          <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-6 py-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Knowledge base</h3>
+              <p className="text-xs text-slate-400">
+                {documents.length} document{documents.length !== 1 ? "s" : ""}
+              </p>
             </div>
-          ) : (
-            documents.map((document) => (
-              <div key={document.id} className="rounded-xl border border-slate-100 p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-lg font-semibold">{document.title}</p>
-                      <StatusBadge label={document.sourceType} />
-                    </div>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Uploaded by {document.uploadedByName} · {document.uploadedByRole}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">Updated {formatIsoDate(document.updatedAt)}</p>
-                    <p className="mt-3 text-sm leading-6 text-slate-500">{document.excerpt}</p>
-                  </div>
-                  {document.canManage ? (
-                    <button
-                      onClick={() => void onDelete(document.id)}
-                      className="rounded-full border border-rose-200 px-4 py-2 text-sm text-rose-600"
-                    >
-                      Delete
-                    </button>
-                  ) : null}
+            {documents.length > 0 ? (
+              <input
+                type="search"
+                placeholder="Search documents…"
+                value={docSearch}
+                onChange={(e) => setDocSearch(e.target.value)}
+                className="w-48 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-teal-400 focus:bg-white"
+              />
+            ) : null}
+          </div>
+
+          {/* Document list */}
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-50" style={{ maxHeight: "600px" }}>
+            {filteredDocs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 p-12 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+                  <FileText size={22} className="text-slate-400" />
                 </div>
+                <p className="text-sm font-medium text-slate-500">
+                  {docSearch ? `No documents match "${docSearch}"` : "No documents yet"}
+                </p>
+                {!docSearch ? (
+                  <p className="max-w-xs text-xs text-slate-400">
+                    Upload office guides or advisor notes to improve how the chatbot answers student questions.
+                  </p>
+                ) : null}
               </div>
-            ))
-          )}
+            ) : (
+              filteredDocs.map((doc) => {
+                const isExpanded = expandedIds.has(doc.id);
+                const roleStyle = doc.uploadedByRole === "admin"
+                  ? "bg-slate-100 text-slate-600"
+                  : "bg-teal-50 text-teal-700";
+                return (
+                  <div key={doc.id} className="group p-5 transition hover:bg-slate-50">
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Left content */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-bold text-slate-900">{doc.title}</p>
+                          <DocTypeBadge type={doc.sourceType} />
+                        </div>
+
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                          <span>{doc.uploadedByName}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${roleStyle}`}>
+                            {doc.uploadedByRole}
+                          </span>
+                          <span>·</span>
+                          <span>Updated {formatIsoDate(doc.updatedAt)}</span>
+                        </div>
+
+                        {doc.excerpt ? (
+                          <div className="mt-3">
+                            <p className={`text-sm leading-6 text-slate-500 ${isExpanded ? "" : "line-clamp-2"}`}>
+                              {doc.excerpt}
+                            </p>
+                            {doc.excerpt.length > 120 ? (
+                              <button
+                                onClick={() => toggleExpand(doc.id)}
+                                className="mt-1 text-xs font-semibold text-teal-600 hover:underline"
+                              >
+                                {isExpanded ? "Show less" : "Show more"}
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {/* Delete */}
+                      {doc.canManage ? (
+                        <button
+                          onClick={() => void handleDelete(doc.id)}
+                          disabled={deletingId === doc.id}
+                          className="mt-0.5 shrink-0 rounded-lg border border-rose-100 p-2 text-rose-400 opacity-0 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 disabled:opacity-40"
+                          title="Delete document"
+                        >
+                          {deletingId === doc.id
+                            ? <span className="block h-4 w-4 animate-spin rounded-full border-2 border-rose-300 border-t-rose-600" />
+                            : <Trash2 size={15} />
+                          }
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </AdminSection>
